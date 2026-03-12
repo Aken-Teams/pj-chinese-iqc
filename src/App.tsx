@@ -14,6 +14,7 @@ import SettingsPage from '@/pages/SettingsPage'
 import VendorsPage from '@/pages/settings/VendorsPage'
 import RulesPage from '@/pages/settings/RulesPage'
 import SpecsPage from '@/pages/settings/SpecsPage'
+import VendorScoresPage from '@/pages/settings/VendorScoresPage'
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="vendors" element={<VendorsPage />} />
             <Route path="rules" element={<RulesPage />} />
             <Route path="specs" element={<SpecsPage />} />
+            <Route path="scores" element={<VendorScoresPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

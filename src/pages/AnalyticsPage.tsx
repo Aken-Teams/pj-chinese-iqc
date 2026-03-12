@@ -8,6 +8,7 @@ import {
   getSpc,
   getDistribution,
   getCorrelation,
+  getAnomalies,
   detectAnomalies,
   type SpcResponse,
   type DistributionResponse,
@@ -202,12 +203,26 @@ export default function AnalyticsPage() {
       setDataLoading(false)
     }
 
-    // Detect anomalies via real AI (runs in background after main data loads)
+    // Load anomalies: use cached DB results if available, otherwise call AI
     setAnomalyLoading(true)
-    detectAnomalies(lotId, i18n.language)
-      .then(setAnomalies)
-      .catch(() => setAnomalies([]))
-      .finally(() => setAnomalyLoading(false))
+    getAnomalies(lotId)
+      .then(existing => {
+        if (existing.length > 0) {
+          setAnomalies(existing)
+          setAnomalyLoading(false)
+        } else {
+          return detectAnomalies(lotId, i18n.language)
+            .then(setAnomalies)
+            .catch(() => setAnomalies([]))
+            .finally(() => setAnomalyLoading(false))
+        }
+      })
+      .catch(() => {
+        detectAnomalies(lotId, i18n.language)
+          .then(setAnomalies)
+          .catch(() => setAnomalies([]))
+          .finally(() => setAnomalyLoading(false))
+      })
   }
 
   const loadParamData = async (lotId: number, productId: number, paramName: string) => {

@@ -21,7 +21,8 @@
     "general": "General",
     "vendors": "Vendors",
     "rules": "Review Rules",
-    "specs": "Pkg Specs"
+    "specs": "Pkg Specs",
+    "scores": "Vendor Scores"
   },
   "vendors": {
     "title": "Vendor Management",
@@ -71,5 +72,22 @@
     "noSpecs": "No packaging specs for this product",
     "confirmDelete": "Delete this spec?",
     "importCsv": "Import CSV"
+  },
+  "scores": {
+    "title": "Vendor Scores",
+    "desc": "Vendor performance ratings based on yield, Cpk and anomaly data",
+    "period": "Period",
+    "recalculate": "Recalculate",
+    "calculating": "Calculating...",
+    "noData": "No data for this period. Please ensure lots are uploaded and Cpk is calculated.",
+    "rank": "Rank",
+    "vendorCode": "Code",
+    "vendorName": "Vendor Name",
+    "avgYield": "Avg Yield",
+    "lotCount": "Lots",
+    "anomalyCount": "Anomalies",
+    "cpkAvg": "Avg Cpk",
+    "score": "Score",
+    "scoreFormula": "Score = Yield×50% + Cpk×30% + Anomaly-free×20%"
   }
 }

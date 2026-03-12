@@ -1,9 +1,17 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db
 from app.models.vendor import Vendor, VendorFormat
 from app.models.product import Product
+from app.models.lot import Lot
+from app.models.wafer import Wafer
+from app.models.analytics import CpkResult as CpkResultModel
+from app.models.ai import AiAnomaly
+from app.models.vendor_score import VendorScore
 from app.schemas.vendor import (
     VendorCreate, VendorResponse,
     VendorFormatCreate, VendorFormatUpdate, VendorFormatResponse,
@@ -94,3 +102,152 @@ def delete_format(vendor_id: int, fmt_id: int, db: Session = Depends(get_db)):
     db.delete(fmt)
     db.commit()
     return {"success": True}
+
+
+@router.get("/scores")
+def list_vendor_scores(period: str = "", db: Session = Depends(get_db)):
+    """Get vendor scores for a given period (YYYY-MM). Returns cached if available."""
+    if not period:
+        period = datetime.now().strftime("%Y-%m")
+
+    # Return cached scores if they exist
+    cached = (
+        db.query(VendorScore)
+        .filter(VendorScore.period == period)
+        .order_by(VendorScore.rank)
+        .all()
+    )
+    if cached:
+        vendors = {v.id: v for v in db.query(Vendor).all()}
+        return [
+            {
+                "vendorId": s.vendor_id,
+                "vendorName": vendors.get(s.vendor_id, Vendor()).name if s.vendor_id in vendors else "",
+                "vendorCode": vendors.get(s.vendor_id, Vendor()).code if s.vendor_id in vendors else "",
+                "period": s.period,
+                "avgYield": float(s.avg_yield) if s.avg_yield is not None else None,
+                "lotCount": s.lot_count,
+                "anomalyCount": s.anomaly_count,
+                "cpkAvg": float(s.cpk_avg) if s.cpk_avg is not None else None,
+                "score": float(s.score) if s.score is not None else None,
+                "rank": s.rank,
+            }
+            for s in cached
+        ]
+
+    return _calculate_and_save_scores(period, db)
+
+
+@router.post("/scores/calculate")
+def calculate_vendor_scores(period: str = "", db: Session = Depends(get_db)):
+    """Recalculate vendor scores for a given period (YYYY-MM), overwriting existing."""
+    if not period:
+        period = datetime.now().strftime("%Y-%m")
+
+    # Delete existing scores for this period
+    db.query(VendorScore).filter(VendorScore.period == period).delete(synchronize_session=False)
+    db.commit()
+
+    return _calculate_and_save_scores(period, db)
+
+
+def _calculate_and_save_scores(period: str, db: Session) -> list:
+    """Core logic: calculate scores per vendor for a period and persist."""
+    year, month = period.split("-")
+    year_int, month_int = int(year), int(month)
+
+    vendors = db.query(Vendor).all()
+    results = []
+
+    for vendor in vendors:
+        product_ids = [p.id for p in db.query(Product.id).filter(Product.vendor_id == vendor.id).all()]
+        if not product_ids:
+            continue
+
+        # Lots in this period (MySQL: YEAR() / MONTH())
+        lots = (
+            db.query(Lot)
+            .filter(
+                Lot.product_id.in_(product_ids),
+                func.year(Lot.upload_time) == year_int,
+                func.month(Lot.upload_time) == month_int,
+            )
+            .all()
+        )
+        if not lots:
+            continue
+
+        lot_ids = [lot.id for lot in lots]
+        lot_count = len(lots)
+
+        # Average yield from wafers
+        wafers = db.query(Wafer).filter(Wafer.lot_id.in_(lot_ids)).all()
+        yields = [float(w.bin1_yield) for w in wafers if w.bin1_yield is not None]
+        avg_yield = sum(yields) / len(yields) if yields else None
+
+        # Anomaly count (unresolved)
+        anomaly_count = (
+            db.query(AiAnomaly)
+            .filter(AiAnomaly.lot_id.in_(lot_ids), AiAnomaly.is_resolved == False)  # noqa: E712
+            .count()
+        )
+
+        # Average Cpk from persisted results
+        cpk_rows = db.query(CpkResultModel).filter(CpkResultModel.lot_id.in_(lot_ids)).all()
+        cpk_vals = [float(c.cpk) for c in cpk_rows if c.cpk is not None]
+        cpk_avg = sum(cpk_vals) / len(cpk_vals) if cpk_vals else None
+
+        # Score formula (0-100):
+        # yield contributes 50%, cpk 30%, anomaly penalty 20%
+        yield_score = (avg_yield * 100 * 0.5) if avg_yield is not None else 0.0
+        cpk_score = (min(cpk_avg / 1.33, 1.0) * 100 * 0.3) if cpk_avg is not None else 0.0
+        anomaly_ratio = anomaly_count / max(lot_count, 1)
+        anomaly_score = max(0.0, 1.0 - anomaly_ratio * 0.5) * 100 * 0.2
+        score = round(yield_score + cpk_score + anomaly_score, 2)
+
+        results.append({
+            "vendor": vendor,
+            "vendorId": vendor.id,
+            "vendorName": vendor.name,
+            "vendorCode": vendor.code,
+            "period": period,
+            "avgYield": round(avg_yield, 4) if avg_yield is not None else None,
+            "lotCount": lot_count,
+            "anomalyCount": anomaly_count,
+            "cpkAvg": round(cpk_avg, 3) if cpk_avg is not None else None,
+            "score": score,
+        })
+
+    # Rank by score descending
+    results.sort(key=lambda x: x["score"] or 0, reverse=True)
+
+    now = datetime.now()
+    saved = []
+    for rank, item in enumerate(results, start=1):
+        vs = VendorScore(
+            vendor_id=item["vendorId"],
+            period=period,
+            avg_yield=item["avgYield"],
+            lot_count=item["lotCount"],
+            anomaly_count=item["anomalyCount"],
+            cpk_avg=item["cpkAvg"],
+            score=item["score"],
+            rank=rank,
+            calculated_at=now,
+        )
+        db.add(vs)
+        saved.append({
+            "vendorId": item["vendorId"],
+            "vendorName": item["vendorName"],
+            "vendorCode": item["vendorCode"],
+            "period": period,
+            "avgYield": item["avgYield"],
+            "lotCount": item["lotCount"],
+            "anomalyCount": item["anomalyCount"],
+            "cpkAvg": item["cpkAvg"],
+            "score": item["score"],
+            "rank": rank,
+        })
+
+    db.commit()
+    return saved

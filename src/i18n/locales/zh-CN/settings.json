@@ -21,7 +21,8 @@
     "general": "常规",
     "vendors": "厂商管理",
     "rules": "审核规则",
-    "specs": "测规管理"
+    "specs": "测规管理",
+    "scores": "厂商评分"
   },
   "vendors": {
     "title": "厂商管理",
@@ -71,5 +72,22 @@
     "noSpecs": "此产品暂无封装测规",
     "confirmDelete": "确定要删除此测规吗？",
     "importCsv": "导入 CSV"
+  },
+  "scores": {
+    "title": "厂商评分表",
+    "desc": "根据良率、Cpk 及异常数据计算厂商绩效评分",
+    "period": "月份",
+    "recalculate": "重新计算",
+    "calculating": "计算中...",
+    "noData": "此月份无数据，请确认已上传批次并计算 Cpk",
+    "rank": "排名",
+    "vendorCode": "代码",
+    "vendorName": "厂商名称",
+    "avgYield": "平均良率",
+    "lotCount": "批次数",
+    "anomalyCount": "异常数",
+    "cpkAvg": "平均 Cpk",
+    "score": "评分",
+    "scoreFormula": "评分 = 良率×50% + Cpk×30% + 无异常×20%"
   }
 }

@@ -39,7 +39,7 @@ function YieldTrendChart({ items }: { items: HistoryRow[] }) {
 
   const step = Math.ceil(items.length / 6)
   const xLabels = items
-    .map((r, i) => ({ label: r.date?.slice(0, 10) ?? '', x: toX(i) }))
+    .map((r, i) => ({ label: r.lotId ?? '', x: toX(i) }))
     .filter((_, i) => i % step === 0 || i === items.length - 1)
 
   return (

@@ -21,7 +21,8 @@
     "general": "一般",
     "vendors": "廠商管理",
     "rules": "審核規則",
-    "specs": "測規管理"
+    "specs": "測規管理",
+    "scores": "廠商評分"
   },
   "vendors": {
     "title": "廠商管理",
@@ -71,5 +72,22 @@
     "noSpecs": "此產品尚無封裝測規",
     "confirmDelete": "確定要刪除此測規嗎？",
     "importCsv": "匯入 CSV"
+  },
+  "scores": {
+    "title": "廠商評分表",
+    "desc": "根據良率、Cpk 及異常數據計算廠商績效評分",
+    "period": "月份",
+    "recalculate": "重新計算",
+    "calculating": "計算中...",
+    "noData": "此月份無資料，請確認已上傳批次並計算 Cpk",
+    "rank": "排名",
+    "vendorCode": "代碼",
+    "vendorName": "廠商名稱",
+    "avgYield": "平均良率",
+    "lotCount": "批次數",
+    "anomalyCount": "異常數",
+    "cpkAvg": "平均 Cpk",
+    "score": "評分",
+    "scoreFormula": "評分 = 良率×50% + Cpk×30% + 無異常×20%"
   }
 }

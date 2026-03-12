@@ -70,3 +70,26 @@ export async function getLots(vendorCode?: string): Promise<LotInfo[]> {
   const params = vendorCode ? `?vendor=${vendorCode}` : ''
   return apiFetch(`/lots${params}`)
 }
+
+export interface VendorScore {
+  vendorId: number
+  vendorName: string
+  vendorCode: string
+  period: string
+  avgYield: number | null
+  lotCount: number
+  anomalyCount: number
+  cpkAvg: number | null
+  score: number | null
+  rank: number
+}
+
+export async function getVendorScores(period?: string): Promise<VendorScore[]> {
+  const qs = period ? `?period=${period}` : ''
+  return apiFetch(`/vendors/scores${qs}`)
+}
+
+export async function calculateVendorScores(period?: string): Promise<VendorScore[]> {
+  const qs = period ? `?period=${period}` : ''
+  return apiFetch(`/vendors/scores/calculate${qs}`, { method: 'POST' })
+}

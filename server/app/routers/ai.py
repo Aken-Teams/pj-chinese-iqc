@@ -99,11 +99,14 @@ def get_summary(lot_id: int, wafer_id: str, db: Session = Depends(get_db)):
 
 @router.get("/anomalies")
 def list_anomalies(
+    lot_id: int | None = None,
     severity: str = "",
     resolved: bool | None = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(AiAnomaly)
+    if lot_id is not None:
+        query = query.filter(AiAnomaly.lot_id == lot_id)
     if severity:
         query = query.filter(AiAnomaly.severity == severity)
     if resolved is not None:

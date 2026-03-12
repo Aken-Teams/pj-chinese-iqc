@@ -44,17 +44,26 @@ export default function ReviewDetailPage() {
     Promise.all([loadDetail, loadWaferList]).finally(() => setLoading(false))
   }, [lotId, waferId])
 
-  // Generate AI summary once waferDbId is available
+  // Load AI summary: use cached DB result if available, otherwise generate new one
   useEffect(() => {
     if (!waferDbId || !lotDbId) return
     setAiLoading(true)
-    apiFetch<{ summary: string }>('/ai/review-summary', {
-      method: 'POST',
-      body: JSON.stringify({ lot_id: lotDbId, wafer_id: waferDbId, lang: i18n.language }),
-    })
-      .then(res => setAiSummary(res.summary))
-      .catch(() => null)
-      .finally(() => setAiLoading(false))
+    // Try reading cached summary first (GET)
+    apiFetch<{ summary: string }>(`/ai/review-summary/${lotDbId}/${waferId}`)
+      .then(res => {
+        setAiSummary(res.summary)
+        setAiLoading(false)
+      })
+      .catch(() => {
+        // Not in DB yet — generate and save (POST)
+        apiFetch<{ summary: string }>('/ai/review-summary', {
+          method: 'POST',
+          body: JSON.stringify({ lot_id: lotDbId, wafer_id: waferDbId, lang: i18n.language }),
+        })
+          .then(res => setAiSummary(res.summary))
+          .catch(() => null)
+          .finally(() => setAiLoading(false))
+      })
   }, [waferDbId, i18n.language])
 
   const currentIdx = waferIds.indexOf(waferId || '')

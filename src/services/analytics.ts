@@ -71,8 +71,9 @@ export async function getCorrelation(productId: number): Promise<CorrelationResp
   return apiFetch(`/analytics/correlation/${productId}`)
 }
 
-export async function getAnomalies(): Promise<AnomalyItem[]> {
-  return apiFetch('/ai/anomalies')
+export async function getAnomalies(lotId?: number): Promise<AnomalyItem[]> {
+  const qs = lotId !== undefined ? `?lot_id=${lotId}` : ''
+  return apiFetch(`/ai/anomalies${qs}`)
 }
 
 export async function detectAnomalies(lotId: number, lang: string): Promise<AnomalyItem[]> {

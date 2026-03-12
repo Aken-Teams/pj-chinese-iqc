@@ -12,4 +12,5 @@ export const ROUTES = {
   SETTINGS_VENDORS: '/settings/vendors',
   SETTINGS_RULES: '/settings/rules',
   SETTINGS_SPECS: '/settings/specs',
+  SETTINGS_SCORES: '/settings/scores',
 } as const
