@@ -26,14 +26,34 @@ PARSERS = {
     "XRW": XRWParser,
 }
 
+_ERR = {
+    "zh-TW": {
+        "cannot_detect": "無法識別檔案格式，請手動選擇廠商後重新上傳",
+        "xls_not_supported": "不支援舊版 .xls 格式，請用 Excel 另存為 .xlsx 後再上傳",
+        "parse_failed": "檔案解析失敗：{detail}",
+    },
+    "zh-CN": {
+        "cannot_detect": "无法识别文件格式，请手动选择厂商后重新上传",
+        "xls_not_supported": "不支持旧版 .xls 格式，请用 Excel 另存为 .xlsx 后再上传",
+        "parse_failed": "文件解析失败：{detail}",
+    },
+    "en": {
+        "cannot_detect": "Cannot detect file format. Please select a vendor and try again.",
+        "xls_not_supported": "Old .xls format is not supported. Please save as .xlsx and try again.",
+        "parse_failed": "Failed to parse file: {detail}",
+    },
+}
+
 
 @router.post("/cp-data", response_model=UploadPreview)
 async def upload_cp_data(
     file: UploadFile = File(...),
     vendor: str = Form(""),
+    lang: str = Form("zh-TW"),
     db: Session = Depends(get_db),
 ):
     """Upload CP Excel file and return preview."""
+    err = _ERR.get(lang, _ERR["zh-TW"])
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     file_path = os.path.join(settings.UPLOAD_DIR, file.filename)
 
@@ -48,12 +68,15 @@ async def upload_cp_data(
         parser = auto_detect_parser(file_path)
 
     if not parser:
-        raise HTTPException(400, "Cannot detect file format. Please specify vendor.")
+        raise HTTPException(400, err["cannot_detect"])
 
     try:
         preview = parser.preview(file_path)
     except Exception as e:
-        raise HTTPException(400, f"Failed to parse file: {str(e)}")
+        err_str = str(e)
+        if "old .xls" in err_str or "xlrd" in err_str:
+            raise HTTPException(400, err["xls_not_supported"])
+        raise HTTPException(400, err["parse_failed"].format(detail=err_str))
 
     return UploadPreview(
         fileName=file.filename,

@@ -4,7 +4,8 @@
   "dropzone": {
     "title": "Drag & drop CP data files here",
     "subtitle": "Supports .xlsx, .xls, .csv formats from any wafer fab",
-    "browse": "Browse Files"
+    "browse": "Browse Files",
+    "uploading": "Uploading..."
   },
   "formatConfig": {
     "title": "Format Configuration",
@@ -22,6 +23,16 @@
     "wafersDetected": "Wafers Detected",
     "diePerWafer": "Dies per Wafer",
     "formatMapped": "Format Mapped",
-    "confirm": "Confirm & Import"
+    "confirm": "Confirm & Import",
+    "processing": "Processing...",
+    "noFile": "Upload a file to see preview",
+    "variable": "Variable",
+    "product": "Product",
+    "lot": "Lot",
+    "success": "Lot {{lot}} imported: {{wafers}} wafers, {{rows}} rows"
+  },
+  "error": {
+    "uploadFailed": "Upload failed, please try again",
+    "confirmFailed": "Import failed, please try again"
   }
 }

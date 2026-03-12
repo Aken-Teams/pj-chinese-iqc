@@ -19,10 +19,11 @@ export interface UploadConfirmResult {
   totalRows: number
 }
 
-export async function uploadCpData(file: File, vendor: string): Promise<UploadPreview> {
+export async function uploadCpData(file: File, vendor: string, lang: string = 'zh-TW'): Promise<UploadPreview> {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('vendor', vendor)
+  formData.append('lang', lang)
 
   const token = localStorage.getItem('iqc-auth-token')
   const headers: Record<string, string> = {}

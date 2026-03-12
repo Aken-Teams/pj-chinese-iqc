@@ -4,7 +4,8 @@
   "dropzone": {
     "title": "拖曳 CP 資料檔案至此處",
     "subtitle": "支援 .xlsx、.xls、.csv 格式，來自任意晶圓廠",
-    "browse": "瀏覽檔案"
+    "browse": "瀏覽檔案",
+    "uploading": "上傳中..."
   },
   "formatConfig": {
     "title": "格式設定",
@@ -22,6 +23,16 @@
     "wafersDetected": "偵測到 Wafer 數",
     "diePerWafer": "每片 Die 數",
     "formatMapped": "格式匹配",
-    "confirm": "確認並匯入"
+    "confirm": "確認並匯入",
+    "processing": "處理中...",
+    "noFile": "請先上傳檔案以查看預覽",
+    "variable": "不固定",
+    "product": "產品",
+    "lot": "批次",
+    "success": "Lot {{lot}} 上傳成功：{{wafers}} 片晶圓，{{rows}} 筆資料"
+  },
+  "error": {
+    "uploadFailed": "上傳失敗，請稍後再試",
+    "confirmFailed": "匯入失敗，請稍後再試"
   }
 }

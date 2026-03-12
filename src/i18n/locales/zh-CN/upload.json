@@ -4,7 +4,8 @@
   "dropzone": {
     "title": "拖拽 CP 数据文件至此处",
     "subtitle": "支持 .xlsx、.xls、.csv 格式，来自任意晶圆厂",
-    "browse": "浏览文件"
+    "browse": "浏览文件",
+    "uploading": "上传中..."
   },
   "formatConfig": {
     "title": "格式配置",
@@ -22,6 +23,16 @@
     "wafersDetected": "检测到 Wafer 数",
     "diePerWafer": "每片 Die 数",
     "formatMapped": "格式匹配",
-    "confirm": "确认并导入"
+    "confirm": "确认并导入",
+    "processing": "处理中...",
+    "noFile": "请先上传文件以查看预览",
+    "variable": "不固定",
+    "product": "产品",
+    "lot": "批次",
+    "success": "Lot {{lot}} 上传成功：{{wafers}} 片晶圆，{{rows}} 行数据"
+  },
+  "error": {
+    "uploadFailed": "上传失败，请稍后再试",
+    "confirmFailed": "导入失败，请稍后再试"
   }
 }

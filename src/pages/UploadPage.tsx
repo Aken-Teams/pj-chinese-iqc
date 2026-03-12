@@ -8,7 +8,7 @@ import { uploadCpData, confirmUpload, type UploadPreview } from '@/services/uplo
 const VENDOR_OPTIONS = ['JJW', 'XRW', 'HJM']
 
 export default function UploadPage() {
-  const { t } = useTranslation('upload')
+  const { t, i18n } = useTranslation('upload')
   const navigate = useNavigate()
   const [isDragOver, setIsDragOver] = useState(false)
   const [selectedVendor, setSelectedVendor] = useState('JJW')
@@ -24,10 +24,10 @@ export default function UploadPage() {
     setSuccess('')
     setUploading(true)
     try {
-      const result = await uploadCpData(file, selectedVendor)
+      const result = await uploadCpData(file, selectedVendor, i18n.language)
       setPreview(result)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Upload failed')
+      setError(err instanceof Error ? err.message : t('error.uploadFailed'))
     } finally {
       setUploading(false)
     }
@@ -65,10 +65,10 @@ export default function UploadPage() {
     setError('')
     try {
       const result = await confirmUpload(preview.fileName, preview.format)
-      setSuccess(`Lot ${result.lotCode} uploaded: ${result.waferCount} wafers, ${result.totalRows} rows`)
+      setSuccess(t('preview.success', { lot: result.lotCode, wafers: result.waferCount, rows: result.totalRows }))
       setPreview(null)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Confirm failed')
+      setError(err instanceof Error ? err.message : t('error.confirmFailed'))
     } finally {
       setConfirming(false)
     }
@@ -100,7 +100,7 @@ export default function UploadPage() {
           <CloudUpload size={48} className="text-text-muted" />
         )}
         <span className="mt-3 font-heading text-[18px] font-semibold text-text-primary">
-          {uploading ? 'Uploading...' : t('dropzone.title')}
+          {uploading ? t('dropzone.uploading') : t('dropzone.title')}
         </span>
         <span className="mt-1 text-[14px] text-text-secondary">
           {t('dropzone.subtitle')}
@@ -179,7 +179,7 @@ export default function UploadPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] text-text-secondary">{t('preview.diePerWafer')}</span>
-                  <span className="text-[13px] font-semibold text-text-primary">{preview.diePerWafer ?? 'Variable'}</span>
+                  <span className="text-[13px] font-semibold text-text-primary">{preview.diePerWafer ?? t('preview.variable')}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] text-text-secondary">{t('preview.rows')}</span>
@@ -191,13 +191,13 @@ export default function UploadPage() {
                 </div>
                 {preview.productId && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[13px] text-text-secondary">Product</span>
+                    <span className="text-[13px] text-text-secondary">{t('preview.product')}</span>
                     <span className="text-[13px] font-semibold text-text-primary">{preview.productId}</span>
                   </div>
                 )}
                 {preview.lotId && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[13px] text-text-secondary">Lot</span>
+                    <span className="text-[13px] text-text-secondary">{t('preview.lot')}</span>
                     <span className="text-[13px] font-semibold text-text-primary">{preview.lotId}</span>
                   </div>
                 )}
@@ -208,12 +208,12 @@ export default function UploadPage() {
                 disabled={confirming}
                 className="mt-4 w-full bg-accent px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-white hover:bg-accent/90 disabled:opacity-50"
               >
-                {confirming ? 'Processing...' : t('preview.confirm')}
+                {confirming ? t('preview.processing') : t('preview.confirm')}
               </button>
             </>
           ) : (
             <p className="text-[13px] text-text-muted mt-4">
-              Upload a file to see preview
+              {t('preview.noFile')}
             </p>
           )}
         </div>
