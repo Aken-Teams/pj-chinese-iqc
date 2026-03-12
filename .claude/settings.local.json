@@ -5,7 +5,14 @@
       "Bash(npm create vite@latest frontend -- --template react-ts)",
       "Bash(npm install)",
       "Bash(npm install react-router-dom react-i18next i18next i18next-browser-languagedetector echarts echarts-for-react lucide-react zustand)",
-      "Bash(npm install -D tailwindcss @tailwindcss/vite)"
+      "Bash(npm install -D tailwindcss @tailwindcss/vite)",
+      "Bash(pip install -r requirements.txt)",
+      "Bash(curl -s http://localhost:8000/api/dashboard/summary)",
+      "Bash(curl -s \"http://localhost:8000/api/lots?page=1&page_size=10\")",
+      "Bash(curl -s -w \"\\\\n%{http_code}\" \"http://localhost:8000/api/analytics/correlation/1\")",
+      "Bash(curl -s \"http://localhost:8000/api/analytics/correlation/1\")",
+      "Bash(curl -s -X POST http://localhost:8000/api/specs/compare -H \"Content-Type: application/json\" -d '{\"\"lot_id\"\": 6, \"\"rule\"\": \"\"standard\"\"}')",
+      "Bash(curl -s http://localhost:8000/api/health)"
     ]
   }
 }

@@ -1,0 +1,40 @@
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
+from sqlalchemy.orm import relationship
+
+from app.database import Base
+
+
+class Vendor(Base):
+    __tablename__ = "vendors"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    code = Column(String(20), unique=True, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    formats = relationship("VendorFormat", back_populates="vendor")
+    products = relationship("Product", back_populates="vendor")
+
+
+class VendorFormat(Base):
+    __tablename__ = "vendor_formats"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
+    format_name = Column(String(100))
+    header_row = Column(Integer, nullable=False)
+    data_start_row = Column(Integer, nullable=False)
+    lower_limit_row = Column(Integer, nullable=False)
+    upper_limit_row = Column(Integer, nullable=False)
+    electrical_start_col = Column(Integer, nullable=False)
+    wafer_id_col = Column(Integer, nullable=False)
+    bin_col = Column(Integer, nullable=False)
+    x_coord_col = Column(Integer)
+    y_coord_col = Column(Integer)
+    product_id_col = Column(Integer)
+    lot_id_col = Column(Integer)
+    fixed_die_count = Column(Integer, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    vendor = relationship("Vendor", back_populates="formats")

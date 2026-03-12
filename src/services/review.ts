@@ -1,0 +1,57 @@
+import { apiFetch } from './api'
+
+export interface WaferRow {
+  waferId: string
+  dieCount: number
+  bin1Yield: number
+  q1Yield: number
+  q2Yield: number
+  q3Yield: number
+  status: 'PASS' | 'WARN' | 'FAIL'
+}
+
+export interface LotReviewSummary {
+  lotId: string
+  vendor: string
+  product: string
+  waferCount: number
+  avgYield: number
+  totalDies: number
+  q1Compliance: string
+  q2Compliance: string
+  wafers: WaferRow[]
+}
+
+export interface ElectricalParam {
+  param: string
+  avg: string
+  stdev: string
+  min: string
+  max: string
+  maxWarning: boolean
+}
+
+export interface WaferDetail {
+  waferId: string
+  lotId: string
+  totalDies: number
+  bin1Pass: number
+  bin1Yield: number
+  failCount: number
+  electricalParams: ElectricalParam[]
+}
+
+export async function executeReview(lotId: number, params?: string[]): Promise<{ success: boolean; resultCount: number }> {
+  return apiFetch('/review/execute', {
+    method: 'POST',
+    body: JSON.stringify({ lot_id: lotId, params: params || null }),
+  })
+}
+
+export async function getLotResults(lotId: number): Promise<LotReviewSummary> {
+  return apiFetch(`/review/results/${lotId}`)
+}
+
+export async function getWaferDetail(lotId: number, waferId: string): Promise<WaferDetail> {
+  return apiFetch(`/review/results/${lotId}/wafer/${waferId}`)
+}

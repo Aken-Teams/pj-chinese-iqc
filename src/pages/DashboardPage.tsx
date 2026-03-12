@@ -1,11 +1,29 @@
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '@/components/layout/PageHeader'
-import { Sparkles, TrendingUp, TrendingDown, Bell } from 'lucide-react'
+import { Sparkles, TrendingUp, TrendingDown, Bell, Loader2 } from 'lucide-react'
+import { getDashboard, type DashboardData } from '@/services/dashboard'
 import { mockDashboard } from '@/mock/dashboard'
 
 export default function DashboardPage() {
   const { t } = useTranslation('dashboard')
-  const data = mockDashboard
+  const [data, setData] = useState<DashboardData>(mockDashboard)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getDashboard()
+      .then(setData)
+      .catch(() => setData(mockDashboard))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 size={32} className="animate-spin text-accent" />
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 pl-8 flex flex-col gap-4 min-h-full">
@@ -45,7 +63,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Charts Row — stretches to fill available height */}
+      {/* Charts Row */}
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Yield Trend Chart */}
         <div className="flex-1 bg-bg-card p-5 flex flex-col">
@@ -60,27 +78,33 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-          <div className="flex-1 flex items-end gap-2 min-h-[120px]">
-            {data.yieldTrend.months.map((month, mi) => (
-              <div key={mi} className="flex-1 flex flex-col items-center gap-1 h-full">
-                <div className="flex gap-0.5 items-end w-full justify-center flex-1">
-                  {data.yieldTrend.vendors.map((v, vi) => {
-                    const val = v.data[mi]
-                    const pct = ((val - 95) / 5) * 100
-                    return (
-                      <div
-                        key={vi}
-                        className="flex-1 max-w-[24px]"
-                        style={{ height: `${Math.max(pct, 3)}%`, background: v.color }}
-                        title={`${v.name}: ${val}%`}
-                      />
-                    )
-                  })}
+          {data.yieldTrend.months.length > 0 ? (
+            <div className="flex-1 flex items-end gap-2 min-h-[120px]">
+              {data.yieldTrend.months.map((month, mi) => (
+                <div key={mi} className="flex-1 flex flex-col items-center gap-1 h-full">
+                  <div className="flex gap-0.5 items-end w-full justify-center flex-1">
+                    {data.yieldTrend.vendors.map((v, vi) => {
+                      const val = v.data[mi]
+                      const pct = ((val - 95) / 5) * 100
+                      return (
+                        <div
+                          key={vi}
+                          className="flex-1 max-w-[24px]"
+                          style={{ height: `${Math.max(pct, 3)}%`, background: v.color }}
+                          title={`${v.name}: ${val}%`}
+                        />
+                      )
+                    })}
+                  </div>
+                  <span className="text-[10px] text-text-muted">{month}</span>
                 </div>
-                <span className="text-[10px] text-text-muted">{month}</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
+              No trend data yet
+            </div>
+          )}
         </div>
 
         {/* Right Column */}
@@ -88,7 +112,7 @@ export default function DashboardPage() {
           {/* Vendor Performance */}
           <div className="bg-bg-card p-4 flex flex-col gap-3">
             <h3 className="font-heading text-sm font-bold">{t('vendorPerformance')}</h3>
-            {data.vendorPerf.map((v, i) => (
+            {data.vendorPerf.length > 0 ? data.vendorPerf.map((v, i) => (
               <div key={i} className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -109,7 +133,9 @@ export default function DashboardPage() {
                   />
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-text-muted text-[12px]">No vendor data yet</p>
+            )}
           </div>
 
           {/* AI Insights */}
@@ -118,7 +144,7 @@ export default function DashboardPage() {
               <Sparkles size={14} className="text-accent" />
               <h3 className="font-heading text-sm font-bold">{t('aiInsights')}</h3>
             </div>
-            {data.aiInsights.map((insight, i) => (
+            {data.aiInsights.length > 0 ? data.aiInsights.map((insight, i) => (
               <div key={i} className={`p-2.5 flex flex-col gap-0.5 ${
                 insight.severity === 'warning' ? 'bg-badge-warn' :
                 insight.severity === 'danger' ? 'bg-badge-fail' : 'bg-badge-pass'
@@ -129,7 +155,9 @@ export default function DashboardPage() {
                 }`}>{insight.title}</span>
                 <span className="text-[11px] text-text-secondary leading-snug">{insight.description}</span>
               </div>
-            ))}
+            )) : (
+              <p className="text-text-muted text-[12px]">No AI insights yet</p>
+            )}
           </div>
         </div>
       </div>
@@ -145,7 +173,7 @@ export default function DashboardPage() {
             </button>
           </div>
           <div className="flex flex-col">
-            {data.recentActivity.map((act, i) => (
+            {data.recentActivity.length > 0 ? data.recentActivity.map((act, i) => (
               <div key={i} className={`flex items-center justify-between py-2 ${
                 i > 0 ? 'border-t border-border-light' : ''
               }`}>
@@ -155,14 +183,16 @@ export default function DashboardPage() {
                 </div>
                 <span className="text-[11px] text-text-muted whitespace-nowrap ml-4">{act.time}</span>
               </div>
-            ))}
+            )) : (
+              <p className="text-text-muted text-[12px] py-2">No recent activity</p>
+            )}
           </div>
         </div>
 
         {/* Cpk Panel */}
         <div className="w-[280px] bg-bg-card p-4 flex flex-col gap-2.5">
           <h3 className="font-heading text-sm font-bold">{t('cpk')}</h3>
-          {data.cpkData.map((item, i) => (
+          {data.cpkData.length > 0 ? data.cpkData.map((item, i) => (
             <div key={i} className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-medium text-text-secondary">{item.param}</span>
@@ -180,7 +210,9 @@ export default function DashboardPage() {
                 />
               </div>
             </div>
-          ))}
+          )) : (
+            <p className="text-text-muted text-[12px]">No Cpk data yet</p>
+          )}
         </div>
       </div>
     </div>

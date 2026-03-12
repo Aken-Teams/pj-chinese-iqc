@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Cpu, User, EyeOff, Eye, Shield } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { login as apiLogin } from '@/services/auth'
 
 export default function LoginPage() {
   const { t } = useTranslation('login')
@@ -13,19 +14,31 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (employeeId === 'admin' && password === 'admin123') {
-      login({ id: '1', name: 'Zhang Wei', role: 'admin', department: 'IQC Department', email: 'zhang.wei@panjit.com', employeeId: 'PJ-2024001' })
+    setLoading(true)
+    try {
+      const res = await apiLogin(employeeId, password)
+      login({
+        id: res.user.id,
+        name: res.user.name,
+        role: res.user.role,
+        department: res.user.department || '',
+        email: res.user.email || '',
+        employeeId: res.user.employeeId,
+      }, res.token)
       navigate('/dashboard')
-    } else {
-      setError(t('loginFailed'))
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('loginFailed'))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -133,9 +146,10 @@ export default function LoginPage() {
           {/* Sign In */}
           <button
             type="submit"
-            className="w-full bg-accent text-white font-heading text-[15px] font-bold tracking-[1px] uppercase py-3.5 hover:opacity-90 transition-opacity cursor-pointer"
+            disabled={loading}
+            className="w-full bg-accent text-white font-heading text-[15px] font-bold tracking-[1px] uppercase py-3.5 hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
           >
-            {t('signInButton')}
+            {loading ? '...' : t('signInButton')}
           </button>
 
           {/* Divider */}
