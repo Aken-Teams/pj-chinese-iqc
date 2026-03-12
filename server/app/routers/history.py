@@ -1,4 +1,6 @@
 import math
+from datetime import datetime, timedelta
+from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -18,6 +20,8 @@ def list_lots(
     vendor: str = Query("", description="Vendor code filter"),
     product: str = Query("", description="Product code filter"),
     status: str = Query("", description="Status filter"),
+    from_date: Optional[str] = Query(None, description="Start date YYYY-MM-DD"),
+    to_date: Optional[str] = Query(None, description="End date YYYY-MM-DD"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -30,6 +34,16 @@ def list_lots(
         query = query.filter(Product.product_code == product)
     if status:
         query = query.filter(Lot.status == status.lower())
+    if from_date:
+        try:
+            query = query.filter(Lot.upload_time >= datetime.strptime(from_date, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if to_date:
+        try:
+            query = query.filter(Lot.upload_time < datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1))
+        except ValueError:
+            pass
 
     total = query.count()
     lots = query.order_by(Lot.upload_time.desc()).offset((page - 1) * page_size).limit(page_size).all()

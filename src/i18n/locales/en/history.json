@@ -1,9 +1,12 @@
 {
   "title": "History",
   "exportCsv": "Export CSV",
+  "exportPdf": "Export PDF",
   "vendor": "Vendor",
   "product": "Product",
   "dateRange": "Date Range",
+  "fromDate": "From Date",
+  "toDate": "To Date",
   "status": "Status",
   "search": "Search",
   "allVendors": "All Vendors",
@@ -15,6 +18,8 @@
   "noRecords": "No records found",
   "previous": "Previous",
   "next": "Next",
+  "trendTitle": "Yield Trend",
+  "noTrend": "No trend data",
   "table": {
     "title": "Review History",
     "date": "Date",

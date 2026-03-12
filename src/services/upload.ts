@@ -47,3 +47,37 @@ export async function confirmUpload(filePath: string, vendorCode: string): Promi
     body: JSON.stringify({ file_path: filePath, vendor_code: vendorCode }),
   })
 }
+
+export interface BatchUploadResult {
+  fileName: string
+  success: boolean
+  error: string | null
+  lotId?: number
+  lotCode?: string
+  waferCount?: number
+  totalRows?: number
+}
+
+export async function batchUpload(files: File[], vendor: string, lang: string = 'zh-TW'): Promise<BatchUploadResult[]> {
+  const formData = new FormData()
+  for (const file of files) {
+    formData.append('files', file)
+  }
+  formData.append('vendor', vendor)
+  formData.append('lang', lang)
+
+  const token = localStorage.getItem('iqc-auth-token')
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch('/api/upload/batch', {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Batch upload failed: ${res.status}`)
+  }
+  return res.json()
+}

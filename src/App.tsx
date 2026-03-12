@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from '@/components/layout/AppLayout'
+import SettingsLayout from '@/components/layout/SettingsLayout'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import UploadPage from '@/pages/UploadPage'
@@ -10,6 +11,9 @@ import HistoryPage from '@/pages/HistoryPage'
 import AnalyticsPage from '@/pages/AnalyticsPage'
 import ManualPage from '@/pages/ManualPage'
 import SettingsPage from '@/pages/SettingsPage'
+import VendorsPage from '@/pages/settings/VendorsPage'
+import RulesPage from '@/pages/settings/RulesPage'
+import SpecsPage from '@/pages/settings/SpecsPage'
 
 export default function App() {
   return (
@@ -25,7 +29,12 @@ export default function App() {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/manual" element={<ManualPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings" element={<SettingsLayout />}>
+            <Route index element={<SettingsPage />} />
+            <Route path="vendors" element={<VendorsPage />} />
+            <Route path="rules" element={<RulesPage />} />
+            <Route path="specs" element={<SpecsPage />} />
+          </Route>
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

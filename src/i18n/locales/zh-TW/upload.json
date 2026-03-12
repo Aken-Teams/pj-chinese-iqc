@@ -1,6 +1,8 @@
 {
   "title": "資料上傳",
   "subtitle": "上傳晶圓廠 CP 資料檔案",
+  "modeSingle": "單檔上傳",
+  "modeBatch": "批次上傳",
   "dropzone": {
     "title": "拖曳 CP 資料檔案至此處",
     "subtitle": "支援 .xlsx、.csv 格式，來自任意晶圓廠",
@@ -30,6 +32,19 @@
     "product": "產品",
     "lot": "批次",
     "success": "Lot {{lot}} 上傳成功：{{wafers}} 片晶圓，{{rows}} 筆資料"
+  },
+  "batch": {
+    "title": "批次上傳",
+    "subtitle": "一次選取多個 CP 資料檔案自動匯入",
+    "selectFiles": "選取多個檔案",
+    "selectedCount": "已選取 {{count}} 個檔案",
+    "start": "開始批次匯入",
+    "processing": "匯入中...",
+    "results": "匯入結果",
+    "success": "成功",
+    "failed": "失敗",
+    "wafers": "{{count}} 片",
+    "rows": "{{count}} 筆"
   },
   "error": {
     "uploadFailed": "上傳失敗，請稍後再試",

@@ -2,6 +2,7 @@
   "title": "Spec Compare",
   "runComparison": "Run Comparison",
   "exportComparison": "Export Comparison",
+  "exportPdf": "Export PDF",
   "cpSpec": "CP Spec (Source)",
   "pkgSpec": "Package Test Spec (Target)",
   "lot": "Lot",

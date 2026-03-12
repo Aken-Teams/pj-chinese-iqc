@@ -1,18 +1,20 @@
 {
   "title": "Data Upload",
   "subtitle": "Upload wafer fab CP data files",
+  "modeSingle": "Single File",
+  "modeBatch": "Batch Upload",
   "dropzone": {
     "title": "Drag & drop CP data files here",
-    "subtitle": "Supports .xlsx, .xls, .csv formats from any wafer fab",
+    "subtitle": "Supports .xlsx and .csv from any fab",
     "browse": "Browse Files",
     "uploading": "Uploading..."
   },
   "formatConfig": {
-    "title": "Format Configuration",
+    "title": "Format Config",
     "vendor": "Vendor",
     "formatId": "Format ID",
-    "autoDetected": "Auto-detected",
-    "description": "The system will automatically detect the file format and match the corresponding parsing template"
+    "autoDetected": "Auto Detected",
+    "description": "The system will auto-detect the file format and match the parsing template"
   },
   "preview": {
     "title": "Upload Preview",
@@ -21,15 +23,28 @@
     "rows": "Data Rows",
     "size": "File Size",
     "wafersDetected": "Wafers Detected",
-    "diePerWafer": "Dies per Wafer",
+    "diePerWafer": "Die per Wafer",
     "formatMapped": "Format Mapped",
     "confirm": "Confirm & Import",
     "processing": "Processing...",
-    "noFile": "Upload a file to see preview",
+    "noFile": "Upload a file to see the preview",
     "variable": "Variable",
     "product": "Product",
     "lot": "Lot",
     "success": "Lot {{lot}} imported: {{wafers}} wafers, {{rows}} rows"
+  },
+  "batch": {
+    "title": "Batch Upload",
+    "subtitle": "Select multiple CP data files to auto-import at once",
+    "selectFiles": "Select Multiple Files",
+    "selectedCount": "{{count}} file(s) selected",
+    "start": "Start Batch Import",
+    "processing": "Importing...",
+    "results": "Import Results",
+    "success": "Success",
+    "failed": "Failed",
+    "wafers": "{{count}} wafers",
+    "rows": "{{count}} rows"
   },
   "error": {
     "uploadFailed": "Upload failed, please try again",

@@ -9,4 +9,7 @@ export const ROUTES = {
   ANALYTICS: '/analytics',
   MANUAL: '/manual',
   SETTINGS: '/settings',
+  SETTINGS_VENDORS: '/settings/vendors',
+  SETTINGS_RULES: '/settings/rules',
+  SETTINGS_SPECS: '/settings/specs',
 } as const

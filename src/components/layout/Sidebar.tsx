@@ -71,7 +71,8 @@ export default function Sidebar() {
       <nav className="flex flex-col gap-1 px-4 flex-1">
         {navItems.map(({ icon: Icon, labelKey, to }) => {
           const isActive = location.pathname === to ||
-            (to === ROUTES.REVIEW && location.pathname.startsWith('/review/'))
+            (to === ROUTES.REVIEW && location.pathname.startsWith('/review/')) ||
+            (to === ROUTES.SETTINGS && location.pathname.startsWith('/settings'))
           return (
             <div key={to} className="relative group">
               <NavLink

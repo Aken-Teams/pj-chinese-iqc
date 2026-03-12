@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { Loader2, FileText } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getHistory, type HistoryRow } from '@/services/history'
 import { compareSpecs, type SpecCompareResponse } from '@/services/specs'
 import { downloadCsv } from '@/utils/exportCsv'
+import { printToPdf } from '@/utils/exportPdf'
 
 export default function ComparePage() {
   const { t } = useTranslation('compare')
@@ -49,6 +50,25 @@ export default function ComparePage() {
     downloadCsv(`compare_lot${selectedLotId}.csv`, [headers, ...rows])
   }
 
+  const handleExportPdf = () => {
+    if (!result) return
+    const headers = [
+      t('table.parameter'), t('table.cpLower'), t('table.cpUpper'),
+      t('table.ftLower'), t('table.ftUpper'), t('table.margin'), t('table.result'),
+    ]
+    const rows = result.rows.map((r) => `
+      <tr>
+        <td>${r.param}</td><td>${r.cpLower ?? '—'}</td><td>${r.cpUpper ?? '—'}</td>
+        <td>${r.ftLower ?? '—'}</td><td>${r.ftUpper ?? '—'}</td><td>${r.margin ?? '—'}</td>
+        <td><span class="badge badge-${r.result === 'Match' ? 'pass' : r.result === 'Tighter' ? 'warn' : 'fail'}">${resultLabel(r.result)}</span></td>
+      </tr>`).join('')
+    const html = `<table>
+      <thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`
+    printToPdf(`${t('title')} - Lot ${selectedLotId}`, html)
+  }
+
   const resultLabel = (key: string) => {
     if (key === 'Match') return t('match')
     if (key === 'Tighter') return t('tighter')
@@ -60,13 +80,23 @@ export default function ComparePage() {
       <PageHeader
         title={t('title')}
         actions={
-          <button
-            onClick={handleExportCsv}
-            disabled={!result}
-            className="bg-bg-card border border-border-light px-4 py-2 text-sm text-text-secondary font-semibold hover:bg-border-light transition-colors disabled:opacity-40"
-          >
-            {t('exportComparison')}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleExportCsv}
+              disabled={!result}
+              className="bg-bg-card border border-border-light px-4 py-2 text-sm text-text-secondary font-semibold hover:bg-border-light transition-colors disabled:opacity-40"
+            >
+              {t('exportComparison')}
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={!result}
+              className="flex items-center gap-1.5 bg-bg-card border border-border-light px-4 py-2 text-sm text-text-secondary font-semibold hover:bg-border-light transition-colors disabled:opacity-40"
+            >
+              <FileText size={14} />
+              {t('exportPdf')}
+            </button>
+          </div>
         }
       />
 

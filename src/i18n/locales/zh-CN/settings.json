@@ -16,5 +16,60 @@
   "themeDark": "深色",
   "themeSystem": "跟随系统",
   "about": "关于系统",
-  "aboutDesc": "IQC Wafer CP 审核系统 v2.0"
+  "aboutDesc": "IQC Wafer CP 审核系统 v2.0",
+  "nav": {
+    "general": "常规",
+    "vendors": "厂商管理",
+    "rules": "审核规则",
+    "specs": "测规管理"
+  },
+  "vendors": {
+    "title": "厂商管理",
+    "desc": "管理晶圆厂商与数据格式模板",
+    "addVendor": "新增厂商",
+    "vendorCode": "厂商代码",
+    "vendorName": "厂商名称",
+    "formats": "格式模板",
+    "addFormat": "新增模板",
+    "noFormats": "暂无格式模板",
+    "formatName": "模板名称",
+    "headerRow": "标题行号",
+    "dataStartRow": "数据起始行",
+    "lowerLimitRow": "下限行号",
+    "upperLimitRow": "上限行号",
+    "electricalStartCol": "电性起始列",
+    "waferIdCol": "Wafer ID 列",
+    "binCol": "BIN 列",
+    "fixedDieCount": "固定 Die 数（选填）",
+    "confirmDelete": "确定要删除此模板吗？"
+  },
+  "rules": {
+    "title": "审核规则",
+    "desc": "设置各电性参数的 Q1 / Q2 / Q3 规格限制",
+    "selectProduct": "请先选择产品",
+    "addRule": "新增规则",
+    "paramName": "参数名称",
+    "noRules": "此产品暂无审核规则",
+    "confirmDelete": "确定要删除此规则吗？",
+    "q1Lower": "Q1 下限",
+    "q1Upper": "Q1 上限",
+    "q2Lower": "Q2 下限",
+    "q2Upper": "Q2 上限",
+    "q3Lower": "Q3 下限",
+    "q3Upper": "Q3 上限"
+  },
+  "specs": {
+    "title": "封装测规管理",
+    "desc": "管理封装端测试规格，用于规格对比功能",
+    "selectProduct": "请先选择产品",
+    "addSpec": "新增测规",
+    "paramName": "参数名称",
+    "lowerLimit": "下限",
+    "upperLimit": "上限",
+    "unit": "单位",
+    "testCondition": "测试条件（选填）",
+    "noSpecs": "此产品暂无封装测规",
+    "confirmDelete": "确定要删除此测规吗？",
+    "importCsv": "导入 CSV"
+  }
 }

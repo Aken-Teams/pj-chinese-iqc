@@ -2,6 +2,7 @@
   "title": "规格比较",
   "runComparison": "执行比较",
   "exportComparison": "导出比较",
+  "exportPdf": "导出 PDF",
   "cpSpec": "CP 规格 (来源)",
   "pkgSpec": "封装测规 (目标)",
   "lot": "批次",

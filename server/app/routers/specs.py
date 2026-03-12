@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db
 from app.models.lot import Lot
 from app.models.spec import CpSpec, PackagingSpec, SpecComparison
-from app.schemas.spec import SpecCompareRequest, SpecCompareResponse, CompareRow
+from app.schemas.spec import (
+    SpecCompareRequest, SpecCompareResponse, CompareRow,
+    PackagingSpecCreate, PackagingSpecUpdate, PackagingSpecResponse,
+)
 
 router = APIRouter(prefix="/api/specs", tags=["specs"])
 
@@ -19,7 +22,7 @@ def compare_specs(req: SpecCompareRequest, db: Session = Depends(get_db)):
     pkg_specs = db.query(PackagingSpec).filter(PackagingSpec.product_id == lot.product_id).all()
 
     pkg_map = {ps.param_name: ps for ps in pkg_specs}
-    margin_pct = 0.10 if req.rule == "standard" else 0.05  # ±10% or ±5%
+    margin_pct = 0.10 if req.rule == "standard" else 0.05
 
     rows = []
     match_count = 0
@@ -36,7 +39,6 @@ def compare_specs(req: SpecCompareRequest, db: Session = Depends(get_db)):
         pkg_lower = float(pkg.lower_limit) if pkg.lower_limit is not None else None
         pkg_upper = float(pkg.upper_limit) if pkg.upper_limit is not None else None
 
-        # Calculate margin
         result = "Match"
         margin_str = "+0%"
 
@@ -71,3 +73,46 @@ def compare_specs(req: SpecCompareRequest, db: Session = Depends(get_db)):
         outOfRangeCount=oor_count,
         rows=rows,
     )
+
+
+# --- Packaging Specs CRUD ---
+
+@router.get("/packaging", response_model=list[PackagingSpecResponse])
+def list_packaging_specs(product_id: int = Query(...), db: Session = Depends(get_db)):
+    return (
+        db.query(PackagingSpec)
+        .filter(PackagingSpec.product_id == product_id)
+        .order_by(PackagingSpec.param_name)
+        .all()
+    )
+
+
+@router.post("/packaging", response_model=PackagingSpecResponse)
+def create_packaging_spec(req: PackagingSpecCreate, db: Session = Depends(get_db)):
+    spec = PackagingSpec(**req.model_dump())
+    db.add(spec)
+    db.commit()
+    db.refresh(spec)
+    return spec
+
+
+@router.put("/packaging/{spec_id}", response_model=PackagingSpecResponse)
+def update_packaging_spec(spec_id: int, req: PackagingSpecUpdate, db: Session = Depends(get_db)):
+    spec = db.query(PackagingSpec).filter(PackagingSpec.id == spec_id).first()
+    if not spec:
+        raise HTTPException(404, "Spec not found")
+    for field, value in req.model_dump(exclude_unset=True).items():
+        setattr(spec, field, value)
+    db.commit()
+    db.refresh(spec)
+    return spec
+
+
+@router.delete("/packaging/{spec_id}")
+def delete_packaging_spec(spec_id: int, db: Session = Depends(get_db)):
+    spec = db.query(PackagingSpec).filter(PackagingSpec.id == spec_id).first()
+    if not spec:
+        raise HTTPException(404, "Spec not found")
+    db.delete(spec)
+    db.commit()
+    return {"success": True}

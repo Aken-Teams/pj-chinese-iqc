@@ -1,6 +1,8 @@
 {
   "title": "数据上传",
   "subtitle": "上传晶圆厂 CP 数据文件",
+  "modeSingle": "单文件上传",
+  "modeBatch": "批量上传",
   "dropzone": {
     "title": "拖拽 CP 数据文件至此处",
     "subtitle": "支持 .xlsx、.csv 格式，来自任意晶圆厂",
@@ -8,7 +10,7 @@
     "uploading": "上传中..."
   },
   "formatConfig": {
-    "title": "格式配置",
+    "title": "格式设置",
     "vendor": "厂商",
     "formatId": "格式 ID",
     "autoDetected": "自动识别",
@@ -16,7 +18,7 @@
   },
   "preview": {
     "title": "上传预览",
-    "fileName": "文件名",
+    "fileName": "文件名称",
     "sheets": "工作表数",
     "rows": "数据行数",
     "size": "文件大小",
@@ -29,7 +31,20 @@
     "variable": "不固定",
     "product": "产品",
     "lot": "批次",
-    "success": "Lot {{lot}} 上传成功：{{wafers}} 片晶圆，{{rows}} 行数据"
+    "success": "Lot {{lot}} 上传成功：{{wafers}} 片晶圆，{{rows}} 条数据"
+  },
+  "batch": {
+    "title": "批量上传",
+    "subtitle": "一次选取多个 CP 数据文件自动导入",
+    "selectFiles": "选取多个文件",
+    "selectedCount": "已选取 {{count}} 个文件",
+    "start": "开始批量导入",
+    "processing": "导入中...",
+    "results": "导入结果",
+    "success": "成功",
+    "failed": "失败",
+    "wafers": "{{count}} 片",
+    "rows": "{{count}} 条"
   },
   "error": {
     "uploadFailed": "上传失败，请稍后再试",

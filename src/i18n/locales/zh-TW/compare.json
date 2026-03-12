@@ -2,6 +2,7 @@
   "title": "規格比較",
   "runComparison": "執行比較",
   "exportComparison": "匯出比較",
+  "exportPdf": "匯出 PDF",
   "cpSpec": "CP 規格 (來源)",
   "pkgSpec": "封裝測規 (目標)",
   "lot": "批次",

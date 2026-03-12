@@ -1,6 +1,7 @@
 {
   "title": "CP Review",
   "exportCsv": "Export CSV",
+  "exportPdf": "Export PDF",
   "runReview": "Run Review",
   "vendor": "Vendor",
   "lotId": "Lot ID",

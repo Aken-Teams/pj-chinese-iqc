@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Loader2 } from 'lucide-react'
+import { ChevronRight, Loader2, FileText } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getLotResults, executeReview, type LotReviewSummary } from '@/services/review'
 import { getHistory, type HistoryRow } from '@/services/history'
 import { downloadCsv } from '@/utils/exportCsv'
+import { printToPdf } from '@/utils/exportPdf'
 
 type WaferStatus = 'PASS' | 'WARN' | 'FAIL'
 
@@ -97,6 +98,26 @@ export default function ReviewPage() {
     downloadCsv(`review_${summary.lotId}.csv`, [headers, ...rows])
   }
 
+  const handleExportPdf = () => {
+    if (!summary) return
+    const headers = [
+      t('table.waferId'), t('table.dieCount'), t('table.bin1Yield'),
+      t('table.q1Yield'), t('table.q2Yield'), t('table.q3Yield'), t('table.status'),
+    ]
+    const rows = summary.wafers.map((w) => `
+      <tr>
+        <td>${w.waferId}</td><td>${w.dieCount}</td>
+        <td>${w.bin1Yield.toFixed(2)}%</td><td>${w.q1Yield.toFixed(2)}%</td>
+        <td>${w.q2Yield.toFixed(2)}%</td><td>${w.q3Yield.toFixed(2)}%</td>
+        <td><span class="badge badge-${w.status === 'PASS' ? 'pass' : w.status === 'WARN' ? 'warn' : 'fail'}">${w.status}</span></td>
+      </tr>`).join('')
+    const html = `<table>
+      <thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`
+    printToPdf(`${t('title')} - ${summary.lotId}`, html)
+  }
+
   return (
     <div className="p-12">
       <PageHeader
@@ -110,6 +131,15 @@ export default function ReviewPage() {
               className="border border-border-light bg-bg-card px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-text-secondary hover:bg-bg-page disabled:opacity-40"
             >
               {t('exportCsv')}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={!summary}
+              className="flex items-center gap-1.5 border border-border-light bg-bg-card px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-text-secondary hover:bg-bg-page disabled:opacity-40"
+            >
+              <FileText size={14} />
+              {t('exportPdf')}
             </button>
             <button
               type="button"

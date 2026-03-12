@@ -1,6 +1,7 @@
 {
   "title": "CP 审核",
   "exportCsv": "导出 CSV",
+  "exportPdf": "导出 PDF",
   "runReview": "执行审核",
   "vendor": "厂商",
   "lotId": "批次号",

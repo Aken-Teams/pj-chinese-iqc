@@ -17,6 +17,7 @@ from app.routers import (
     analytics,
     ai,
     wafer_map,
+    rules,
 )
 
 
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(analytics.router)
     app.include_router(ai.router)
     app.include_router(wafer_map.router)
+    app.include_router(rules.router)
 
     @app.get("/api/health")
     def health():

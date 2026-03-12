@@ -16,5 +16,60 @@
   "themeDark": "Dark",
   "themeSystem": "System",
   "about": "About",
-  "aboutDesc": "IQC Wafer CP Review System v2.0"
+  "aboutDesc": "IQC Wafer CP Review System v2.0",
+  "nav": {
+    "general": "General",
+    "vendors": "Vendors",
+    "rules": "Review Rules",
+    "specs": "Pkg Specs"
+  },
+  "vendors": {
+    "title": "Vendor Management",
+    "desc": "Manage wafer vendors and data format templates",
+    "addVendor": "Add Vendor",
+    "vendorCode": "Vendor Code",
+    "vendorName": "Vendor Name",
+    "formats": "Format Templates",
+    "addFormat": "Add Template",
+    "noFormats": "No format templates yet",
+    "formatName": "Template Name",
+    "headerRow": "Header Row",
+    "dataStartRow": "Data Start Row",
+    "lowerLimitRow": "Lower Limit Row",
+    "upperLimitRow": "Upper Limit Row",
+    "electricalStartCol": "Electrical Start Col",
+    "waferIdCol": "Wafer ID Col",
+    "binCol": "BIN Col",
+    "fixedDieCount": "Fixed Die Count (optional)",
+    "confirmDelete": "Delete this template?"
+  },
+  "rules": {
+    "title": "Review Rules",
+    "desc": "Set Q1 / Q2 / Q3 spec limits for electrical parameters",
+    "selectProduct": "Please select a product first",
+    "addRule": "Add Rule",
+    "paramName": "Parameter Name",
+    "noRules": "No review rules for this product",
+    "confirmDelete": "Delete this rule?",
+    "q1Lower": "Q1 Lower",
+    "q1Upper": "Q1 Upper",
+    "q2Lower": "Q2 Lower",
+    "q2Upper": "Q2 Upper",
+    "q3Lower": "Q3 Lower",
+    "q3Upper": "Q3 Upper"
+  },
+  "specs": {
+    "title": "Packaging Specs",
+    "desc": "Manage packaging test specs for spec comparison",
+    "selectProduct": "Please select a product first",
+    "addSpec": "Add Spec",
+    "paramName": "Parameter Name",
+    "lowerLimit": "Lower Limit",
+    "upperLimit": "Upper Limit",
+    "unit": "Unit",
+    "testCondition": "Test Condition (optional)",
+    "noSpecs": "No packaging specs for this product",
+    "confirmDelete": "Delete this spec?",
+    "importCsv": "Import CSV"
+  }
 }

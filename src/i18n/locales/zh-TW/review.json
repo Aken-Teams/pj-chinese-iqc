@@ -1,6 +1,7 @@
 {
   "title": "CP 審核",
   "exportCsv": "匯出 CSV",
+  "exportPdf": "匯出 PDF",
   "runReview": "執行審核",
   "vendor": "廠商",
   "lotId": "批次號",
