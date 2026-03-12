@@ -54,10 +54,11 @@ def generate_summary(req: ReviewSummaryRequest, db: Session = Depends(get_db)):
         lang=req.lang,
     )
 
-    # Save to DB
+    # Save to DB — one record per (lot, wafer, lang)
     existing = db.query(AiReviewSummary).filter(
         AiReviewSummary.lot_id == lot.id,
         AiReviewSummary.wafer_id == wafer.id,
+        AiReviewSummary.lang == req.lang,
     ).first()
     if existing:
         existing.summary = summary_text
@@ -68,6 +69,7 @@ def generate_summary(req: ReviewSummaryRequest, db: Session = Depends(get_db)):
             summary=summary_text,
             risk_level="low",
             model_version="deepseek-chat",
+            lang=req.lang,
         ))
     db.commit()
 
@@ -75,7 +77,7 @@ def generate_summary(req: ReviewSummaryRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/review-summary/{lot_id}/{wafer_id}", response_model=ReviewSummaryResponse)
-def get_summary(lot_id: int, wafer_id: str, db: Session = Depends(get_db)):
+def get_summary(lot_id: int, wafer_id: str, lang: str = "zh-TW", db: Session = Depends(get_db)):
     wafer = db.query(Wafer).filter(
         Wafer.lot_id == lot_id, Wafer.wafer_id == wafer_id
     ).first()
@@ -85,6 +87,7 @@ def get_summary(lot_id: int, wafer_id: str, db: Session = Depends(get_db)):
     summary = db.query(AiReviewSummary).filter(
         AiReviewSummary.lot_id == lot_id,
         AiReviewSummary.wafer_id == wafer.id,
+        AiReviewSummary.lang == lang,
     ).first()
 
     if not summary:
@@ -100,6 +103,7 @@ def get_summary(lot_id: int, wafer_id: str, db: Session = Depends(get_db)):
 @router.get("/anomalies")
 def list_anomalies(
     lot_id: int | None = None,
+    lang: str = "",
     severity: str = "",
     resolved: bool | None = None,
     db: Session = Depends(get_db),
@@ -107,6 +111,8 @@ def list_anomalies(
     query = db.query(AiAnomaly)
     if lot_id is not None:
         query = query.filter(AiAnomaly.lot_id == lot_id)
+    if lang:
+        query = query.filter(AiAnomaly.lang == lang)
     if severity:
         query = query.filter(AiAnomaly.severity == severity)
     if resolved is not None:
@@ -160,9 +166,10 @@ def detect_anomalies(req: AnomalyDetectRequest, db: Session = Depends(get_db)):
             "max": max(maxs),
         }
 
-    # Delete existing unresolved anomalies for this lot before writing new ones
+    # Delete existing unresolved anomalies for this lot+lang before writing new ones
     db.query(AiAnomaly).filter(
         AiAnomaly.lot_id == lot.id,
+        AiAnomaly.lang == req.lang,
         AiAnomaly.is_resolved == False,  # noqa: E712
     ).delete(synchronize_session=False)
 
@@ -184,6 +191,7 @@ def detect_anomalies(req: AnomalyDetectRequest, db: Session = Depends(get_db)):
             confidence=float(item.get("confidence", 0.5)),
             description=str(item.get("description", "")),
             suggestion=str(item.get("suggestion", "")),
+            lang=req.lang,
             is_resolved=False,
             detected_at=now,
         )

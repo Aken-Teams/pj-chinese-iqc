@@ -203,9 +203,9 @@ export default function AnalyticsPage() {
       setDataLoading(false)
     }
 
-    // Load anomalies: use cached DB results if available, otherwise call AI
+    // Load anomalies: use cached DB results for current lang, otherwise call AI
     setAnomalyLoading(true)
-    getAnomalies(lotId)
+    getAnomalies(lotId, i18n.language)
       .then(existing => {
         if (existing.length > 0) {
           setAnomalies(existing)

@@ -5,9 +5,9 @@ import { ROUTES } from '@/config/routes'
 const tabs = [
   { to: ROUTES.SETTINGS, labelKey: 'nav.general', end: true },
   { to: ROUTES.SETTINGS_VENDORS, labelKey: 'nav.vendors' },
+  { to: ROUTES.SETTINGS_SCORES, labelKey: 'nav.scores' },
   { to: ROUTES.SETTINGS_RULES, labelKey: 'nav.rules' },
   { to: ROUTES.SETTINGS_SPECS, labelKey: 'nav.specs' },
-  { to: ROUTES.SETTINGS_SCORES, labelKey: 'nav.scores' },
 ]
 
 export default function SettingsLayout() {

@@ -48,8 +48,8 @@ export default function ReviewDetailPage() {
   useEffect(() => {
     if (!waferDbId || !lotDbId) return
     setAiLoading(true)
-    // Try reading cached summary first (GET)
-    apiFetch<{ summary: string }>(`/ai/review-summary/${lotDbId}/${waferId}`)
+    // Try reading cached summary first (GET) — match current language
+    apiFetch<{ summary: string }>(`/ai/review-summary/${lotDbId}/${waferId}?lang=${encodeURIComponent(i18n.language)}`)
       .then(res => {
         setAiSummary(res.summary)
         setAiLoading(false)

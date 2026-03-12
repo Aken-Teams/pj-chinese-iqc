@@ -1,33 +1,37 @@
 {
   "title": "User Manual",
-  "subtitle": "IQC System Feature Guide",
+  "subtitle": "IQC Wafer CP Review System — Feature Guide",
   "upload": {
     "title": "Data Upload",
     "subtitle": "Import CP data files from the wafer fab",
     "steps": [
-      { "label": "Select Vendor", "desc": "Choose the corresponding vendor (JJW, XRW) in the Format Configuration panel. The system will use the matching parse template — ensure the selection matches the file source." },
-      { "label": "Upload File", "desc": "Drag and drop an .xlsx file onto the upload area, or click Browse Files to select manually. The system will automatically parse and display a preview." },
-      { "label": "Verify Preview", "desc": "The preview panel shows wafer count, data rows, format code, product ID, and lot ID. Confirm the information is correct before proceeding." },
-      { "label": "Confirm & Import", "desc": "Click Confirm & Import to write the data to the database. A success banner will display the lot code, wafer count, and total rows." }
+      { "label": "Select Vendor", "desc": "Choose the corresponding vendor (JJW, XRW, etc.) in the Format Configuration panel. The system uses the matching parse template — ensure the selection matches the file source." },
+      { "label": "Upload File", "desc": "Drag and drop an .xlsx file onto the upload area, or click Browse Files to select manually. The system automatically parses and displays a preview on the right." },
+      { "label": "Verify Preview", "desc": "The preview panel shows wafer count, data rows, format code, product ID, and lot ID. Confirm all information is correct before proceeding." },
+      { "label": "Confirm & Import", "desc": "Click Confirm & Import to write the data to the database. A success banner displays the lot code, wafer count, and total row count." },
+      { "label": "Batch Upload", "desc": "Click Batch Upload to upload multiple .xlsx files at once. The system processes them sequentially and shows the progress and result for each file in the queue." }
     ],
     "notes": [
       "Only .xlsx format is supported. For old .xls files, re-save as .xlsx in Excel first.",
       "The selected vendor must match the actual file format — a mismatch will be rejected with an error.",
-      "If the system cannot auto-detect the format, manually select a vendor and retry."
+      "If the system cannot auto-detect the format, manually select a vendor and retry, or add a new format template in Settings > Vendors."
     ]
   },
   "review": {
     "title": "CP Review",
-    "subtitle": "View yield and electrical compliance per wafer",
+    "subtitle": "View yield, electrical compliance, and AI summary per wafer",
     "steps": [
       { "label": "Select Lot", "desc": "Choose the lot to review from the dropdown at the top. The list shows vendor, product, and lot code." },
       { "label": "Run Review", "desc": "Click Run Review. The system calculates Q1 yield for each electrical parameter on every wafer using the CP Spec limits, then saves the results." },
-      { "label": "View Summary", "desc": "The table shows BIN1 yield, Q1/Q2 compliance, and PASS / WARN / FAIL status for each wafer." },
-      { "label": "View Details", "desc": "Click any wafer row to open the detail page — showing average, stdev, Q1 yield, and failure distribution per parameter." }
+      { "label": "View Summary", "desc": "The table shows BIN1 yield, Q1/Q2 compliance, and PASS / WARN / FAIL status for each wafer, with quick status filters." },
+      { "label": "View Wafer Detail", "desc": "Click any wafer row to open the detail page — showing average, stdev, Q1 yield, and failure distribution per parameter, along with SPC and Cpk charts." },
+      { "label": "AI Summary Report", "desc": "The AI summary loads automatically at the bottom of the detail page. On first visit the system generates and caches the report; subsequent visits load the cached version for the current language. Switching language triggers a new AI generation automatically." },
+      { "label": "Export PDF", "desc": "Click Export PDF in the top-right corner of the detail page to export the review results and AI summary as a PDF report." }
     ],
     "notes": [
-      "Q1 compliance threshold: all wafers must have yield ≥ 95%. Q2 requires additional review rules to be configured.",
-      "Always click Run Review after uploading. Re-run if spec limits are changed to refresh results."
+      "Q1 compliance threshold: all wafers must have yield ≥ 95%. Q2 requires additional review rules configured in Settings > Review Rules.",
+      "Always click Run Review after uploading. Re-run if spec limits are changed to refresh results.",
+      "AI summaries are cached per language — zh-TW, zh-CN, and English are stored independently and do not overwrite each other."
     ]
   },
   "compare": {
@@ -36,38 +40,54 @@
     "steps": [
       { "label": "Select Lot", "desc": "Choose the lot from the dropdown. The system loads all electrical parameter specs for that lot." },
       { "label": "Select Parameters", "desc": "Check the parameters you want to compare — multiple selections are supported." },
-      { "label": "View Results", "desc": "The view shows spec limits (upper/lower), measured averages, and deviation from spec center. Out-of-spec values are highlighted in red." }
+      { "label": "View Results", "desc": "The view shows spec limits (upper/lower), measured averages, and deviation from spec center. Out-of-spec values are highlighted in red." },
+      { "label": "Export PDF", "desc": "Click Export PDF in the top-right corner to export the comparison results as a report." }
+    ],
+    "notes": [
+      "Spec limits come from Settings > Pkg Specs. Ensure specs have been configured for the relevant product first."
     ]
   },
   "history": {
     "title": "History",
-    "subtitle": "Search historical lot records by criteria",
+    "subtitle": "Search historical lot records and yield trends",
     "steps": [
-      { "label": "Set Filters", "desc": "Filter by vendor, product, lot code, or date range." },
+      { "label": "Set Filters", "desc": "Filter by vendor, product, lot code, or date range. Multiple conditions can be combined." },
       { "label": "View Results", "desc": "The list shows matching lots with vendor, product, wafer count, yield, and review status." },
-      { "label": "Open Review", "desc": "Click any lot row to navigate to the CP Review page for that lot." }
+      { "label": "View Yield Trend Chart", "desc": "A line chart below the list uses the lot ID as the X-axis and shows historical yield trends. Hover over data points to see the lot ID and yield value." },
+      { "label": "Open Review", "desc": "Click any lot row to navigate to the CP Review page for that lot." },
+      { "label": "Export PDF", "desc": "Click Export PDF to export the filtered results and trend chart as a report." }
     ]
   },
   "analytics": {
-    "title": "Analytics & AI",
-    "subtitle": "Yield trends, correlation matrix, and AI summaries",
+    "title": "Analytics & AI Anomaly Detection",
+    "subtitle": "SPC charts, distribution, correlation matrix, and AI-powered analysis",
     "steps": [
-      { "label": "Yield Trend", "desc": "A line chart displays BIN1 yield trends across recent lots per vendor, making it easy to spot declining or improving yield." },
-      { "label": "Anomaly Detection", "desc": "Lots with yield below the target threshold are flagged. The table shows the reason and deviation value for each anomaly." },
-      { "label": "Correlation Matrix", "desc": "A heatmap shows correlation coefficients between electrical parameters. High-correlation pairs are highlighted to help identify common-cause failures." },
-      { "label": "AI Summary", "desc": "Select a lot and click Generate Summary. The AI analyzes yield, anomalies, and parameter patterns to produce a written summary report." }
+      { "label": "Select Lot", "desc": "Choose a lot from the top dropdown. The system loads the electrical parameter list for that lot." },
+      { "label": "SPC Control Chart", "desc": "Select a parameter to view the X-bar control chart with UCL/LCL limits and ±2σ warning lines. Hover over data points to see Wafer ID and value — out-of-control points are highlighted in red (OOC). Results are automatically cached in the database; the same parameter loads from cache on the next visit." },
+      { "label": "Distribution Histogram", "desc": "A histogram shows the value distribution of the selected parameter across 10 bins. The chart includes a Y-axis scale; hover over a bar to see the bin range and count. Cpk is displayed above the chart if available." },
+      { "label": "Correlation Matrix", "desc": "A heatmap shows Pearson correlation coefficients (−1 to 1) between all electrical parameters. Darker colors indicate stronger correlation, helping identify common-cause parameter pairs." },
+      { "label": "AI Anomaly Detection", "desc": "The system first checks the database for cached anomalies in the current language. If none exist, it automatically calls the AI to analyze and store the results. Switching language triggers a fresh analysis if no cache exists for that language — zh-TW, zh-CN, and English are cached independently." },
+      { "label": "Mark as Resolved", "desc": "Click Mark Resolved on any anomaly to mark it as handled. It will be removed from the active anomaly list." }
     ],
     "notes": [
-      "AI summaries require a valid backend API key. Contact your system administrator if errors occur."
+      "SPC caching: if the number of cached data points does not match the current wafer count, the system automatically recalculates and updates the cache.",
+      "Cpk results are cached per lot — no recomputation is needed for the same lot.",
+      "AI anomaly results are cached per language. Switching language stores results independently without overwriting other languages."
     ]
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "Profile, theme, and language preferences",
+    "subtitle": "Vendor management, vendor scores, review rules, pkg specs, and preferences",
     "steps": [
-      { "label": "Profile", "desc": "Displays your account information — name, employee ID, department, and email. This is read-only." },
-      { "label": "Theme", "desc": "Switch between Light, Dark, or System theme. Changes take effect immediately." },
-      { "label": "Language", "desc": "Switch the interface language between 简体中文, 繁體中文, or English. The entire UI updates instantly." }
+      { "label": "General — Profile & Theme", "desc": "Displays your account information (name, employee ID, department, email) in read-only mode. Switch between Light, Dark, or System theme, and change the interface language (繁中 / 简中 / English)." },
+      { "label": "Vendor Management", "desc": "Add vendor codes and names, and configure one or more format templates per vendor (header row, data start row, electrical column start, etc.). The system uses these templates to parse Excel files during upload." },
+      { "label": "Vendor Scores", "desc": "Calculates monthly vendor performance scores (0–100). Formula: Yield × 50% + Cpk × 30% + Anomaly-free × 20%. Switch months to view historical scores. Click Recalculate to force a refresh and overwrite cached results. Top 3 vendors are shown with gold/silver/bronze icons." },
+      { "label": "Review Rules", "desc": "Set Q1 / Q2 / Q3 spec limits for each electrical parameter per product. The system uses these limits to determine compliance grades during CP Review. Changes take effect only after re-running the review." },
+      { "label": "Packaging Specs", "desc": "Set packaging test specs (upper/lower limits, unit, test condition) per product for use in the Spec Compare feature. Add manually or bulk-import via CSV." }
+    ],
+    "notes": [
+      "Vendor Scores require existing lot data and Cpk results. If the page shows no data, navigate to Analytics and trigger Cpk calculation first.",
+      "After changing Review Rules, re-run the review in the CP Review page to apply the new rules."
     ]
   }
 }

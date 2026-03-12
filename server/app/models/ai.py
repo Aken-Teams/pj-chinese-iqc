@@ -15,6 +15,7 @@ class AiAnomaly(Base):
     param_name = Column(String(50))
     description = Column(Text)
     suggestion = Column(Text)
+    lang = Column(String(10), nullable=False, server_default="zh-TW")
     is_resolved = Column(Boolean, default=False)
     detected_at = Column(DateTime, server_default=func.now())
 
@@ -29,4 +30,5 @@ class AiReviewSummary(Base):
     key_findings = Column(JSON, nullable=True)
     risk_level = Column(String(20))
     model_version = Column(String(20))
+    lang = Column(String(10), nullable=False, server_default="zh-TW")
     generated_at = Column(DateTime, server_default=func.now())

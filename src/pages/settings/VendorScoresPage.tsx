@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { RefreshCw, TrendingUp } from 'lucide-react'
+import { RefreshCw, TrendingUp, Trophy, Award, Star } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getVendorScores, calculateVendorScores, type VendorScore } from '@/services/vendors'
 
@@ -18,10 +18,9 @@ function ScoreBar({ score }: { score: number | null }) {
 }
 
 function RankBadge({ rank }: { rank: number }) {
-  const icons: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
-  if (rank <= 3) {
-    return <span className="text-lg">{icons[rank]}</span>
-  }
+  if (rank === 1) return <Trophy size={18} style={{ color: '#D4A017' }} />
+  if (rank === 2) return <Award size={18} style={{ color: '#9E9E9E' }} />
+  if (rank === 3) return <Star size={18} style={{ color: '#CD7F32' }} />
   return <span className="text-sm font-mono text-text-muted">#{rank}</span>
 }
 
