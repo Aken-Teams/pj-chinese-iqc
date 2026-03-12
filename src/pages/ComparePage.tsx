@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, FileText } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getHistory, type HistoryRow } from '@/services/history'
+import LotSearchSelect from '@/components/ui/LotSearchSelect'
 import { compareSpecs, type SpecCompareResponse } from '@/services/specs'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
@@ -111,18 +112,13 @@ export default function ComparePage() {
               <Loader2 size={16} className="animate-spin text-accent" />
             </div>
           ) : (
-            <select
-              value={selectedLotId ?? ''}
-              onChange={(e) => setSelectedLotId(Number(e.target.value) || null)}
-              className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary w-full"
-            >
-              <option value="">{t('selectLot')}</option>
-              {lots.map(lot => (
-                <option key={lot.id} value={lot.id}>
-                  {lot.vendor} / {lot.product} / {lot.lotId}
-                </option>
-              ))}
-            </select>
+            <LotSearchSelect
+              lots={lots}
+              selectedLotId={selectedLotId}
+              placeholder={t('selectLot')}
+              onSelect={(lot) => setSelectedLotId(lot.id)}
+              className="w-full"
+            />
           )}
         </div>
         <div className="w-[200px] flex flex-col gap-1.5">

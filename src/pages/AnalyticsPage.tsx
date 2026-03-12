@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Sparkles, TriangleAlert, CircleX } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getHistory, type HistoryRow } from '@/services/history'
+import LotSearchSelect from '@/components/ui/LotSearchSelect'
+import SearchSelect from '@/components/ui/SearchSelect'
 import {
   getParamNames,
   getSpc,
@@ -263,32 +265,23 @@ export default function AnalyticsPage() {
         title={t('title')}
         actions={
           <div className="flex items-center gap-3">
-            <select
-              value={selectedLotId ?? ''}
-              onChange={(e) => {
-                const lot = lots.find(l => l.id === Number(e.target.value))
-                if (lot) handleLotChange(lot.id, lot.productId)
-              }}
-              className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-secondary"
-            >
-              <option value="">{t('selectLot')}</option>
-              {lots.map((lot) => (
-                <option key={lot.id} value={lot.id}>
-                  {lot.vendor} / {lot.product} / {lot.lotId}
-                </option>
-              ))}
-            </select>
-            <select
+            <LotSearchSelect
+              lots={lots}
+              selectedLotId={selectedLotId}
+              placeholder={t('selectLot')}
+              onSelect={(lot) => handleLotChange(lot.id, lot.productId)}
+              className="w-[280px]"
+              align="right"
+            />
+            <SearchSelect
+              items={params}
               value={selectedParam}
-              onChange={(e) => handleParamChange(e.target.value)}
-              className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-secondary"
+              onChange={handleParamChange}
+              placeholder={t('noParams')}
               disabled={params.length === 0}
-            >
-              {params.length === 0 && <option value="">{t('noParams')}</option>}
-              {params.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
+              className="w-[200px]"
+              align="right"
+            />
           </div>
         }
       />

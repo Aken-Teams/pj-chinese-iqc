@@ -168,7 +168,7 @@ export default function ReviewDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/review')} className="text-text-secondary hover:text-accent cursor-pointer">
+          <button onClick={() => navigate('/review', { state: { lotId: lotDbId } })} className="text-text-secondary hover:text-accent cursor-pointer">
             <ArrowLeft size={20} />
           </button>
           <h1 className="font-heading text-xl font-bold text-text-primary">

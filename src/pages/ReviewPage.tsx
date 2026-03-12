@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { ChevronRight, Loader2, FileText } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getLotResults, executeReview, type LotReviewSummary } from '@/services/review'
 import { getHistory, type HistoryRow } from '@/services/history'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
+import LotSearchSelect from '@/components/ui/LotSearchSelect'
 
 type WaferStatus = 'PASS' | 'WARN' | 'FAIL'
 
@@ -30,9 +31,11 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+
 export default function ReviewPage() {
   const { t } = useTranslation('review')
   const navigate = useNavigate()
+  const location = useLocation()
   const [lots, setLots] = useState<HistoryRow[]>([])
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
   const [summary, setSummary] = useState<LotReviewSummary | null>(null)
@@ -41,10 +44,15 @@ export default function ReviewPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    const restoredLotId: number | undefined = location.state?.lotId
     getHistory({ pageSize: 50 })
       .then(res => {
         setLots(res.items)
-        setLoading(false)
+        if (restoredLotId && res.items.find(l => l.id === restoredLotId)) {
+          loadResults(restoredLotId)
+        } else {
+          setLoading(false)
+        }
       })
       .catch(() => setLoading(false))
   }, [])
@@ -158,23 +166,13 @@ export default function ReviewPage() {
       )}
 
       {/* Lot Selection */}
-      <div className="mt-7 flex gap-4">
-        <select
-          value={selectedLotId ?? ''}
-          onChange={(e) => {
-            const id = Number(e.target.value)
-            if (id) loadResults(id)
-          }}
-          className="w-[400px] border border-border-light bg-white px-3 py-2 text-[13px] text-text-primary"
-        >
-          <option value="">{t('selectLot')}</option>
-          {lots.map((lot) => (
-            <option key={lot.id} value={lot.id}>
-              {lot.vendor} / {lot.product} / {lot.lotId} ({lot.status})
-            </option>
-          ))}
-        </select>
-      </div>
+      <LotSearchSelect
+        lots={lots}
+        selectedLotId={selectedLotId}
+        placeholder={t('selectLot')}
+        onSelect={(lot) => loadResults(lot.id)}
+        className="mt-7 w-[440px]"
+      />
 
       {loading ? (
         <div className="mt-10 flex justify-center">
