@@ -36,13 +36,19 @@ export default function ComparePage() {
     }
   }
 
+  const resultLabel = (key: string) => {
+    if (key === 'Match') return t('match')
+    if (key === 'Tighter') return t('tighter')
+    return t('outOfRange')
+  }
+
   return (
     <div className="p-12">
       <PageHeader
         title={t('title')}
         actions={
           <button className="bg-bg-card border border-border-light px-4 py-2 text-sm text-text-secondary font-semibold hover:bg-border-light transition-colors">
-            {t('exportComparison', { defaultValue: 'Export Comparison' })}
+            {t('exportComparison')}
           </button>
         }
       />
@@ -51,7 +57,7 @@ export default function ComparePage() {
       <div className="flex gap-4 items-end mt-7">
         <div className="flex-1 flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">
-            {t('lot', { defaultValue: 'Lot' })}
+            {t('lot')}
           </label>
           {loading ? (
             <div className="h-[38px] flex items-center">
@@ -63,7 +69,7 @@ export default function ComparePage() {
               onChange={(e) => setSelectedLotId(Number(e.target.value) || null)}
               className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary w-full"
             >
-              <option value="">-- Select Lot --</option>
+              <option value="">{t('selectLot')}</option>
               {lots.map(lot => (
                 <option key={lot.id} value={lot.id}>
                   {lot.vendor} / {lot.product} / {lot.lotId}
@@ -74,15 +80,15 @@ export default function ComparePage() {
         </div>
         <div className="w-[200px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">
-            {t('reviewRule', { defaultValue: 'Review Rule' })}
+            {t('reviewRule')}
           </label>
           <select
             value={rule}
             onChange={(e) => setRule(e.target.value)}
             className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary w-full"
           >
-            <option value="standard">Standard (&plusmn;10%)</option>
-            <option value="strict">Strict (&plusmn;5%)</option>
+            <option value="standard">{t('ruleStandard')}</option>
+            <option value="strict">{t('ruleStrict')}</option>
           </select>
         </div>
         <button
@@ -90,7 +96,7 @@ export default function ComparePage() {
           disabled={comparing || selectedLotId === null}
           className="bg-accent text-white px-5 py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-50"
         >
-          {comparing ? 'Comparing...' : t('compare', { defaultValue: 'Compare' })}
+          {comparing ? t('comparing') : t('compare')}
         </button>
       </div>
 
@@ -103,17 +109,17 @@ export default function ComparePage() {
         <div className="bg-bg-card p-6 mt-5">
           <div className="flex items-center justify-between">
             <h3 className="font-heading font-bold">
-              {t('comparisonResults', { defaultValue: 'Comparison Results' })}
+              {t('results')}
             </h3>
             <div className="flex items-center gap-2">
               <span className="bg-badge-pass text-success text-[12px] font-semibold px-2.5 py-1">
-                {result.matchCount} Match
+                {result.matchCount} {t('match')}
               </span>
               <span className="bg-badge-warn text-warning text-[12px] font-semibold px-2.5 py-1">
-                {result.tighterCount} Tighter
+                {result.tighterCount} {t('tighter')}
               </span>
               <span className="bg-badge-fail text-error text-[12px] font-semibold px-2.5 py-1">
-                {result.outOfRangeCount} Out of Range
+                {result.outOfRangeCount} {t('outOfRange')}
               </span>
             </div>
           </div>
@@ -122,25 +128,25 @@ export default function ComparePage() {
             <thead>
               <tr className="border-b border-border-light">
                 <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">
-                  {t('parameter', { defaultValue: 'Parameter' })}
+                  {t('table.parameter')}
                 </th>
                 <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">
-                  {t('cpLower', { defaultValue: 'CP Lower' })}
+                  {t('table.cpLower')}
                 </th>
                 <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">
-                  {t('cpUpper', { defaultValue: 'CP Upper' })}
+                  {t('table.cpUpper')}
                 </th>
                 <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">
-                  {t('ftLower', { defaultValue: 'FT Lower' })}
+                  {t('table.ftLower')}
                 </th>
                 <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">
-                  {t('ftUpper', { defaultValue: 'FT Upper' })}
+                  {t('table.ftUpper')}
                 </th>
                 <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">
-                  {t('margin', { defaultValue: 'Margin' })}
+                  {t('table.margin')}
                 </th>
                 <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5">
-                  {t('result', { defaultValue: 'Result' })}
+                  {t('table.result')}
                 </th>
               </tr>
             </thead>
@@ -177,7 +183,7 @@ export default function ComparePage() {
                               : 'bg-badge-fail text-error'
                         }`}
                       >
-                        {row.result}
+                        {resultLabel(row.result)}
                       </span>
                     </td>
                   </tr>
@@ -185,7 +191,7 @@ export default function ComparePage() {
               }) : (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-text-muted">
-                    No packaging test specs found for this lot's product. Upload FT specs first.
+                    {t('noFtSpecs')}
                   </td>
                 </tr>
               )}
@@ -194,7 +200,7 @@ export default function ComparePage() {
         </div>
       ) : (
         <div className="mt-10 text-center text-text-muted">
-          Select a lot and click Compare to see CP vs FT spec comparison.
+          {t('emptyHint')}
         </div>
       )}
     </div>

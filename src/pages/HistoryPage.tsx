@@ -41,7 +41,7 @@ export default function HistoryPage() {
         actions={
           <button className="bg-bg-card border border-border-light px-4 py-2 text-sm text-text-secondary font-semibold hover:bg-border-light transition-colors flex items-center gap-2">
             <Download size={16} />
-            {t('exportCsv', { defaultValue: 'Export CSV' })}
+            {t('exportCsv')}
           </button>
         }
       />
@@ -50,14 +50,14 @@ export default function HistoryPage() {
       <div className="flex gap-4 items-end mt-7">
         <div className="w-[180px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">
-            {t('vendor', { defaultValue: 'Vendor' })}
+            {t('vendor')}
           </label>
           <select
             value={vendor}
             onChange={(e) => setVendor(e.target.value)}
             className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary w-full"
           >
-            <option value="">All Vendors</option>
+            <option value="">{t('allVendors')}</option>
             <option value="JJW">JJW</option>
             <option value="XRW">XRW</option>
             <option value="HJM">HJM</option>
@@ -65,28 +65,28 @@ export default function HistoryPage() {
         </div>
         <div className="w-[180px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">
-            {t('product', { defaultValue: 'Product' })}
+            {t('product')}
           </label>
           <input
             type="text"
             value={product}
             onChange={(e) => setProduct(e.target.value)}
-            placeholder="All Products"
+            placeholder={t('allProducts')}
             className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary w-full"
           />
         </div>
         <div className="w-[140px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">
-            {t('status', { defaultValue: 'Status' })}
+            {t('status')}
           </label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary w-full"
           >
-            <option value="">All Status</option>
-            <option value="reviewed">Reviewed</option>
-            <option value="pending">Pending</option>
+            <option value="">{t('allStatus')}</option>
+            <option value="reviewed">{t('reviewed')}</option>
+            <option value="pending">{t('pending')}</option>
           </select>
         </div>
         <button
@@ -94,16 +94,20 @@ export default function HistoryPage() {
           className="bg-accent text-white px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-2"
         >
           <Search size={16} />
-          {t('search', { defaultValue: 'Search' })}
+          {t('search')}
         </button>
       </div>
 
       {/* History Table */}
       <div className="bg-bg-card p-6 mt-5">
         <div className="flex items-center justify-between">
-          <h3 className="font-heading font-bold">{t('reviewHistory', { defaultValue: 'Review History' })}</h3>
+          <h3 className="font-heading font-bold">{t('table.title')}</h3>
           <span className="text-text-muted text-[12px]">
-            {data ? `Showing ${(data.page - 1) * data.pageSize + 1}-${Math.min(data.page * data.pageSize, data.total)} of ${data.total} records` : ''}
+            {data ? t('showing', {
+              from: (data.page - 1) * data.pageSize + 1,
+              to: Math.min(data.page * data.pageSize, data.total),
+              total: data.total,
+            }) : ''}
           </span>
         </div>
 
@@ -116,13 +120,13 @@ export default function HistoryPage() {
             <table className="w-full mt-4">
               <thead>
                 <tr className="border-b border-border-light">
-                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('date', { defaultValue: 'Date' })}</th>
-                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('vendorCol', { defaultValue: 'Vendor' })}</th>
-                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('productCol', { defaultValue: 'Product' })}</th>
-                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('lotId', { defaultValue: 'Lot ID' })}</th>
-                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('wafers', { defaultValue: 'Wafers' })}</th>
-                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('avgYield', { defaultValue: 'Avg Yield' })}</th>
-                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5">{t('statusCol', { defaultValue: 'Status' })}</th>
+                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.date')}</th>
+                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.vendor')}</th>
+                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.product')}</th>
+                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.lotId')}</th>
+                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.wafers')}</th>
+                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.avgYield')}</th>
+                  <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5">{t('table.status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,7 +147,7 @@ export default function HistoryPage() {
                     </td>
                   </tr>
                 )) : (
-                  <tr><td colSpan={7} className="py-8 text-center text-text-muted">No records found</td></tr>
+                  <tr><td colSpan={7} className="py-8 text-center text-text-muted">{t('noRecords')}</td></tr>
                 )}
               </tbody>
             </table>
@@ -156,7 +160,7 @@ export default function HistoryPage() {
                   disabled={page <= 1}
                   className="bg-bg-card border border-border-light px-3 py-1.5 text-[12px] text-text-secondary hover:bg-border-light disabled:opacity-30"
                 >
-                  {t('previous', { defaultValue: 'Previous' })}
+                  {t('previous')}
                 </button>
                 {Array.from({ length: Math.min(data.totalPages, 5) }, (_, i) => i + 1).map(p => (
                   <button
@@ -174,7 +178,7 @@ export default function HistoryPage() {
                   disabled={page >= data.totalPages}
                   className="bg-bg-card border border-border-light px-3 py-1.5 text-[12px] text-text-secondary hover:bg-border-light disabled:opacity-30"
                 >
-                  {t('next', { defaultValue: 'Next' })}
+                  {t('next')}
                 </button>
               </div>
             )}
