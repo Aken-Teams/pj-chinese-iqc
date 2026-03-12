@@ -253,10 +253,10 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* Row 2: AI Anomaly Detection (left narrow) + Correlation Matrix (right, full-flex) */}
-          <div className="flex gap-5 items-start">
+          {/* Row 2: AI Anomaly Detection (flex-1) + Correlation Matrix (fixed width, same height) */}
+          <div className="flex gap-5 items-stretch">
             {/* AI Anomaly Detection */}
-            <div className="w-[360px] flex-shrink-0 bg-bg-card p-5">
+            <div className="flex-1 bg-bg-card p-5 overflow-y-auto" style={{ maxHeight: 560 }}>
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={16} className="text-accent" />
                 <h3 className="font-heading font-bold">{t('anomaly.title')}</h3>
@@ -298,11 +298,11 @@ export default function AnalyticsPage() {
               )}
             </div>
 
-            {/* Correlation Matrix — takes remaining width, scrollable */}
-            <div className="flex-1 bg-bg-card p-5 min-w-0 overflow-hidden">
+            {/* Correlation Matrix — fixed width, matches anomaly height, scrollable inside */}
+            <div className="w-[680px] flex-shrink-0 bg-bg-card p-5 flex flex-col">
               <h3 className="font-heading font-bold mb-3">{t('correlation.title')}</h3>
               {corr && corr.params.length >= 2 ? (
-                <div className="overflow-auto" style={{ maxHeight: 420 }}>
+                <div className="flex-1 overflow-auto">
                   {/* Sticky header row */}
                   <div className="flex gap-px">
                     <div className="h-8 w-16 flex-shrink-0 sticky left-0 bg-bg-card z-10" />
