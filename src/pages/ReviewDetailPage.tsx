@@ -129,7 +129,7 @@ export default function ReviewDetailPage() {
             <ArrowLeft size={20} />
           </button>
           <h1 className="font-heading text-xl font-bold text-text-primary">
-            {t('detail.title', { defaultValue: 'Review Detail' })} — {detail?.lotId || lotId} / {waferId}
+            {t('detail.title')} — {detail?.lotId || lotId} / {waferId}
           </h1>
         </div>
         <div className="flex gap-2">
@@ -138,14 +138,14 @@ export default function ReviewDetailPage() {
             disabled={!prevWaferId}
             className="bg-bg-card border border-border-light px-3 py-1.5 text-sm text-text-secondary flex items-center gap-1 hover:text-text-primary cursor-pointer disabled:opacity-30"
           >
-            <ChevronLeft size={16} /> Prev Wafer
+            <ChevronLeft size={16} /> {t('detail.prevWaferShort')}
           </button>
           <button
             onClick={() => nextWaferId && navigate(`/review/${lotId}/wafer/${nextWaferId}`)}
             disabled={!nextWaferId}
             className="bg-bg-card border border-border-light px-3 py-1.5 text-sm text-text-secondary flex items-center gap-1 hover:text-text-primary cursor-pointer disabled:opacity-30"
           >
-            Next Wafer <ChevronRight size={16} />
+            {t('detail.nextWaferShort')} <ChevronRight size={16} />
           </button>
         </div>
       </div>
@@ -154,18 +154,18 @@ export default function ReviewDetailPage() {
       <div className="flex gap-5 h-[380px]">
         {/* Wafer Map */}
         <div className="flex-1 bg-bg-card p-5 flex flex-col">
-          <h3 className="font-heading font-bold mb-3">Wafer Map — {waferId}</h3>
+          <h3 className="font-heading font-bold mb-3">{t('detail.waferMap')} — {waferId}</h3>
           <div className="flex-1 flex items-center justify-center">
             {renderWaferMap()}
           </div>
           <div className="flex gap-4 mt-2">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 bg-success" />
-              <span className="text-[11px] text-text-secondary">Bin1 Pass</span>
+              <span className="text-[11px] text-text-secondary">{t('detail.bin1Label')} Pass</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 bg-text-primary" />
-              <span className="text-[11px] text-text-secondary">Bin2+ Fail</span>
+              <span className="text-[11px] text-text-secondary">{t('detail.bin2PlusLabel')} Fail</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 border border-border-light" />
@@ -178,19 +178,19 @@ export default function ReviewDetailPage() {
         <div className="w-[380px] bg-bg-card p-5 flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col">
-              <span className="text-[10px] text-text-muted uppercase tracking-wider">Total Dies</span>
+              <span className="text-[10px] text-text-muted uppercase tracking-wider">{t('detail.totalDies')}</span>
               <span className="font-heading text-2xl font-bold text-text-primary">{detail?.totalDies ?? '-'}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] text-text-muted uppercase tracking-wider">Bin1 Pass</span>
+              <span className="text-[10px] text-text-muted uppercase tracking-wider">{t('detail.passing')}</span>
               <span className="font-heading text-2xl font-bold text-success">{detail?.bin1Pass ?? '-'}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] text-text-muted uppercase tracking-wider">Bin1 Yield</span>
+              <span className="text-[10px] text-text-muted uppercase tracking-wider">{t('detail.bin1Yield')}</span>
               <span className="font-heading text-2xl font-bold text-success">{detail ? `${detail.bin1Yield.toFixed(2)}%` : '-'}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] text-text-muted uppercase tracking-wider">Fail Count</span>
+              <span className="text-[10px] text-text-muted uppercase tracking-wider">{t('detail.failCount')}</span>
               <span className="font-heading text-2xl font-bold text-error">{detail?.failCount ?? '-'}</span>
             </div>
           </div>
@@ -198,25 +198,25 @@ export default function ReviewDetailPage() {
           <div className="h-px bg-border-light" />
 
           <div className="flex flex-col gap-2 overflow-auto flex-1">
-            <h4 className="font-heading font-bold text-sm">Electrical Parameters</h4>
+            <h4 className="font-heading font-bold text-sm">{t('detail.electricalParams')}</h4>
             <table className="w-full">
               <thead>
                 <tr className="text-[10px] text-text-muted uppercase tracking-wider">
-                  <th className="text-left py-1 font-medium">Param</th>
-                  <th className="text-right py-1 font-medium">Avg</th>
-                  <th className="text-right py-1 font-medium">Stdev</th>
-                  <th className="text-right py-1 font-medium">Min</th>
-                  <th className="text-right py-1 font-medium">Max</th>
+                  <th className="text-left py-1 font-medium">{t('detail.param')}</th>
+                  <th className="text-right py-1 pl-4 font-medium">{t('detail.avg')}</th>
+                  <th className="text-right py-1 pl-4 font-medium">{t('detail.stdev')}</th>
+                  <th className="text-right py-1 pl-4 font-medium">{t('detail.min')}</th>
+                  <th className="text-right py-1 pl-4 pr-2 font-medium">{t('detail.max')}</th>
                 </tr>
               </thead>
               <tbody>
                 {params.map((row) => (
                   <tr key={row.param} className="border-t border-border-light">
                     <td className="text-[12px] font-semibold text-text-primary py-1.5">{row.param}</td>
-                    <td className="text-[12px] text-text-secondary text-right py-1.5">{row.avg}</td>
-                    <td className="text-[12px] text-text-secondary text-right py-1.5">{row.stdev}</td>
-                    <td className="text-[12px] text-text-secondary text-right py-1.5">{row.min}</td>
-                    <td className={`text-[12px] text-right py-1.5 ${row.maxWarning ? 'text-warning font-semibold' : 'text-text-secondary'}`}>
+                    <td className="text-[12px] text-text-secondary text-right py-1.5 pl-4">{row.avg}</td>
+                    <td className="text-[12px] text-text-secondary text-right py-1.5 pl-4">{row.stdev}</td>
+                    <td className="text-[12px] text-text-secondary text-right py-1.5 pl-4">{row.min}</td>
+                    <td className={`text-[12px] text-right py-1.5 pl-4 pr-2 ${row.maxWarning ? 'text-warning font-semibold' : 'text-text-secondary'}`}>
                       {row.max}
                     </td>
                   </tr>
@@ -228,41 +228,57 @@ export default function ReviewDetailPage() {
       </div>
 
       {/* Bottom Row */}
-      <div className="flex gap-5 h-[200px]">
+      <div className="flex gap-5">
         {/* AI Review Summary */}
-        <div className="flex-1 bg-bg-card p-5 overflow-hidden">
+        <div className="flex-1 bg-bg-card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={16} className="text-accent" />
-            <h3 className="font-heading font-bold text-sm">AI Review Summary</h3>
+            <h3 className="font-heading font-bold text-sm">{t('detail.aiSummary')}</h3>
           </div>
           <p className="text-[13px] text-text-secondary leading-relaxed">
             {detail ? (
-              `${waferId} Bin1 Yield ${detail.bin1Yield.toFixed(2)}%. ${detail.failCount > 0 ? `${detail.failCount} fail die(s) detected.` : 'All dies passed.'} ${params.length} electrical parameters measured.`
-            ) : 'No data available.'}
+              detail.failCount > 0
+                ? t('detail.aiSummaryWithFail', { waferId, yield: detail.bin1Yield.toFixed(2), failCount: detail.failCount, paramCount: params.length })
+                : t('detail.aiSummaryAllPass', { waferId, yield: detail.bin1Yield.toFixed(2), paramCount: params.length })
+            ) : t('detail.noData')}
           </p>
         </div>
 
         {/* Bin Distribution */}
-        <div className="w-[340px] bg-bg-card p-5">
-          <h3 className="font-heading font-bold text-sm mb-3">Bin Distribution</h3>
-          {detail ? (
-            <div className="flex items-end gap-3 h-[130px]">
-              {[
-                { label: 'Bin1', count: detail.bin1Pass, colorClass: 'bg-success' },
-                { label: 'Bin2+', count: detail.failCount, colorClass: 'bg-text-primary' },
-              ].map((bin) => (
-                <div key={bin.label} className="flex-1 flex flex-col items-center">
-                  <span className="text-[11px] font-semibold text-text-secondary mb-1">{bin.count}</span>
-                  <div
-                    className={`w-full ${bin.colorClass}`}
-                    style={{ height: `${Math.max((bin.count / (detail.totalDies || 1)) * 120, bin.count > 0 ? 4 : 0)}px` }}
-                  />
-                  <span className="text-[10px] text-text-muted mt-1">{bin.label}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-text-muted text-sm">No data</p>
+        <div className="w-[340px] bg-bg-card p-5 flex flex-col">
+          <h3 className="font-heading font-bold text-sm mb-3">{t('detail.binDistribution')}</h3>
+          {detail ? (() => {
+            const total = detail.totalDies || 1
+            const bins = [
+              { label: t('detail.bin1Label'), count: detail.bin1Pass, colorClass: 'bg-success' },
+              { label: t('detail.bin2PlusLabel'), count: detail.failCount, colorClass: 'bg-error' },
+            ]
+            const maxCount = Math.max(...bins.map(b => b.count), 1)
+            const chartH = 100
+            return (
+              <div className="flex items-end gap-6 flex-1 px-4 pb-1">
+                {bins.map((bin) => {
+                  const barH = (bin.count / maxCount) * chartH * 0.85
+                  return (
+                    <div key={bin.label} className="flex-1 flex flex-col items-center gap-1">
+                      <span className="text-[12px] font-bold text-text-primary">{bin.count}</span>
+                      <span className="text-[10px] text-text-muted">
+                        ({total > 0 ? ((bin.count / total) * 100).toFixed(1) : 0}%)
+                      </span>
+                      <div className="w-full flex justify-center">
+                        <div
+                          className={`w-16 ${bin.colorClass}`}
+                          style={{ height: `${Math.max(barH, bin.count > 0 ? 6 : 2)}px` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-semibold text-text-secondary mt-0.5">{bin.label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })() : (
+            <p className="text-text-muted text-sm">{t('detail.noData')}</p>
           )}
         </div>
       </div>

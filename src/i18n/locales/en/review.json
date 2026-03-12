@@ -42,6 +42,13 @@
     "min": "Min",
     "max": "Max",
     "aiSummary": "AI Review Summary",
-    "binDistribution": "Bin Distribution"
+    "aiSummaryAllPass": "Wafer {{waferId}} Bin1 Yield {{yield}}%. All dies passed. {{paramCount}} electrical parameters measured.",
+    "aiSummaryWithFail": "Wafer {{waferId}} Bin1 Yield {{yield}}%. {{failCount}} fail die(s) detected. {{paramCount}} electrical parameters measured.",
+    "binDistribution": "Bin Distribution",
+    "bin1Label": "Bin1",
+    "bin2PlusLabel": "Bin2+",
+    "prevWaferShort": "Prev Wafer",
+    "nextWaferShort": "Next Wafer",
+    "noData": "No data available."
   }
 }
