@@ -1,0 +1,18 @@
+{
+  "tagline": "晶圓 CP 資料\n智慧審核平台",
+  "description": "專為半導體封裝廠 IQC 部門設計的智慧化品質審核系統，自動化處理多廠家 CP 測試資料，實現資料統一管理、智慧審核與歷史追溯。",
+  "signIn": "登入",
+  "signInSubtitle": "使用您的工號登入系統",
+  "employeeId": "工號",
+  "employeeIdPlaceholder": "請輸入工號",
+  "password": "密碼",
+  "passwordPlaceholder": "請輸入密碼",
+  "rememberMe": "記住我",
+  "forgotPassword": "忘記密碼？",
+  "signInButton": "登入",
+  "or": "或",
+  "ssoButton": "使用 SSO 單點登入",
+  "copyright": "磐集國際股份有限公司",
+  "version": "IQC 晶圓 CP 審核系統 v1.0",
+  "loginFailed": "工號或密碼錯誤"
+}

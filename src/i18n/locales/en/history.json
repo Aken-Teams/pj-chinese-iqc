@@ -1,0 +1,21 @@
+{
+  "title": "History",
+  "exportCsv": "Export CSV",
+  "vendor": "Vendor",
+  "product": "Product",
+  "dateRange": "Date Range",
+  "status": "Status",
+  "allVendors": "All Vendors",
+  "allProducts": "All Products",
+  "allStatus": "All Statuses",
+  "table": {
+    "title": "Review History",
+    "date": "Date",
+    "vendor": "Vendor",
+    "product": "Product",
+    "lotId": "Lot ID",
+    "wafers": "Wafers",
+    "avgYield": "Avg Yield",
+    "status": "Status"
+  }
+}

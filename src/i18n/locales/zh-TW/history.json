@@ -1,0 +1,21 @@
+{
+  "title": "歷史查詢",
+  "exportCsv": "匯出 CSV",
+  "vendor": "廠商",
+  "product": "產品",
+  "dateRange": "日期範圍",
+  "status": "狀態",
+  "allVendors": "全部廠商",
+  "allProducts": "全部產品",
+  "allStatus": "全部狀態",
+  "table": {
+    "title": "審核歷史",
+    "date": "日期",
+    "vendor": "廠商",
+    "product": "產品",
+    "lotId": "批次號",
+    "wafers": "Wafer 數",
+    "avgYield": "平均良率",
+    "status": "狀態"
+  }
+}

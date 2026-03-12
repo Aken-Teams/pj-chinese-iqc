@@ -1,0 +1,39 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "upload": "Data Upload",
+    "review": "CP Review",
+    "compare": "Spec Compare",
+    "history": "History",
+    "analytics": "Analytics & AI",
+    "settings": "Settings"
+  },
+  "status": {
+    "pass": "Pass",
+    "warning": "Warning",
+    "fail": "Fail"
+  },
+  "actions": {
+    "export": "Export",
+    "search": "Search",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "back": "Back",
+    "prev": "Previous",
+    "next": "Next",
+    "viewAll": "View All"
+  },
+  "table": {
+    "showing": "Showing {{from}}-{{to}} of {{total}} records",
+    "previous": "Previous",
+    "next": "Next",
+    "noData": "No data available"
+  },
+  "language": {
+    "zhCN": "简体中文",
+    "zhTW": "繁體中文",
+    "en": "English"
+  }
+}

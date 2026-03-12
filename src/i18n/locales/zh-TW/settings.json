@@ -1,0 +1,12 @@
+{
+  "title": "設定",
+  "language": "語言設定",
+  "languageDesc": "選擇介面顯示語言",
+  "profile": "使用者資料",
+  "profileDesc": "管理個人資訊和偏好設定",
+  "theme": "佈景主題",
+  "themeDesc": "自訂介面外觀",
+  "about": "關於系統",
+  "aboutDesc": "IQC Wafer CP 審核系統 v2.0",
+  "comingSoon": "即將推出"
+}

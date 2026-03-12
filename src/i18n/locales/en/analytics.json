@@ -1,0 +1,25 @@
+{
+  "title": "Analytics & AI",
+  "parameter": "Parameter",
+  "vendor": "Vendor",
+  "allVendors": "All Vendors",
+  "spc": {
+    "title": "SPC Control Chart",
+    "mean": "Mean",
+    "sigma2": "\u00b12\u03c3",
+    "uclLcl": "UCL/LCL"
+  },
+  "distribution": {
+    "title": "Distribution Chart",
+    "mean": "Mean",
+    "stdev": "Std Dev"
+  },
+  "anomaly": {
+    "title": "AI Anomaly Detection",
+    "description": "Machine learning models continuously monitor electrical parameter trends and automatically detect anomalous patterns",
+    "confidence": "Confidence"
+  },
+  "correlation": {
+    "title": "Parameter Correlation Matrix"
+  }
+}

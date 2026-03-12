@@ -1,0 +1,12 @@
+{
+  "title": "Settings",
+  "language": "Language",
+  "languageDesc": "Choose the interface display language",
+  "profile": "Profile",
+  "profileDesc": "Manage your personal information and preferences",
+  "theme": "Theme",
+  "themeDesc": "Customize the interface appearance",
+  "about": "About",
+  "aboutDesc": "IQC Wafer CP Review System v2.0",
+  "comingSoon": "Coming Soon"
+}

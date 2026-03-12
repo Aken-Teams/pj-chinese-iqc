@@ -1,0 +1,18 @@
+{
+  "tagline": "Wafer CP Data\nIntelligent Review Platform",
+  "description": "An intelligent quality review system designed for semiconductor packaging factory IQC departments. Automatically processes CP test data from multiple vendors, enabling unified data management, intelligent review, and historical traceability.",
+  "signIn": "Sign In",
+  "signInSubtitle": "Sign in with your employee ID",
+  "employeeId": "Employee ID",
+  "employeeIdPlaceholder": "Enter employee ID",
+  "password": "Password",
+  "passwordPlaceholder": "Enter password",
+  "rememberMe": "Remember me",
+  "forgotPassword": "Forgot password?",
+  "signInButton": "Sign In",
+  "or": "or",
+  "ssoButton": "Sign in with SSO",
+  "copyright": "PANJIT International Inc.",
+  "version": "IQC Wafer CP Review System v1.0",
+  "loginFailed": "Invalid employee ID or password"
+}

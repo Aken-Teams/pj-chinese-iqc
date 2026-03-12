@@ -1,0 +1,12 @@
+{
+  "title": "设置",
+  "language": "语言设置",
+  "languageDesc": "选择界面显示语言",
+  "profile": "用户资料",
+  "profileDesc": "管理个人信息和偏好设置",
+  "theme": "主题",
+  "themeDesc": "自定义界面外观",
+  "about": "关于系统",
+  "aboutDesc": "IQC Wafer CP 审核系统 v2.0",
+  "comingSoon": "即将推出"
+}

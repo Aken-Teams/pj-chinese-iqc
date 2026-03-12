@@ -1,0 +1,21 @@
+{
+  "title": "历史查询",
+  "exportCsv": "导出 CSV",
+  "vendor": "厂商",
+  "product": "产品",
+  "dateRange": "日期范围",
+  "status": "状态",
+  "allVendors": "全部厂商",
+  "allProducts": "全部产品",
+  "allStatus": "全部状态",
+  "table": {
+    "title": "审核历史",
+    "date": "日期",
+    "vendor": "厂商",
+    "product": "产品",
+    "lotId": "批次号",
+    "wafers": "Wafer 数",
+    "avgYield": "平均良率",
+    "status": "状态"
+  }
+}

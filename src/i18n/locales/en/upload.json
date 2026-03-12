@@ -1,0 +1,27 @@
+{
+  "title": "Data Upload",
+  "subtitle": "Upload wafer fab CP data files",
+  "dropzone": {
+    "title": "Drag & drop CP data files here",
+    "subtitle": "Supports .xlsx, .xls, .csv formats from any wafer fab",
+    "browse": "Browse Files"
+  },
+  "formatConfig": {
+    "title": "Format Configuration",
+    "vendor": "Vendor",
+    "formatId": "Format ID",
+    "autoDetected": "Auto-detected",
+    "description": "The system will automatically detect the file format and match the corresponding parsing template"
+  },
+  "preview": {
+    "title": "Upload Preview",
+    "fileName": "File Name",
+    "sheets": "Sheets",
+    "rows": "Data Rows",
+    "size": "File Size",
+    "wafersDetected": "Wafers Detected",
+    "diePerWafer": "Dies per Wafer",
+    "formatMapped": "Format Mapped",
+    "confirm": "Confirm & Import"
+  }
+}

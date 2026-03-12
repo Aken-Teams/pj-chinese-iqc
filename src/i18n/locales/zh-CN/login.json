@@ -1,0 +1,18 @@
+{
+  "tagline": "晶圆 CP 数据\n智能审核平台",
+  "description": "专为半导体封装厂 IQC 部门设计的智能化品质审核系统，自动化处理多厂家 CP 测试数据，实现数据统一管理、智能审核与历史追溯。",
+  "signIn": "登录",
+  "signInSubtitle": "使用您的工号登录系统",
+  "employeeId": "工号",
+  "employeeIdPlaceholder": "请输入工号",
+  "password": "密码",
+  "passwordPlaceholder": "请输入密码",
+  "rememberMe": "记住我",
+  "forgotPassword": "忘记密码？",
+  "signInButton": "登录",
+  "or": "或",
+  "ssoButton": "使用 SSO 单点登录",
+  "copyright": "磐集国际股份有限公司",
+  "version": "IQC 晶圆 CP 审核系统 v1.0",
+  "loginFailed": "工号或密码错误"
+}

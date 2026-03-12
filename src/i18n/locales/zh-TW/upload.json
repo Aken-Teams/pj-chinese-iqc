@@ -1,0 +1,27 @@
+{
+  "title": "資料上傳",
+  "subtitle": "上傳晶圓廠 CP 資料檔案",
+  "dropzone": {
+    "title": "拖曳 CP 資料檔案至此處",
+    "subtitle": "支援 .xlsx、.xls、.csv 格式，來自任意晶圓廠",
+    "browse": "瀏覽檔案"
+  },
+  "formatConfig": {
+    "title": "格式設定",
+    "vendor": "廠商",
+    "formatId": "格式 ID",
+    "autoDetected": "自動識別",
+    "description": "系統將自動識別檔案格式並匹配相應的解析範本"
+  },
+  "preview": {
+    "title": "上傳預覽",
+    "fileName": "檔案名稱",
+    "sheets": "工作表數",
+    "rows": "資料列數",
+    "size": "檔案大小",
+    "wafersDetected": "偵測到 Wafer 數",
+    "diePerWafer": "每片 Die 數",
+    "formatMapped": "格式匹配",
+    "confirm": "確認並匯入"
+  }
+}

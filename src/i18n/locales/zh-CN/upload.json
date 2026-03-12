@@ -1,0 +1,27 @@
+{
+  "title": "数据上传",
+  "subtitle": "上传晶圆厂 CP 数据文件",
+  "dropzone": {
+    "title": "拖拽 CP 数据文件至此处",
+    "subtitle": "支持 .xlsx、.xls、.csv 格式，来自任意晶圆厂",
+    "browse": "浏览文件"
+  },
+  "formatConfig": {
+    "title": "格式配置",
+    "vendor": "厂商",
+    "formatId": "格式 ID",
+    "autoDetected": "自动识别",
+    "description": "系统将自动识别文件格式并匹配相应的解析模板"
+  },
+  "preview": {
+    "title": "上传预览",
+    "fileName": "文件名",
+    "sheets": "工作表数",
+    "rows": "数据行数",
+    "size": "文件大小",
+    "wafersDetected": "检测到 Wafer 数",
+    "diePerWafer": "每片 Die 数",
+    "formatMapped": "格式匹配",
+    "confirm": "确认并导入"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "title": "儀表板",
+  "period": "近30天",
+  "kpi": {
+    "lotsReviewed": "審核批次",
+    "avgYield": "平均 Bin1 良率",
+    "activeVendors": "活躍廠商",
+    "specAlerts": "規格警示",
+    "aiAnomalies": "AI 異常",
+    "critical": "{{count}} 個關鍵",
+    "newVendor": "+{{count}} 新增",
+    "needsReview": "待審查"
+  },
+  "yieldTrend": "良率趨勢",
+  "target": "目標",
+  "vendorPerformance": "廠商績效",
+  "rank": "#{{rank}}",
+  "aiInsights": "AI 洞察",
+  "recentActivity": "近期活動",
+  "cpk": "製程能力 (Cpk)"
+}

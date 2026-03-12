@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(npm create vite@latest frontend -- --template react-ts)",
+      "Bash(npm install)",
+      "Bash(npm install react-router-dom react-i18next i18next i18next-browser-languagedetector echarts echarts-for-react lucide-react zustand)",
+      "Bash(npm install -D tailwindcss @tailwindcss/vite)"
     ]
   }
 }

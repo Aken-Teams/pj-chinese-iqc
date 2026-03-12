@@ -1,0 +1,21 @@
+{
+  "title": "Spec Compare",
+  "runComparison": "Run Comparison",
+  "exportComparison": "Export Comparison",
+  "cpSpec": "CP Spec (Source)",
+  "pkgSpec": "Package Test Spec (Target)",
+  "reviewRule": "Review Rule",
+  "results": "Comparison Results",
+  "match": "Match",
+  "tighter": "Tighter",
+  "outOfRange": "Out of Range",
+  "table": {
+    "parameter": "Parameter",
+    "cpLower": "CP Lower",
+    "cpUpper": "CP Upper",
+    "ftLower": "FT Lower",
+    "ftUpper": "FT Upper",
+    "margin": "Margin",
+    "result": "Result"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "title": "Dashboard",
+  "period": "Last 30 Days",
+  "kpi": {
+    "lotsReviewed": "Lots Reviewed",
+    "avgYield": "Avg Bin1 Yield",
+    "activeVendors": "Active Vendors",
+    "specAlerts": "Spec Alerts",
+    "aiAnomalies": "AI Anomalies",
+    "critical": "{{count}} critical",
+    "newVendor": "+{{count}} new",
+    "needsReview": "Needs Review"
+  },
+  "yieldTrend": "Yield Trend",
+  "target": "Target",
+  "vendorPerformance": "Vendor Performance",
+  "rank": "#{{rank}}",
+  "aiInsights": "AI Insights",
+  "recentActivity": "Recent Activity",
+  "cpk": "Process Capability (Cpk)"
+}
