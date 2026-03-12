@@ -68,11 +68,20 @@ export default function LoginPage() {
           <p className="text-[15px] text-text-tertiary leading-[1.6] mt-2">
             {t('description')}
           </p>
+          <div className="mt-6 border-l-2 border-accent pl-4">
+            <p className="text-[11px] font-bold uppercase tracking-[2px] text-accent mb-1">Client</p>
+            <p className="text-[18px] font-bold text-white tracking-wide">強茂科技股份有限公司</p>
+          </div>
         </div>
         <div className="flex flex-col gap-2">
-          <span className="text-[13px] font-semibold text-text-tertiary">
-            {t('copyright')}
-          </span>
+          <a
+            href="https://www.zh-aoi.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[13px] font-semibold text-text-tertiary hover:text-accent transition-colors"
+          >
+            Powered by 智合科技 @ 2026
+          </a>
           <span className="text-[12px] text-text-secondary">
             {t('version')}
           </span>
