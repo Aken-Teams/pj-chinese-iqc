@@ -253,10 +253,10 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* Row 2: AI Anomaly Detection (flex-1) + Correlation Matrix (fixed width, same height) */}
+          {/* Row 2: AI Anomaly (1/3) + Correlation Matrix (2/3) — same height via items-stretch */}
           <div className="flex gap-5 items-stretch">
-            {/* AI Anomaly Detection */}
-            <div className="flex-1 bg-bg-card p-5 overflow-y-auto" style={{ maxHeight: 560 }}>
+            {/* AI Anomaly Detection — 1/3 width, natural height (no scroll), determines row height */}
+            <div className="w-1/3 bg-bg-card p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={16} className="text-accent" />
                 <h3 className="font-heading font-bold">{t('anomaly.title')}</h3>
@@ -298,22 +298,23 @@ export default function AnalyticsPage() {
               )}
             </div>
 
-            {/* Correlation Matrix — fixed width, matches anomaly height, scrollable inside */}
-            <div className="w-[680px] flex-shrink-0 bg-bg-card p-5 flex flex-col">
+            {/* Correlation Matrix — 2/3 width, stretches to same height, scrollable both axes */}
+            <div className="w-2/3 bg-bg-card p-5 flex flex-col min-h-[300px]">
               <h3 className="font-heading font-bold mb-3">{t('correlation.title')}</h3>
               {corr && corr.params.length >= 2 ? (
                 <div className="flex-1 overflow-auto">
-                  {/* Sticky header row */}
+                  {/* Header row — tall enough for vertical param names */}
                   <div className="flex gap-px">
-                    <div className="h-8 w-16 flex-shrink-0 sticky left-0 bg-bg-card z-10" />
+                    {/* Corner spacer matches label column width and header height */}
+                    <div className="flex-shrink-0 sticky left-0 bg-bg-card z-10" style={{ width: 88, height: 88 }} />
                     {corr.params.map((p) => (
                       <div
                         key={p}
-                        className="h-8 w-10 flex-shrink-0 flex items-end justify-center pb-1 text-[9px] font-semibold text-text-secondary overflow-hidden"
+                        className="flex-shrink-0 flex items-center justify-center text-[9px] font-semibold text-text-secondary"
+                        style={{ width: 40, height: 88, writingMode: 'vertical-rl', transform: 'rotate(180deg)', overflow: 'hidden' }}
                         title={p}
-                        style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
                       >
-                        {p.length > 8 ? p.slice(0, 8) : p}
+                        {p}
                       </div>
                     ))}
                   </div>
@@ -321,15 +322,17 @@ export default function AnalyticsPage() {
                   {corr.matrix.map((row, ri) => (
                     <div key={ri} className="flex gap-px mt-px">
                       <div
-                        className="h-10 w-16 flex-shrink-0 flex items-center text-[10px] font-semibold text-text-secondary sticky left-0 bg-bg-card z-10 pr-1"
+                        className="flex-shrink-0 flex items-center text-[10px] font-semibold text-text-secondary sticky left-0 bg-bg-card z-10 pr-2"
+                        style={{ width: 88, height: 40 }}
                         title={corr.params[ri]}
                       >
-                        <span className="truncate">{corr.params[ri].length > 8 ? corr.params[ri].slice(0, 8) : corr.params[ri]}</span>
+                        <span className="truncate">{corr.params[ri]}</span>
                       </div>
                       {row.map((val, ci) => (
                         <div
                           key={ci}
-                          className={`h-10 w-10 flex-shrink-0 flex items-center justify-center text-[10px] font-semibold ${getCellColor(val, ri === ci)}`}
+                          className={`flex-shrink-0 flex items-center justify-center text-[10px] font-semibold ${getCellColor(val, ri === ci)}`}
+                          style={{ width: 40, height: 40 }}
                           title={`${corr.params[ri]} × ${corr.params[ci]}: ${val.toFixed(3)}`}
                         >
                           {val.toFixed(2)}
