@@ -173,8 +173,7 @@ export default function ReviewPage() {
               <th className="pb-3 text-left text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">
                 {t('table.status')}
               </th>
-              <th className="pb-3 text-right text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">
-              </th>
+              <th className="pb-3 w-8"></th>
             </tr>
           </thead>
           <tbody>
@@ -205,11 +204,8 @@ export default function ReviewPage() {
                 <td className="py-2.5">
                   <StatusBadge status={wafer.status} />
                 </td>
-                <td className="py-2.5 text-right">
-                  <span className="inline-flex items-center gap-1 text-[12px] text-accent font-semibold">
-                    {t('table.viewDetail', { defaultValue: '查看详细' })}
-                    <ChevronRight size={14} />
-                  </span>
+                <td className="py-2.5 text-text-muted">
+                  <ChevronRight size={16} />
                 </td>
               </tr>
             ))}
