@@ -23,7 +23,7 @@ def list_lots(
     from_date: Optional[str] = Query(None, description="Start date YYYY-MM-DD"),
     to_date: Optional[str] = Query(None, description="End date YYYY-MM-DD"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=100),
+    page_size: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
 ):
     query = db.query(Lot).join(Product, Lot.product_id == Product.id).join(Vendor, Product.vendor_id == Vendor.id)

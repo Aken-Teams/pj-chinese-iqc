@@ -76,35 +76,34 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1)
   const [allItems, setAllItems] = useState<HistoryRow[]>([])
 
+  const buildParams = () => ({ vendor, product, status, fromDate: fromDate || undefined, toDate: toDate || undefined })
+
   const loadData = async (pg = page) => {
     setLoading(true)
+    const params = buildParams()
+    // Paginated table data
     try {
-      const res = await getHistory({ vendor, product, status, fromDate: fromDate || undefined, toDate: toDate || undefined, page: pg, pageSize: 10 })
+      const res = await getHistory({ ...params, page: pg, pageSize: 10 })
       setData(res)
     } catch {
       setData(null)
     } finally {
       setLoading(false)
     }
-  }
-
-  const loadAll = async () => {
+    // All items for trend chart (independent — failure doesn't affect table)
     try {
-      const res = await getHistory({ vendor, product, status, fromDate: fromDate || undefined, toDate: toDate || undefined, pageSize: 200 })
+      const res = await getHistory({ ...params, page: 1, pageSize: 500 })
       setAllItems(res.items)
     } catch {
-      setAllItems([])
+      // keep previous allItems
     }
   }
 
   useEffect(() => { loadData(page) }, [page])
 
-  useEffect(() => { loadAll() }, [])
-
   const handleSearch = () => {
     setPage(1)
     loadData(1)
-    loadAll()
   }
 
   const items = data?.items || []
