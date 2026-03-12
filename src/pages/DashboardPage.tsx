@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/layout/PageHeader'
 import { Sparkles, TrendingUp, TrendingDown, Bell, Loader2 } from 'lucide-react'
 import { getDashboard, type DashboardData } from '@/services/dashboard'
 
 export default function DashboardPage() {
   const { t } = useTranslation('dashboard')
+  const navigate = useNavigate()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -188,7 +190,10 @@ export default function DashboardPage() {
         <div className="flex-1 bg-bg-card p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-heading text-sm font-bold">{t('recentActivity')}</h3>
-            <button className="text-[11px] text-accent font-semibold hover:underline cursor-pointer">
+            <button
+              onClick={() => navigate('/history')}
+              className="text-[11px] text-accent font-semibold hover:underline cursor-pointer"
+            >
               {t('viewAll', { ns: 'common', defaultValue: 'View All' })}
             </button>
           </div>
@@ -210,27 +215,47 @@ export default function DashboardPage() {
         </div>
 
         {/* Cpk Panel */}
-        <div className="w-[280px] bg-bg-card p-4 flex flex-col gap-2.5">
+        <div className="w-[280px] bg-bg-card p-4 flex flex-col gap-2">
           <h3 className="font-heading text-sm font-bold">{t('cpk')}</h3>
-          {data.cpkData.length > 0 ? data.cpkData.map((item, i) => (
-            <div key={i} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-text-secondary">{item.param}</span>
-                <span className={`text-[12px] font-bold ${
-                  item.value >= 1.33 ? 'text-success' : item.value >= 1.0 ? 'text-warning' : 'text-error'
-                }`}>Cpk {item.value.toFixed(2)}</span>
+          {data.cpkData.length > 0 ? (() => {
+            const maxCpk = Math.max(...data.cpkData.map(d => d.value))
+            const scale = Math.ceil(maxCpk / 5) * 5 // round up to nearest 5
+            const refPct = (1.33 / scale) * 100
+            return (
+              <div className="flex flex-col gap-2">
+                {/* Scale reference */}
+                <div className="flex items-center justify-between text-[9px] text-text-muted">
+                  <span>0</span>
+                  <span>Cpk 1.33</span>
+                  <span>{scale}</span>
+                </div>
+                {data.cpkData.map((item, i) => (
+                  <div key={i} className="flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-medium text-text-secondary truncate mr-2">{item.param}</span>
+                      <span className={`text-[11px] font-bold whitespace-nowrap ${
+                        item.value >= 1.33 ? 'text-success' : item.value >= 1.0 ? 'text-warning' : 'text-error'
+                      }`}>{item.value.toFixed(2)}</span>
+                    </div>
+                    <div className="relative h-2 bg-bar-track w-full">
+                      {/* 1.33 reference line */}
+                      <div
+                        className="absolute top-0 h-full w-px bg-text-muted/40 z-10"
+                        style={{ left: `${refPct}%` }}
+                      />
+                      <div
+                        className="h-full relative z-0"
+                        style={{
+                          width: `${Math.min((item.value / scale) * 100, 100)}%`,
+                          background: item.value >= 1.33 ? '#4A7C59' : item.value >= 1.0 ? '#C05A3C' : '#B54A4A',
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="h-1.5 bg-bar-track w-full">
-                <div
-                  className="h-full"
-                  style={{
-                    width: `${Math.min((item.value / 2.5) * 100, 100)}%`,
-                    background: item.value >= 1.33 ? '#4A7C59' : item.value >= 1.0 ? '#C05A3C' : '#B54A4A',
-                  }}
-                />
-              </div>
-            </div>
-          )) : (
+            )
+          })() : (
             <p className="text-text-muted text-[12px]">No Cpk data yet</p>
           )}
         </div>
