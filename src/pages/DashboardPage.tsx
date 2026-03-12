@@ -6,7 +6,7 @@ import { Sparkles, TrendingUp, TrendingDown, Bell, Loader2 } from 'lucide-react'
 import { getDashboard, type DashboardData } from '@/services/dashboard'
 
 export default function DashboardPage() {
-  const { t } = useTranslation('dashboard')
+  const { t, i18n } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -15,7 +15,7 @@ export default function DashboardPage() {
     const load = async () => {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const res = await getDashboard()
+          const res = await getDashboard(i18n.language)
           setData(res)
           setLoading(false)
           return

@@ -9,8 +9,26 @@ from app.models.spec import CpSpec
 from app.models.ai import AiAnomaly
 from app.services.cpk_engine import calculate_cpk
 
+_INSIGHT_T = {
+    "zh-TW": {
+        "cpk_danger": ("製程能力不足", "參數 {param} 的 Cpk = {cpk:.2f}，低於 1.0，需立即關注"),
+        "cpk_warning": ("製程能力警示", "參數 {param} 的 Cpk = {cpk:.2f}，低於 1.33，建議改善"),
+        "ai_anomaly": ("AI 偵測異常：{param}", "{description}"),
+    },
+    "zh-CN": {
+        "cpk_danger": ("制程能力不足", "参数 {param} 的 Cpk = {cpk:.2f}，低于 1.0，需立即关注"),
+        "cpk_warning": ("制程能力警示", "参数 {param} 的 Cpk = {cpk:.2f}，低于 1.33，建议改善"),
+        "ai_anomaly": ("AI 检测异常：{param}", "{description}"),
+    },
+    "en": {
+        "cpk_danger": ("Process Capability Fail", "Param {param} Cpk = {cpk:.2f} < 1.0 — immediate action required"),
+        "cpk_warning": ("Capability Warning", "Param {param} Cpk = {cpk:.2f} < 1.33 — improvement recommended"),
+        "ai_anomaly": ("AI Anomaly: {param}", "{description}"),
+    },
+}
 
-def get_dashboard_summary(db: Session) -> dict:
+
+def get_dashboard_summary(db: Session, lang: str = "zh-TW") -> dict:
     """Aggregate data for the dashboard page."""
 
     # KPIs
@@ -125,11 +143,54 @@ def get_dashboard_summary(db: Session) -> dict:
 
         yield_trend = {"months": months, "vendors": vendor_series}
 
+    # AI Insights: combine AiAnomaly records + CPK-based rule insights
+    tmpl = _INSIGHT_T.get(lang, _INSIGHT_T["zh-TW"])
+    ai_insights = []
+
+    # From AiAnomaly table (most recent unresolved)
+    anomalies = (
+        db.query(AiAnomaly)
+        .filter(AiAnomaly.is_resolved == False)
+        .order_by(AiAnomaly.detected_at.desc())
+        .limit(3)
+        .all()
+    )
+    for a in anomalies:
+        title_tpl, desc_tpl = tmpl["ai_anomaly"]
+        ai_insights.append({
+            "severity": a.severity,
+            "title": title_tpl.format(param=a.param_name or ""),
+            "description": a.description or desc_tpl.format(description=""),
+        })
+
+    # From CPK data (danger: Cpk < 1.0, warning: 1.0 ≤ Cpk < 1.33)
+    for item in cpk_data:
+        cpk = item["value"]
+        if cpk < 1.0:
+            title_tpl, desc_tpl = tmpl["cpk_danger"]
+            ai_insights.append({
+                "severity": "danger",
+                "title": title_tpl,
+                "description": desc_tpl.format(param=item["param"], cpk=cpk),
+            })
+        elif cpk < 1.33:
+            title_tpl, desc_tpl = tmpl["cpk_warning"]
+            ai_insights.append({
+                "severity": "warning",
+                "title": title_tpl,
+                "description": desc_tpl.format(param=item["param"], cpk=cpk),
+            })
+
+    # Sort: danger first, then warning, then info; cap at 5
+    severity_order = {"danger": 0, "warning": 1, "info": 2}
+    ai_insights.sort(key=lambda x: severity_order.get(x["severity"], 9))
+    ai_insights = ai_insights[:5]
+
     return {
         "kpis": kpis,
         "yieldTrend": yield_trend,
         "vendorPerf": vendor_perf,
-        "aiInsights": [],
+        "aiInsights": ai_insights,
         "recentActivity": recent_activity,
         "cpkData": cpk_data,
     }

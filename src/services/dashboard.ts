@@ -12,6 +12,6 @@ export interface DashboardData {
   cpkData: { param: string; value: number }[]
 }
 
-export async function getDashboard(): Promise<DashboardData> {
-  return apiFetch('/dashboard/summary')
+export async function getDashboard(lang: string = 'zh-TW'): Promise<DashboardData> {
+  return apiFetch(`/dashboard/summary?lang=${lang}`)
 }

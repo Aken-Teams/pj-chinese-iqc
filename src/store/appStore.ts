@@ -10,11 +10,16 @@ interface AppState {
 }
 
 const savedTheme = (localStorage.getItem('iqc-theme') as Theme) || 'light'
+const savedCollapsed = localStorage.getItem('iqc-sidebar-collapsed') === 'true'
 
 export const useAppStore = create<AppState>((set) => ({
-  sidebarCollapsed: false,
+  sidebarCollapsed: savedCollapsed,
   theme: savedTheme,
-  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+  toggleSidebar: () => set((s) => {
+    const next = !s.sidebarCollapsed
+    localStorage.setItem('iqc-sidebar-collapsed', String(next))
+    return { sidebarCollapsed: next }
+  }),
   setTheme: (theme) => {
     localStorage.setItem('iqc-theme', theme)
     set({ theme })

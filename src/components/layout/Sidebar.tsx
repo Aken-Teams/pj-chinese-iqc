@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   Cpu, LayoutGrid, Upload, FileSearch, GitCompare,
   History, ChartNoAxesColumn, Settings, LogOut,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
 import { useAppStore } from '@/store/appStore'
@@ -22,6 +23,7 @@ export default function Sidebar() {
   const { t, i18n } = useTranslation()
   const location = useLocation()
   const collapsed = useAppStore((s) => s.sidebarCollapsed)
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar)
   const { user, logout } = useAuthStore()
 
   const cycleLang = () => {
@@ -42,14 +44,26 @@ export default function Sidebar() {
         collapsed ? 'w-14' : 'w-[260px]'
       }`}
     >
-      {/* Logo */}
-      <div className={`flex items-center gap-3 px-7 pt-10 pb-8 ${collapsed ? 'px-4 justify-center' : ''}`}>
-        <Cpu size={24} className="text-accent shrink-0" />
-        {!collapsed && (
-          <span className="font-heading text-base font-bold tracking-[2px] text-text-on-dark">
-            IQC SYSTEM
-          </span>
-        )}
+      {/* Logo + Toggle */}
+      <div className={`flex items-center pt-10 pb-8 ${collapsed ? 'flex-col gap-4 px-0' : 'px-7 gap-3'}`}>
+        <div className={`flex items-center gap-3 flex-1 min-w-0 ${collapsed ? 'justify-center' : ''}`}>
+          <Cpu size={24} className="text-accent shrink-0" />
+          {!collapsed && (
+            <span className="font-heading text-base font-bold tracking-[2px] text-text-on-dark">
+              IQC SYSTEM
+            </span>
+          )}
+        </div>
+        <button
+          onClick={toggleSidebar}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="text-text-tertiary hover:text-text-on-dark transition-colors cursor-pointer shrink-0"
+        >
+          {collapsed
+            ? <PanelLeftOpen size={16} />
+            : <PanelLeftClose size={16} />
+          }
+        </button>
       </div>
 
       {/* Nav */}
@@ -58,24 +72,36 @@ export default function Sidebar() {
           const isActive = location.pathname === to ||
             (to === ROUTES.REVIEW && location.pathname.startsWith('/review/'))
           return (
-            <NavLink
-              key={to}
-              to={to}
-              className={`flex items-center gap-3.5 px-3 py-2.5 transition-colors ${
-                isActive
-                  ? 'bg-bg-dark-surface text-accent'
-                  : 'text-text-tertiary hover:text-text-on-dark'
-              } ${collapsed ? 'justify-center px-0' : ''}`}
-            >
-              <Icon size={20} className="shrink-0" />
-              {!collapsed && (
-                <span className={`font-heading text-[13px] tracking-[1px] uppercase ${
-                  isActive ? 'font-semibold' : 'font-medium'
-                }`}>
-                  {t(labelKey)}
-                </span>
+            <div key={to} className="relative group">
+              <NavLink
+                to={to}
+                className={`flex items-center gap-3.5 px-3 py-2.5 transition-colors ${
+                  isActive
+                    ? 'bg-bg-dark-surface text-accent'
+                    : 'text-text-tertiary hover:text-text-on-dark'
+                } ${collapsed ? 'justify-center px-0' : ''}`}
+              >
+                <Icon size={20} className="shrink-0" />
+                {!collapsed && (
+                  <span className={`font-heading text-[13px] tracking-[1px] uppercase ${
+                    isActive ? 'font-semibold' : 'font-medium'
+                  }`}>
+                    {t(labelKey)}
+                  </span>
+                )}
+              </NavLink>
+              {collapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className={`border-l-2 px-3 py-1.5 whitespace-nowrap bg-bg-dark-surface shadow-lg ${
+                    isActive ? 'border-accent' : 'border-text-tertiary'
+                  }`}>
+                    <span className="font-heading text-[11px] tracking-[1px] uppercase text-text-on-dark">
+                      {t(labelKey)}
+                    </span>
+                  </div>
+                </div>
               )}
-            </NavLink>
+            </div>
           )
         })}
       </nav>

@@ -8,5 +8,5 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 @router.get("/summary")
-def dashboard_summary(db: Session = Depends(get_db)):
-    return get_dashboard_summary(db)
+def dashboard_summary(lang: str = "zh-TW", db: Session = Depends(get_db)):
+    return get_dashboard_summary(db, lang)
