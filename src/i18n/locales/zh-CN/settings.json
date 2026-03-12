@@ -4,9 +4,17 @@
   "languageDesc": "选择界面显示语言",
   "profile": "用户资料",
   "profileDesc": "管理个人信息和偏好设置",
+  "name": "姓名",
+  "role": "角色",
+  "department": "部门",
+  "email": "电子邮件",
+  "employeeId": "员工编号",
+  "roleAdmin": "系统管理员",
   "theme": "主题",
   "themeDesc": "自定义界面外观",
+  "themeLight": "浅色",
+  "themeDark": "深色",
+  "themeSystem": "跟随系统",
   "about": "关于系统",
-  "aboutDesc": "IQC Wafer CP 审核系统 v2.0",
-  "comingSoon": "即将推出"
+  "aboutDesc": "IQC Wafer CP 审核系统 v2.0"
 }

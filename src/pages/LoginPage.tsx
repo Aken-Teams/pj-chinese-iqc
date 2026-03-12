@@ -22,7 +22,7 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     if (employeeId === 'admin' && password === 'admin123') {
-      login({ id: '1', name: 'Admin', role: 'admin' })
+      login({ id: '1', name: 'Zhang Wei', role: 'admin', department: 'IQC Department', email: 'zhang.wei@panjit.com', employeeId: 'PJ-2024001' })
       navigate('/dashboard')
     } else {
       setError(t('loginFailed'))

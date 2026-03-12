@@ -1,9 +1,12 @@
 import { create } from 'zustand'
 
-interface User {
+export interface User {
   id: string
   name: string
   role: string
+  department: string
+  email: string
+  employeeId: string
 }
 
 interface AuthState {

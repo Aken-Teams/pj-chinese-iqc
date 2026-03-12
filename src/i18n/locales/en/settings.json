@@ -4,9 +4,17 @@
   "languageDesc": "Choose the interface display language",
   "profile": "Profile",
   "profileDesc": "Manage your personal information and preferences",
+  "name": "Name",
+  "role": "Role",
+  "department": "Department",
+  "email": "Email",
+  "employeeId": "Employee ID",
+  "roleAdmin": "System Administrator",
   "theme": "Theme",
   "themeDesc": "Customize the interface appearance",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeSystem": "System",
   "about": "About",
-  "aboutDesc": "IQC Wafer CP Review System v2.0",
-  "comingSoon": "Coming Soon"
+  "aboutDesc": "IQC Wafer CP Review System v2.0"
 }

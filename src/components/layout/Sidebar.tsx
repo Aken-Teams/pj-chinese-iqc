@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Cpu, LayoutGrid, Upload, FileSearch, GitCompare,
-  History, ChartNoAxesColumn, Settings,
+  History, ChartNoAxesColumn, Settings, LogOut,
 } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
 import { useAppStore } from '@/store/appStore'
@@ -22,7 +22,7 @@ export default function Sidebar() {
   const { t, i18n } = useTranslation()
   const location = useLocation()
   const collapsed = useAppStore((s) => s.sidebarCollapsed)
-  const logout = useAuthStore((s) => s.logout)
+  const { user, logout } = useAuthStore()
 
   const cycleLang = () => {
     const langs = ['zh-CN', 'zh-TW', 'en']
@@ -80,8 +80,31 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom: Language + Logout */}
+      {/* Bottom: User + Language + Logout */}
       <div className={`px-4 pb-6 flex flex-col gap-2 ${collapsed ? 'items-center' : ''}`}>
+        {/* User info */}
+        {user && (
+          <div className={`flex items-center gap-3 px-3 py-2 ${collapsed ? 'justify-center px-0' : ''}`}>
+            <div className="w-8 h-8 bg-accent flex items-center justify-center shrink-0">
+              <span className="font-heading text-xs font-bold text-white">
+                {user.name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            {!collapsed && (
+              <div className="flex flex-col min-w-0">
+                <span className="text-[12px] font-semibold text-text-on-dark truncate">
+                  {user.name}
+                </span>
+                <span className="text-[10px] text-text-muted truncate">
+                  {user.employeeId}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="h-px bg-bg-dark-surface mx-3" />
+
         <button
           onClick={cycleLang}
           className="flex items-center gap-2 px-3 py-2 text-text-tertiary hover:text-text-on-dark transition-colors cursor-pointer"
@@ -97,9 +120,12 @@ export default function Sidebar() {
         </button>
         <button
           onClick={logout}
-          className="flex items-center gap-2 px-3 py-2 text-text-muted hover:text-error transition-colors cursor-pointer text-[11px] font-heading tracking-[1px]"
+          className="flex items-center gap-2 px-3 py-2 text-text-muted hover:text-error transition-colors cursor-pointer"
         >
-          {collapsed ? '×' : 'LOGOUT'}
+          <LogOut size={14} className="shrink-0" />
+          {!collapsed && (
+            <span className="text-[11px] font-heading tracking-[1px]">LOGOUT</span>
+          )}
         </button>
       </div>
     </aside>

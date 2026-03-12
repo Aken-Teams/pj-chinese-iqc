@@ -4,9 +4,17 @@
   "languageDesc": "選擇介面顯示語言",
   "profile": "使用者資料",
   "profileDesc": "管理個人資訊和偏好設定",
+  "name": "姓名",
+  "role": "角色",
+  "department": "部門",
+  "email": "電子郵件",
+  "employeeId": "員工編號",
+  "roleAdmin": "系統管理員",
   "theme": "佈景主題",
   "themeDesc": "自訂介面外觀",
+  "themeLight": "淺色",
+  "themeDark": "深色",
+  "themeSystem": "跟隨系統",
   "about": "關於系統",
-  "aboutDesc": "IQC Wafer CP 審核系統 v2.0",
-  "comingSoon": "即將推出"
+  "aboutDesc": "IQC Wafer CP 審核系統 v2.0"
 }
