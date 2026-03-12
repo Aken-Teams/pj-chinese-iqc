@@ -5,9 +5,10 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Sparkles, Loader2 } from 'lucide-
 import { getWaferDetail, type WaferDetail, type ElectricalParam } from '@/services/review'
 import { getWaferMap, getBinDistribution, type WaferMapData, type BinCount } from '@/services/waferMap'
 import { getLotResults } from '@/services/review'
+import { apiFetch } from '@/services/api'
 
 export default function ReviewDetailPage() {
-  const { t } = useTranslation('review')
+  const { t, i18n } = useTranslation('review')
   const navigate = useNavigate()
   const { lotId, waferId } = useParams<{ lotId: string; waferId: string }>()
   const [detail, setDetail] = useState<WaferDetail | null>(null)
@@ -15,12 +16,16 @@ export default function ReviewDetailPage() {
   const [binDist, setBinDist] = useState<BinCount[]>([])
   const [loading, setLoading] = useState(true)
   const [waferIds, setWaferIds] = useState<string[]>([])
+  const [aiSummary, setAiSummary] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [waferDbId, setWaferDbId] = useState<number | null>(null)
 
   const lotDbId = Number(lotId)
 
   useEffect(() => {
     if (!lotId || !waferId) return
     setLoading(true)
+    setAiSummary(null)
 
     // Load wafer detail
     const loadDetail = getWaferDetail(lotDbId, waferId).then(setDetail).catch(() => null)
@@ -30,6 +35,7 @@ export default function ReviewDetailPage() {
       setWaferIds(res.wafers.map(w => w.waferId))
       const wafer = res.wafers.find(w => w.waferId === waferId)
       if (wafer) {
+        setWaferDbId(wafer.dbId)
         getWaferMap(wafer.dbId).then(setMapData).catch(() => null)
         getBinDistribution(wafer.dbId).then(setBinDist).catch(() => null)
       }
@@ -37,6 +43,19 @@ export default function ReviewDetailPage() {
 
     Promise.all([loadDetail, loadWaferList]).finally(() => setLoading(false))
   }, [lotId, waferId])
+
+  // Generate AI summary once waferDbId is available
+  useEffect(() => {
+    if (!waferDbId || !lotDbId) return
+    setAiLoading(true)
+    apiFetch<{ summary: string }>('/ai/review-summary', {
+      method: 'POST',
+      body: JSON.stringify({ lot_id: lotDbId, wafer_id: waferDbId, lang: i18n.language }),
+    })
+      .then(res => setAiSummary(res.summary))
+      .catch(() => null)
+      .finally(() => setAiLoading(false))
+  }, [waferDbId, i18n.language])
 
   const currentIdx = waferIds.indexOf(waferId || '')
   const prevWaferId = currentIdx > 0 ? waferIds[currentIdx - 1] : null
@@ -88,28 +107,28 @@ export default function ReviewDetailPage() {
       return (
         <div
           className="inline-grid"
-          style={{ gridTemplateColumns: `repeat(${displaySize}, ${cellSize}px)`, gap: '1px' }}
-        >
-          {Array.from({ length: displaySize }, (_, row) =>
-            Array.from({ length: displaySize }, (_, col) => {
-              const dataRow = row - rowOffset
-              const dataCol = col - colOffset
-              const inBounds = dataRow >= 0 && dataRow < rows && dataCol >= 0 && dataCol < cols
-              const key = `${dataRow},${dataCol}`
-              const bin = inBounds ? mapGrid.grid[key] : undefined
-              let bgColor: string
-              if (bin === 1) bgColor = 'var(--color-success)'
-              else if (bin !== undefined) bgColor = 'var(--color-error)'
-              else if (inBounds) bgColor = 'rgba(0,0,0,0.06)'
-              else bgColor = 'transparent'
-              return (
-                <div
-                  key={`${row}-${col}`}
-                  style={{ width: cellSize, height: cellSize, backgroundColor: bgColor, borderRadius: radius }}
-                />
-              )
-            })
-          )}
+            style={{ gridTemplateColumns: `repeat(${displaySize}, ${cellSize}px)`, gap: '1px' }}
+          >
+            {Array.from({ length: displaySize }, (_, row) =>
+              Array.from({ length: displaySize }, (_, col) => {
+                const dataRow = row - rowOffset
+                const dataCol = col - colOffset
+                const inBounds = dataRow >= 0 && dataRow < rows && dataCol >= 0 && dataCol < cols
+                const key = `${dataRow},${dataCol}`
+                const bin = inBounds ? mapGrid.grid[key] : undefined
+                let bgColor: string
+                if (bin === 1) bgColor = 'var(--color-success)'
+                else if (bin !== undefined) bgColor = 'var(--color-error)'
+                else if (inBounds) bgColor = 'rgba(0,0,0,0.06)'
+                else bgColor = 'transparent'
+                return (
+                  <div
+                    key={`${row}-${col}`}
+                    style={{ width: cellSize, height: cellSize, backgroundColor: bgColor, borderRadius: radius }}
+                  />
+                )
+              })
+            )}
         </div>
       )
     }
@@ -250,13 +269,20 @@ export default function ReviewDetailPage() {
             <Sparkles size={16} className="text-accent" />
             <h3 className="font-heading font-bold text-sm">{t('detail.aiSummary')}</h3>
           </div>
-          <p className="text-[13px] text-text-secondary leading-relaxed">
-            {detail ? (
-              detail.failCount > 0
-                ? t('detail.aiSummaryWithFail', { waferId, yield: detail.bin1Yield.toFixed(2), failCount: detail.failCount, paramCount: params.length })
-                : t('detail.aiSummaryAllPass', { waferId, yield: detail.bin1Yield.toFixed(2), paramCount: params.length })
-            ) : t('detail.noData')}
-          </p>
+          {aiLoading ? (
+            <div className="flex items-center gap-2 text-text-muted text-[13px]">
+              <Loader2 size={14} className="animate-spin" />
+              <span>{t('detail.aiGenerating')}</span>
+            </div>
+          ) : (
+            <p className="text-[13px] text-text-secondary leading-relaxed whitespace-pre-wrap">
+              {aiSummary || (detail ? (
+                detail.failCount > 0
+                  ? t('detail.aiSummaryWithFail', { waferId, yield: detail.bin1Yield.toFixed(2), failCount: detail.failCount, paramCount: params.length })
+                  : t('detail.aiSummaryAllPass', { waferId, yield: detail.bin1Yield.toFixed(2), paramCount: params.length })
+              ) : t('detail.noData'))}
+            </p>
+          )}
         </div>
 
         {/* Bin Distribution */}

@@ -42,6 +42,7 @@
     "min": "最小值",
     "max": "最大值",
     "aiSummary": "AI 審查摘要",
+    "aiGenerating": "AI 分析中...",
     "aiSummaryAllPass": "Wafer {{waferId}} Bin1 良率 {{yield}}%，全部 Die 通過，共量測 {{paramCount}} 項電性參數。",
     "aiSummaryWithFail": "Wafer {{waferId}} Bin1 良率 {{yield}}%，偵測到 {{failCount}} 顆不良 Die，共量測 {{paramCount}} 項電性參數。",
     "binDistribution": "Bin 分佈",

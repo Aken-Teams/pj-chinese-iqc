@@ -42,6 +42,7 @@
     "min": "Min",
     "max": "Max",
     "aiSummary": "AI Review Summary",
+    "aiGenerating": "AI analyzing...",
     "aiSummaryAllPass": "Wafer {{waferId}} Bin1 Yield {{yield}}%. All dies passed. {{paramCount}} electrical parameters measured.",
     "aiSummaryWithFail": "Wafer {{waferId}} Bin1 Yield {{yield}}%. {{failCount}} fail die(s) detected. {{paramCount}} electrical parameters measured.",
     "binDistribution": "Bin Distribution",

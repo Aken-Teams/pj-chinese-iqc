@@ -50,6 +50,7 @@ def generate_summary(req: ReviewSummaryRequest, db: Session = Depends(get_db)):
         stats=stats or {},
         electrical_params=e_params,
         bin_distribution=bins,
+        lang=req.lang,
     )
 
     # Save to DB

@@ -20,6 +20,7 @@ class AnomalyItem(BaseModel):
 class ReviewSummaryRequest(BaseModel):
     lot_id: int
     wafer_id: int | None = None
+    lang: str = "zh-TW"
 
 
 class ReviewSummaryResponse(BaseModel):

@@ -9,6 +9,12 @@ class AIService:
             base_url="https://api.deepseek.com",
         )
 
+    _LANG_INSTRUCTION = {
+        "zh-TW": "請使用繁體中文回覆。",
+        "zh-CN": "请使用简体中文回复。",
+        "en": "Please reply in English.",
+    }
+
     def generate_review_summary(
         self,
         wafer_id: str,
@@ -16,7 +22,9 @@ class AIService:
         stats: dict,
         electrical_params: list[dict],
         bin_distribution: list[dict],
+        lang: str = "zh-TW",
     ) -> str:
+        lang_instruction = self._LANG_INSTRUCTION.get(lang, self._LANG_INSTRUCTION["zh-TW"])
         prompt = self._build_prompt(wafer_id, lot_id, stats, electrical_params, bin_distribution)
         try:
             response = self.client.chat.completions.create(
@@ -25,19 +33,23 @@ class AIService:
                     {
                         "role": "system",
                         "content": (
-                            "你是IQC晶圆CP数据审核专家。"
-                            "请用简洁的中文摘要审查结果，包含关键发现和建议。"
-                            "回复控制在150字以内。"
+                            f"你是IQC晶圓CP測試數據審核專家。{lang_instruction}"
+                            "請針對提供的晶圓數據進行專業分析，包含："
+                            "1) 良率評估（正常/偏低/異常）；"
+                            "2) 電性參數中是否有標準差過大或均值偏移的參數；"
+                            "3) 不良Die的風險評估；"
+                            "4) 具體建議（是否需要加強監控、重新測試或退貨）。"
+                            "回覆控制在200字以內，語氣專業簡潔。"
                         ),
                     },
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=500,
+                max_tokens=600,
                 temperature=0.3,
             )
             return response.choices[0].message.content or ""
         except Exception as e:
-            return f"AI 摘要生成失败: {str(e)}"
+            return f"AI summary generation failed: {str(e)}"
 
     def _build_prompt(
         self,
@@ -47,21 +59,33 @@ class AIService:
         electrical_params: list[dict],
         bin_distribution: list[dict],
     ) -> str:
+        # Flag parameters with high stdev (>10% of avg) or extreme range
+        anomalies = []
+        for p in electrical_params:
+            try:
+                avg = float(p['avg'])
+                stdev = float(p['stdev'])
+                if avg != 0 and stdev / abs(avg) > 0.1:
+                    anomalies.append(f"{p['param']}(stdev/avg={stdev/abs(avg)*100:.1f}%)")
+            except (ValueError, ZeroDivisionError):
+                pass
+
         params_text = "\n".join(
             f"  {p['param']}: Avg={p['avg']}, Stdev={p['stdev']}, Min={p['min']}, Max={p['max']}"
             for p in electrical_params
         )
         bins_text = ", ".join(f"Bin{b['bin']}={b['count']}" for b in bin_distribution)
+        anomaly_note = f"\n注意參數異常: {', '.join(anomalies)}" if anomalies else ""
 
         return (
-            f"批次 {lot_id} / 晶圆 {wafer_id} 审查数据:\n"
-            f"总Die数: {stats.get('totalDies', 0)}, "
-            f"Bin1通过: {stats.get('bin1Pass', 0)}, "
+            f"批次 {lot_id} / 晶圓 {wafer_id} 審查數據:\n"
+            f"總Die數: {stats.get('totalDies', 0)}, "
+            f"Bin1通過: {stats.get('bin1Pass', 0)}, "
             f"Bin1良率: {stats.get('bin1Yield', 0):.2f}%, "
-            f"不良数: {stats.get('failCount', 0)}\n\n"
-            f"电性参数:\n{params_text}\n\n"
-            f"Bin分布: {bins_text}\n\n"
-            f"请分析此晶圆的整体质量状况，指出潜在风险，并给出建议。"
+            f"不良數: {stats.get('failCount', 0)}\n"
+            f"Bin分布: {bins_text}{anomaly_note}\n\n"
+            f"電性參數明細:\n{params_text}\n\n"
+            f"請進行專業分析並給出具體建議。"
         )
 
 
