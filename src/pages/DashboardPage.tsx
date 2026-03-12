@@ -120,10 +120,23 @@ export default function DashboardPage() {
                           return (
                             <div
                               key={vi}
-                              className="w-[24px]"
-                              style={{ height: `${Math.max(pct, 5)}%`, background: v.color }}
-                              title={`${v.name}: ${val}%`}
-                            />
+                              className="relative group"
+                              style={{ height: `${Math.max(pct, 5)}%` }}
+                            >
+                              <div
+                                className="w-[24px] h-full cursor-default"
+                                style={{ background: v.color }}
+                              />
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
+                                <div
+                                  className="bg-bg-dark-surface px-2.5 py-1.5 whitespace-nowrap shadow-lg"
+                                  style={{ borderLeft: `2px solid ${v.color}` }}
+                                >
+                                  <div className="text-[9px] text-text-muted font-heading tracking-[1px] uppercase">{v.name}</div>
+                                  <div className="text-[14px] font-bold text-text-on-dark font-heading leading-tight">{val.toFixed(1)}%</div>
+                                </div>
+                              </div>
+                            </div>
                           )
                         })}
                       </div>
