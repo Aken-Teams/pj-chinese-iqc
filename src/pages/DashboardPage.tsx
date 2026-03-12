@@ -101,29 +101,63 @@ export default function DashboardPage() {
             </div>
           </div>
           {data.yieldTrend.months.length > 0 ? (
-            <div className="flex items-end gap-4 h-[180px]">
-              {data.yieldTrend.months.map((month, mi) => (
-                <div key={mi} className="flex flex-col items-center gap-1 h-full" style={{ width: Math.max(60, 100 / data.yieldTrend.months.length) }}>
-                  <div className="flex gap-1 items-end w-full justify-center flex-1">
-                    {data.yieldTrend.vendors.map((v, vi) => {
-                      const val = v.data[mi]
-                      const pct = ((val - 95) / 5) * 100
-                      return (
-                        <div
-                          key={vi}
-                          className="w-[24px]"
-                          style={{ height: `${Math.max(pct, 5)}%`, background: v.color }}
-                          title={`${v.name}: ${val}%`}
-                        />
-                      )
-                    })}
-                  </div>
-                  <span className="text-[10px] text-text-muted">{month}</span>
+            <>
+              <div className="flex flex-1 gap-2 min-h-0">
+                {/* Y-axis labels */}
+                <div className="flex flex-col justify-between items-end pr-1 pb-5 shrink-0">
+                  <span className="text-[9px] text-text-muted">100%</span>
+                  <span className="text-[9px] text-text-muted">97.5%</span>
+                  <span className="text-[9px] text-text-muted">95%</span>
                 </div>
-              ))}
-            </div>
+                {/* Bars */}
+                <div className="flex items-end gap-4 flex-1">
+                  {data.yieldTrend.months.map((month, mi) => (
+                    <div key={mi} className="flex flex-col items-center gap-1 h-full" style={{ width: Math.max(60, 100 / data.yieldTrend.months.length) }}>
+                      <div className="flex gap-1 items-end w-full justify-center flex-1">
+                        {data.yieldTrend.vendors.map((v, vi) => {
+                          const val = v.data[mi]
+                          const pct = ((val - 95) / 5) * 100
+                          return (
+                            <div
+                              key={vi}
+                              className="w-[24px]"
+                              style={{ height: `${Math.max(pct, 5)}%`, background: v.color }}
+                              title={`${v.name}: ${val}%`}
+                            />
+                          )
+                        })}
+                      </div>
+                      <span className="text-[10px] text-text-muted">{month}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Bottom stats strip */}
+              <div className="mt-3 pt-3 border-t border-border-light flex items-center gap-6 shrink-0">
+                {data.yieldTrend.vendors.map((v) => {
+                  const latest = v.data[v.data.length - 1]
+                  return (
+                    <div key={v.name} className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 shrink-0" style={{ background: v.color }} />
+                        <span className="text-[10px] text-text-muted">{v.name}</span>
+                      </div>
+                      <span className={`font-heading text-[18px] font-bold leading-none ${latest >= 99 ? 'text-success' : 'text-error'}`}>
+                        {latest.toFixed(1)}<span className="text-[12px]">%</span>
+                      </span>
+                    </div>
+                  )
+                })}
+                <div className="ml-auto flex flex-col gap-0.5 items-end">
+                  <span className="text-[10px] text-text-muted">{t('target')}</span>
+                  <span className="font-heading text-[18px] font-bold leading-none text-text-tertiary">
+                    ≥99.0<span className="text-[12px]">%</span>
+                  </span>
+                </div>
+              </div>
+            </>
           ) : (
-            <div className="h-[180px] flex items-center justify-center text-text-muted text-sm">
+            <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
               {t('noTrendData')}
             </div>
           )}
