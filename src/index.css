@@ -22,8 +22,8 @@
   --color-badge-fail: #FFEBEE;
   --color-bar-track: #E8E4DE;
 
-  --font-heading: 'Space Grotesk', sans-serif;
-  --font-body: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-heading: 'Space Grotesk', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-body: 'Inter', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
 @layer base {

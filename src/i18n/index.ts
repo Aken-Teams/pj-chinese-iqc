@@ -62,6 +62,10 @@ i18n
     fallbackLng: 'zh-CN',
     defaultNS: 'common',
     interpolation: { escapeValue: false },
+    detection: {
+      order: ['localStorage', 'querystring'],
+      caches: ['localStorage'],
+    },
   })
 
 export default i18n
