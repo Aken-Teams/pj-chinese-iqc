@@ -21,5 +21,14 @@
   },
   "correlation": {
     "title": "参数相关性矩阵"
-  }
+  },
+  "selectLot": "-- 选择批次 --",
+  "noParams": "无参数",
+  "selectLotPrompt": "请选择批次以查看分析数据。",
+  "noSpcData": "暂无 SPC 数据",
+  "noDistData": "暂无分布数据",
+  "noAnomalies": "未检测到异常",
+  "noCorrelation": "参数不足，无法计算相关性",
+  "spcChartTitle": "SPC 管制图 — {{param}}",
+  "distributionTitle": "分布图 — {{param}}"
 }

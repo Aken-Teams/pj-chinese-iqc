@@ -24,6 +24,9 @@
     "status": "状态",
     "viewDetail": "查看详细"
   },
+  "selectLot": "-- 选择批次 --",
+  "selectLotPrompt": "请选择批次以查看审核结果，或先上传数据。",
+  "running": "执行中...",
   "detail": {
     "title": "审核详情",
     "backToList": "返回列表",

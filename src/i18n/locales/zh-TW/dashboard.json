@@ -17,5 +17,11 @@
   "rank": "#{{rank}}",
   "aiInsights": "AI 洞察",
   "recentActivity": "近期活動",
-  "cpk": "製程能力 (Cpk)"
+  "cpk": "製程能力 (Cpk)",
+  "noData": "無法載入儀表板資料，請確認後端服務是否執行中。",
+  "noTrendData": "暫無趨勢資料",
+  "noVendorData": "暫無廠商資料",
+  "noInsights": "暫無 AI 洞察",
+  "noActivity": "暫無近期活動",
+  "noCpkData": "暫無 Cpk 資料"
 }

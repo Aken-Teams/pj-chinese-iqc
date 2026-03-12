@@ -17,5 +17,11 @@
   "rank": "#{{rank}}",
   "aiInsights": "AI Insights",
   "recentActivity": "Recent Activity",
-  "cpk": "Process Capability (Cpk)"
+  "cpk": "Process Capability (Cpk)",
+  "noData": "Unable to load dashboard data. Please check that the backend is running.",
+  "noTrendData": "No trend data yet",
+  "noVendorData": "No vendor data yet",
+  "noInsights": "No AI insights yet",
+  "noActivity": "No recent activity",
+  "noCpkData": "No Cpk data yet"
 }

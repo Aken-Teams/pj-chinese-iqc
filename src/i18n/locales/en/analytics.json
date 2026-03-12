@@ -21,5 +21,14 @@
   },
   "correlation": {
     "title": "Parameter Correlation Matrix"
-  }
+  },
+  "selectLot": "-- Select Lot --",
+  "noParams": "No params",
+  "selectLotPrompt": "Select a lot to view analytics data.",
+  "noSpcData": "No SPC data available",
+  "noDistData": "No distribution data",
+  "noAnomalies": "No anomalies detected",
+  "noCorrelation": "Not enough parameters for correlation",
+  "spcChartTitle": "SPC Control Chart — {{param}}",
+  "distributionTitle": "Distribution — {{param}}"
 }

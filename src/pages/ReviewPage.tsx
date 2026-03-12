@@ -100,7 +100,7 @@ export default function ReviewPage() {
               disabled={reviewing || selectedLotId === null}
               className="bg-accent px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-white hover:bg-accent/90 disabled:opacity-50"
             >
-              {reviewing ? 'Running...' : t('runReview')}
+              {reviewing ? t('running') : t('runReview')}
             </button>
           </>
         }
@@ -120,7 +120,7 @@ export default function ReviewPage() {
           }}
           className="w-[400px] border border-border-light bg-white px-3 py-2 text-[13px] text-text-primary"
         >
-          <option value="">-- Select a lot --</option>
+          <option value="">{t('selectLot')}</option>
           {lots.map((lot) => (
             <option key={lot.id} value={lot.id}>
               {lot.vendor} / {lot.product} / {lot.lotId} ({lot.status})
@@ -201,7 +201,7 @@ export default function ReviewPage() {
         </>
       ) : (
         <div className="mt-10 text-center text-text-muted">
-          Select a lot to view review results, or upload data first.
+          {t('selectLotPrompt')}
         </div>
       )}
     </div>

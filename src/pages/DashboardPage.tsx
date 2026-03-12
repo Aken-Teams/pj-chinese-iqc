@@ -41,7 +41,7 @@ export default function DashboardPage() {
       <div className="p-6 pl-8 flex flex-col gap-4">
         <PageHeader title={t('title')} />
         <div className="text-center text-text-muted py-16">
-          Unable to load dashboard data. Please check that the backend is running.
+          {t('noData')}
         </div>
       </div>
     )
@@ -124,7 +124,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="h-[180px] flex items-center justify-center text-text-muted text-sm">
-              No trend data yet
+              {t('noTrendData')}
             </div>
           )}
         </div>
@@ -156,7 +156,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             )) : (
-              <p className="text-text-muted text-[12px]">No vendor data yet</p>
+              <p className="text-text-muted text-[12px]">{t('noVendorData')}</p>
             )}
           </div>
 
@@ -178,7 +178,7 @@ export default function DashboardPage() {
                 <span className="text-[11px] text-text-secondary leading-snug">{insight.description}</span>
               </div>
             )) : (
-              <p className="text-text-muted text-[12px]">No AI insights yet</p>
+              <p className="text-text-muted text-[12px]">{t('noInsights')}</p>
             )}
           </div>
         </div>
@@ -194,7 +194,7 @@ export default function DashboardPage() {
               onClick={() => navigate('/history')}
               className="text-[11px] text-accent font-semibold hover:underline cursor-pointer"
             >
-              {t('viewAll', { ns: 'common', defaultValue: 'View All' })}
+              {t('actions.viewAll', { ns: 'common' })}
             </button>
           </div>
           <div className="flex flex-col">
@@ -209,7 +209,7 @@ export default function DashboardPage() {
                 <span className="text-[11px] text-text-muted whitespace-nowrap ml-4">{act.time}</span>
               </div>
             )) : (
-              <p className="text-text-muted text-[12px] py-2">No recent activity</p>
+              <p className="text-text-muted text-[12px] py-2">{t('noActivity')}</p>
             )}
           </div>
         </div>
@@ -256,7 +256,7 @@ export default function DashboardPage() {
               </div>
             )
           })() : (
-            <p className="text-text-muted text-[12px]">No Cpk data yet</p>
+            <p className="text-text-muted text-[12px]">{t('noCpkData')}</p>
           )}
         </div>
       </div>

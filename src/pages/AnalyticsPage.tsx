@@ -96,7 +96,7 @@ export default function AnalyticsPage() {
   return (
     <div className="p-9 pl-11 flex flex-col gap-6">
       <PageHeader
-        title={t('title', { defaultValue: 'Analytics & AI' })}
+        title={t('title')}
         actions={
           <div className="flex items-center gap-3">
             <select
@@ -107,7 +107,7 @@ export default function AnalyticsPage() {
               }}
               className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-secondary"
             >
-              <option value="">-- Select Lot --</option>
+              <option value="">{t('selectLot')}</option>
               {lots.map((lot) => (
                 <option key={lot.id} value={lot.id}>
                   {lot.vendor} / {lot.product} / {lot.lotId}
@@ -120,7 +120,7 @@ export default function AnalyticsPage() {
               className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-secondary"
               disabled={params.length === 0}
             >
-              {params.length === 0 && <option value="">No params</option>}
+              {params.length === 0 && <option value="">{t('noParams')}</option>}
               {params.map(p => (
                 <option key={p} value={p}>{p}</option>
               ))}
@@ -135,7 +135,7 @@ export default function AnalyticsPage() {
         </div>
       ) : !selectedLotId ? (
         <div className="text-center text-text-muted py-16">
-          Select a lot to view analytics data.
+          {t('selectLotPrompt')}
         </div>
       ) : (
         <>
@@ -144,19 +144,19 @@ export default function AnalyticsPage() {
             {/* SPC Control Chart */}
             <div className="flex-1 bg-bg-card p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-heading font-bold">SPC Control Chart — {selectedParam}</h3>
+                <h3 className="font-heading font-bold">{t('spcChartTitle', { param: selectedParam })}</h3>
                 <div className="flex gap-4">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 bg-success" />
-                    <span className="text-[11px] text-text-secondary">Mean</span>
+                    <span className="text-[11px] text-text-secondary">{t('spc.mean')}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 bg-[#E8A849]" />
-                    <span className="text-[11px] text-text-secondary">&plusmn;2&sigma;</span>
+                    <span className="text-[11px] text-text-secondary">{t('spc.sigma2')}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 bg-error" />
-                    <span className="text-[11px] text-text-secondary">UCL/LCL</span>
+                    <span className="text-[11px] text-text-secondary">{t('spc.uclLcl')}</span>
                   </div>
                 </div>
               </div>
@@ -175,7 +175,7 @@ export default function AnalyticsPage() {
                   <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '30%', height: '20%' }} />
                   {/* Mean line */}
                   <div className="absolute inset-x-0 bg-success flex items-center justify-end pr-3" style={{ top: '50%', height: '2px' }}>
-                    <span className="text-[10px] font-semibold text-success absolute -top-3 right-3">Mean {spc.grandMean.toFixed(4)}</span>
+                    <span className="text-[10px] font-semibold text-success absolute -top-3 right-3">{t('spc.mean')} {spc.grandMean.toFixed(4)}</span>
                   </div>
                   {/* Normal zone below mean */}
                   <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '50%', height: '20%' }} />
@@ -210,23 +210,23 @@ export default function AnalyticsPage() {
                 </div>
               ) : (
                 <div className="h-[180px] flex items-center justify-center text-text-muted text-sm">
-                  No SPC data available
+                  {t('noSpcData')}
                 </div>
               )}
             </div>
 
             {/* Distribution */}
             <div className="w-[340px] bg-bg-card p-5 flex flex-col">
-              <h3 className="font-heading font-bold mb-3">Distribution — {selectedParam}</h3>
+              <h3 className="font-heading font-bold mb-3">{t('distributionTitle', { param: selectedParam })}</h3>
               {dist && dist.counts.length > 0 ? (
                 <>
                   <div className="flex gap-4 mb-4">
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-text-muted uppercase tracking-wider">Mean</span>
+                      <span className="text-[10px] text-text-muted uppercase tracking-wider">{t('distribution.mean')}</span>
                       <span className="text-sm font-bold text-text-primary">{dist.mean.toFixed(4)}</span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-text-muted uppercase tracking-wider">Stdev</span>
+                      <span className="text-[10px] text-text-muted uppercase tracking-wider">{t('distribution.stdev')}</span>
                       <span className="text-sm font-bold text-text-primary">{dist.stdev.toFixed(4)}</span>
                     </div>
                     <div className="flex flex-col">
@@ -254,7 +254,7 @@ export default function AnalyticsPage() {
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
-                  No distribution data
+                  {t('noDistData')}
                 </div>
               )}
             </div>
@@ -266,11 +266,10 @@ export default function AnalyticsPage() {
             <div className="flex-1 bg-bg-card p-5 overflow-hidden">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={16} className="text-accent" />
-                <h3 className="font-heading font-bold">AI Anomaly Detection</h3>
+                <h3 className="font-heading font-bold">{t('anomaly.title')}</h3>
               </div>
               <p className="text-[12px] text-text-secondary mb-4 leading-relaxed">
-                Machine learning models continuously monitor incoming test data to identify anomalies,
-                parameter drift, and wafer map patterns that may indicate process shifts or equipment issues.
+                {t('anomaly.description')}
               </p>
 
               <div className="flex flex-col gap-3">
@@ -288,20 +287,20 @@ export default function AnalyticsPage() {
                         </div>
                         <span className="text-[11px] text-text-secondary">{a.description}</span>
                         <span className={`text-[10px] font-semibold ${isWarning ? 'text-[#E8A849]' : 'text-error'}`}>
-                          Confidence: {(a.confidence * 100).toFixed(0)}%
+                          {t('anomaly.confidence')}: {(a.confidence * 100).toFixed(0)}%
                         </span>
                       </div>
                     </div>
                   )
                 }) : (
-                  <div className="text-text-muted text-sm py-4 text-center">No anomalies detected</div>
+                  <div className="text-text-muted text-sm py-4 text-center">{t('noAnomalies')}</div>
                 )}
               </div>
             </div>
 
             {/* Correlation Matrix */}
             <div className="w-[400px] bg-bg-card p-5">
-              <h3 className="font-heading font-bold mb-3">Parameter Correlation Matrix</h3>
+              <h3 className="font-heading font-bold mb-3">{t('correlation.title')}</h3>
               {corr && corr.params.length >= 2 ? (
                 <div className="flex flex-col gap-px overflow-auto">
                   {/* Header row */}
@@ -336,7 +335,7 @@ export default function AnalyticsPage() {
                 </div>
               ) : (
                 <div className="text-text-muted text-sm py-8 text-center">
-                  Not enough parameters for correlation
+                  {t('noCorrelation')}
                 </div>
               )}
             </div>

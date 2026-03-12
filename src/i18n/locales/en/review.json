@@ -24,6 +24,9 @@
     "status": "Status",
     "viewDetail": "View Detail"
   },
+  "selectLot": "-- Select a lot --",
+  "selectLotPrompt": "Select a lot to view review results, or upload data first.",
+  "running": "Running...",
   "detail": {
     "title": "Review Details",
     "backToList": "Back to List",

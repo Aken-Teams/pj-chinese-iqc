@@ -24,6 +24,9 @@
     "status": "狀態",
     "viewDetail": "查看詳細"
   },
+  "selectLot": "-- 選擇批次 --",
+  "selectLotPrompt": "請選擇批次以查看審核結果，或先上傳資料。",
+  "running": "執行中...",
   "detail": {
     "title": "審核詳情",
     "backToList": "返回列表",
