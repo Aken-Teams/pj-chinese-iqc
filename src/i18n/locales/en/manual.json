@@ -63,11 +63,11 @@
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "Account management and system configuration",
+    "subtitle": "Profile, theme, and language preferences",
     "steps": [
-      { "label": "Account", "desc": "Update your password and personal information. First-time users should obtain credentials from the administrator." },
-      { "label": "Vendor Config", "desc": "Administrators can add or modify vendor codes to support new CP data formats." },
-      { "label": "Notifications", "desc": "Configure system alert conditions for when yield falls below a defined threshold." }
+      { "label": "Profile", "desc": "Displays your account information — name, employee ID, department, and email. This is read-only." },
+      { "label": "Theme", "desc": "Switch between Light, Dark, or System theme. Changes take effect immediately." },
+      { "label": "Language", "desc": "Switch the interface language between 简体中文, 繁體中文, or English. The entire UI updates instantly." }
     ]
   }
 }
