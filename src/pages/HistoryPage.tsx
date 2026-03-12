@@ -6,9 +6,10 @@ import { getHistory, type HistoryRow, type HistoryResponse } from '@/services/hi
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
 
-// Simple SVG line chart for yield trend
+// SVG line chart for yield trend with hover tooltip
 function YieldTrendChart({ items }: { items: HistoryRow[] }) {
   const { t } = useTranslation('history')
+  const [hovered, setHovered] = useState<number | null>(null)
 
   if (items.length === 0) {
     return <p className="text-sm text-text-muted text-center py-6">{t('noTrend')}</p>
@@ -16,7 +17,7 @@ function YieldTrendChart({ items }: { items: HistoryRow[] }) {
 
   const W = 680
   const H = 140
-  const PAD = { top: 16, right: 24, bottom: 32, left: 48 }
+  const PAD = { top: 20, right: 24, bottom: 32, left: 48 }
   const chartW = W - PAD.left - PAD.right
   const chartH = H - PAD.top - PAD.bottom
 
@@ -42,7 +43,8 @@ function YieldTrendChart({ items }: { items: HistoryRow[] }) {
     .filter((_, i) => i % step === 0 || i === items.length - 1)
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}
+      onMouseLeave={() => setHovered(null)}>
       {ticks.map((tk) => (
         <g key={tk.v}>
           <line x1={PAD.left} y1={tk.y} x2={W - PAD.right} y2={tk.y} stroke="var(--color-border-light)" strokeDasharray="4 3" />
@@ -52,14 +54,42 @@ function YieldTrendChart({ items }: { items: HistoryRow[] }) {
         </g>
       ))}
       <path d={pathD} fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinejoin="round" />
-      {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="3" fill="var(--color-accent)" />
-      ))}
+      {/* Invisible wider hit area + visible dot */}
+      {points.map((p, i) => {
+        const isHov = hovered === i
+        return (
+          <g key={i} onMouseEnter={() => setHovered(i)} style={{ cursor: 'pointer' }}>
+            <circle cx={p.x} cy={p.y} r="10" fill="transparent" />
+            <circle cx={p.x} cy={p.y} r={isHov ? 5 : 3} fill="var(--color-accent)"
+              style={{ transition: 'r 0.1s ease' }} />
+          </g>
+        )
+      })}
       {xLabels.map((lbl) => (
         <text key={lbl.x} x={lbl.x} y={H - 4} textAnchor="middle" fontSize="9" fill="var(--color-text-muted)">
           {lbl.label}
         </text>
       ))}
+      {/* Tooltip */}
+      {hovered !== null && (() => {
+        const p = points[hovered]
+        const row = p.row
+        const line1 = row.date?.slice(0, 10) ?? ''
+        const line2 = `${row.lotId}  ${row.avgYield}`
+        const tw = Math.max(line1.length, line2.length) * 5.8 + 14
+        const tx = Math.min(Math.max(p.x, PAD.left + tw / 2), W - PAD.right - tw / 2)
+        const ty = p.y - 6
+        return (
+          <g>
+            <rect x={tx - tw / 2} y={ty - 32} width={tw} height={28} rx={2}
+              fill="var(--color-text-primary)" />
+            <text x={tx} y={ty - 18} textAnchor="middle" fontSize="9"
+              fill="var(--color-bg-card)" fontWeight="600">{line1}</text>
+            <text x={tx} y={ty - 7} textAnchor="middle" fontSize="9"
+              fill="var(--color-bg-card)">{line2}</text>
+          </g>
+        )
+      })()}
     </svg>
   )
 }

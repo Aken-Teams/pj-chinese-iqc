@@ -15,6 +15,83 @@ import {
   type AnomalyItem,
 } from '@/services/analytics'
 
+function SpcChart({ spc, chartHeight }: { spc: SpcResponse; chartHeight: number }) {
+  const { t } = useTranslation('analytics')
+  const [hovered, setHovered] = useState<number | null>(null)
+  const points = spc.dataPoints
+
+  const getPos = (i: number) => {
+    const xPct = points.length > 1 ? (i / (points.length - 1)) * 90 + 5 : 50
+    const range = spc.ucl - spc.lcl
+    const yPct = range > 0 ? 7.5 + (1 - (points[i].value - spc.lcl) / range) * 85 : 50
+    return { xPct, yPct }
+  }
+
+  return (
+    <div className="relative" style={{ height: chartHeight }}>
+      <div className="absolute inset-x-0 top-0 bg-[#FFEBEE] flex items-center justify-end pr-3" style={{ height: '15%' }}>
+        <span className="text-[10px] font-semibold text-error">UCL {spc.ucl.toFixed(4)}</span>
+      </div>
+      <div className="absolute inset-x-0 bg-[#FFF3E0] flex items-center justify-end pr-3" style={{ top: '15%', height: '15%' }}>
+        <span className="text-[10px] font-semibold text-[#E8A849]">+2&sigma;</span>
+      </div>
+      <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '30%', height: '20%' }} />
+      <div className="absolute inset-x-0 bg-success flex items-center justify-end pr-3" style={{ top: '50%', height: '2px' }}>
+        <span className="text-[10px] font-semibold text-success absolute -top-3 right-3">{t('spc.mean')} {spc.grandMean.toFixed(4)}</span>
+      </div>
+      <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '50%', height: '20%' }} />
+      <div className="absolute inset-x-0 bg-[#FFF3E0] flex items-center justify-end pr-3" style={{ top: '70%', height: '15%' }}>
+        <span className="text-[10px] font-semibold text-[#E8A849]">-2&sigma;</span>
+      </div>
+      <div className="absolute inset-x-0 bg-[#FFEBEE] flex items-center justify-end pr-3" style={{ top: '85%', height: '15%' }}>
+        <span className="text-[10px] font-semibold text-error">LCL {spc.lcl.toFixed(4)}</span>
+      </div>
+      {/* Dots */}
+      <div className="absolute inset-0">
+        {points.map((pt, i) => {
+          const { xPct, yPct } = getPos(i)
+          const isHov = hovered === i
+          return (
+            <div
+              key={i}
+              className={`absolute w-2 h-2 rounded-full ${pt.isOoc ? 'bg-error' : 'bg-accent'}`}
+              style={{
+                left: `${xPct}%`,
+                top: `${yPct}%`,
+                transform: `translate(-50%, -50%) scale(${isHov ? 1.6 : 1})`,
+                cursor: 'pointer',
+                zIndex: isHov ? 10 : 1,
+                transition: 'transform 0.1s ease',
+              }}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+            />
+          )
+        })}
+      </div>
+      {/* Tooltip — outside dot div so it's not affected by the dot's scale transform */}
+      {hovered !== null && (() => {
+        const { xPct, yPct } = getPos(hovered)
+        const pt = points[hovered]
+        return (
+          <div
+            className="absolute text-[10px] font-semibold px-2 py-1 whitespace-nowrap pointer-events-none z-20"
+            style={{
+              left: `${xPct}%`,
+              top: `${yPct}%`,
+              transform: 'translate(-50%, calc(-100% - 10px))',
+              background: 'var(--color-text-primary)',
+              color: 'var(--color-bg-card)',
+            }}
+          >
+            {pt.waferId}: {pt.value.toFixed(4)}
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
+
 function DistributionChart({ counts }: { counts: number[] }) {
   const [hovered, setHovered] = useState<number | null>(null)
 
@@ -151,7 +228,6 @@ export default function AnalyticsPage() {
     }
   }
 
-  const spcPoints = spc?.dataPoints || []
   const chartHeight = 180
 
   return (
@@ -223,42 +299,7 @@ export default function AnalyticsPage() {
               </div>
 
               {spc && spc.dataPoints.length > 0 ? (
-                <div className="relative" style={{ height: chartHeight }}>
-                  <div className="absolute inset-x-0 top-0 bg-[#FFEBEE] flex items-center justify-end pr-3" style={{ height: '15%' }}>
-                    <span className="text-[10px] font-semibold text-error">UCL {spc.ucl.toFixed(4)}</span>
-                  </div>
-                  <div className="absolute inset-x-0 bg-[#FFF3E0] flex items-center justify-end pr-3" style={{ top: '15%', height: '15%' }}>
-                    <span className="text-[10px] font-semibold text-[#E8A849]">+2&sigma;</span>
-                  </div>
-                  <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '30%', height: '20%' }} />
-                  <div className="absolute inset-x-0 bg-success flex items-center justify-end pr-3" style={{ top: '50%', height: '2px' }}>
-                    <span className="text-[10px] font-semibold text-success absolute -top-3 right-3">{t('spc.mean')} {spc.grandMean.toFixed(4)}</span>
-                  </div>
-                  <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '50%', height: '20%' }} />
-                  <div className="absolute inset-x-0 bg-[#FFF3E0] flex items-center justify-end pr-3" style={{ top: '70%', height: '15%' }}>
-                    <span className="text-[10px] font-semibold text-[#E8A849]">-2&sigma;</span>
-                  </div>
-                  <div className="absolute inset-x-0 bg-[#FFEBEE] flex items-center justify-end pr-3" style={{ top: '85%', height: '15%' }}>
-                    <span className="text-[10px] font-semibold text-error">LCL {spc.lcl.toFixed(4)}</span>
-                  </div>
-                  <div className="absolute inset-0 pointer-events-none">
-                    {spcPoints.map((pt, i) => {
-                      const xPct = spcPoints.length > 1 ? (i / (spcPoints.length - 1)) * 90 + 5 : 50
-                      const range = spc.ucl - spc.lcl
-                      const yPct = range > 0
-                        ? 7.5 + (1 - (pt.value - spc.lcl) / range) * 85
-                        : 50
-                      return (
-                        <div
-                          key={i}
-                          className={`absolute w-2 h-2 rounded-full ${pt.isOoc ? 'bg-error' : 'bg-accent'}`}
-                          style={{ left: `${xPct}%`, top: `${yPct}%`, transform: 'translate(-50%, -50%)' }}
-                          title={`${pt.waferId}: ${pt.value.toFixed(4)}`}
-                        />
-                      )
-                    })}
-                  </div>
-                </div>
+                <SpcChart spc={spc} chartHeight={chartHeight} />
               ) : (
                 <div className="h-[180px] flex items-center justify-center text-text-muted text-sm">
                   {t('noSpcData')}
