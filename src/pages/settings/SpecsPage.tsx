@@ -196,8 +196,8 @@ export default function SpecsPage() {
       ) : (
         <div className="bg-bg-card border border-border-light overflow-auto">
           <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-border-light">
+            <thead className="bg-bg-page">
+              <tr className="border-b-2 border-border-light">
                 <th className="px-4 py-2.5 text-xs font-semibold text-text-muted uppercase tracking-[1px]">
                   {t('specs.paramName')}
                 </th>

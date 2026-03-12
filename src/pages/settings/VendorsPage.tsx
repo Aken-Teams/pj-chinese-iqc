@@ -176,44 +176,48 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
       </button>
 
       {expanded && (
-        <div className="px-5 pb-5 flex flex-col gap-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-text-muted uppercase tracking-[1px]">
+        <div className="flex flex-col">
+          {/* Sub-header bar — visually separated from vendor row */}
+          <div className="flex items-center justify-between px-5 py-2.5 bg-bg-page border-t border-border-light">
+            <span className="text-xs font-bold text-text-muted uppercase tracking-[1px]">
               {t('vendors.formats')}
             </span>
             <button
               onClick={() => setAddingNew(true)}
-              className="flex items-center gap-1 text-sm text-accent hover:text-accent/80 cursor-pointer"
+              className="flex items-center gap-1 text-sm text-accent hover:text-accent/80 cursor-pointer font-medium"
             >
               <Plus size={14} /> {t('vendors.addFormat')}
             </button>
           </div>
 
-          {formats.length === 0 && !addingNew && (
-            <p className="text-sm text-text-muted py-2">{t('vendors.noFormats')}</p>
-          )}
+          {/* Format rows */}
+          <div className="px-5 pb-5 pt-3 flex flex-col gap-2">
+            {formats.length === 0 && !addingNew && (
+              <p className="text-sm text-text-muted py-1">{t('vendors.noFormats')}</p>
+            )}
 
-          {formats.map((fmt) => (
-            <FormatRow
-              key={fmt.id}
-              fmt={fmt}
-              vendorId={vendor.id}
-              onSaved={(saved) => setFormats((prev) => prev.map((f) => (f.id === saved.id ? saved : f)))}
-              onDeleted={() => setFormats((prev) => prev.filter((f) => f.id !== fmt.id))}
-            />
-          ))}
+            {formats.map((fmt) => (
+              <FormatRow
+                key={fmt.id}
+                fmt={fmt}
+                vendorId={vendor.id}
+                onSaved={(saved) => setFormats((prev) => prev.map((f) => (f.id === saved.id ? saved : f)))}
+                onDeleted={() => setFormats((prev) => prev.filter((f) => f.id !== fmt.id))}
+              />
+            ))}
 
-          {addingNew && (
-            <FormatRow
-              fmt={null}
-              vendorId={vendor.id}
-              onSaved={(saved) => {
-                setFormats((prev) => [...prev, saved])
-                setAddingNew(false)
-              }}
-              onDeleted={() => setAddingNew(false)}
-            />
-          )}
+            {addingNew && (
+              <FormatRow
+                fmt={null}
+                vendorId={vendor.id}
+                onSaved={(saved) => {
+                  setFormats((prev) => [...prev, saved])
+                  setAddingNew(false)
+                }}
+                onDeleted={() => setAddingNew(false)}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>
