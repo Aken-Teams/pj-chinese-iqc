@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getHistory, type HistoryRow } from '@/services/history'
 import { compareSpecs, type SpecCompareResponse } from '@/services/specs'
+import { downloadCsv } from '@/utils/exportCsv'
 
 export default function ComparePage() {
   const { t } = useTranslation('compare')
@@ -36,6 +37,18 @@ export default function ComparePage() {
     }
   }
 
+  const handleExportCsv = () => {
+    if (!result) return
+    const headers = [
+      t('table.parameter'), t('table.cpLower'), t('table.cpUpper'),
+      t('table.ftLower'), t('table.ftUpper'), t('table.margin'), t('table.result'),
+    ]
+    const rows = result.rows.map((r) => [
+      r.param, r.cpLower, r.cpUpper, r.ftLower, r.ftUpper, r.margin, r.result,
+    ])
+    downloadCsv(`compare_lot${selectedLotId}.csv`, [headers, ...rows])
+  }
+
   const resultLabel = (key: string) => {
     if (key === 'Match') return t('match')
     if (key === 'Tighter') return t('tighter')
@@ -47,7 +60,11 @@ export default function ComparePage() {
       <PageHeader
         title={t('title')}
         actions={
-          <button className="bg-bg-card border border-border-light px-4 py-2 text-sm text-text-secondary font-semibold hover:bg-border-light transition-colors">
+          <button
+            onClick={handleExportCsv}
+            disabled={!result}
+            className="bg-bg-card border border-border-light px-4 py-2 text-sm text-text-secondary font-semibold hover:bg-border-light transition-colors disabled:opacity-40"
+          >
             {t('exportComparison')}
           </button>
         }

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import PageHeader from '@/components/layout/PageHeader'
 import { Download, Search, Loader2 } from 'lucide-react'
 import { getHistory, type HistoryRow, type HistoryResponse } from '@/services/history'
+import { downloadCsv } from '@/utils/exportCsv'
 
 export default function HistoryPage() {
   const { t } = useTranslation('history')
@@ -27,6 +28,15 @@ export default function HistoryPage() {
 
   useEffect(() => { loadData() }, [page])
 
+  const handleExportCsv = () => {
+    const headers = [
+      t('table.date'), t('table.vendor'), t('table.product'),
+      t('table.lotId'), t('table.wafers'), t('table.avgYield'), t('table.status'),
+    ]
+    const rows = items.map((r) => [r.date, r.vendor, r.product, r.lotId, r.wafers, r.avgYield, r.status])
+    downloadCsv('history.csv', [headers, ...rows])
+  }
+
   const handleSearch = () => {
     setPage(1)
     loadData()
@@ -39,7 +49,11 @@ export default function HistoryPage() {
       <PageHeader
         title={t('title')}
         actions={
-          <button className="bg-bg-card border border-border-light px-4 py-2 text-sm text-text-secondary font-semibold hover:bg-border-light transition-colors flex items-center gap-2">
+          <button
+            onClick={handleExportCsv}
+            disabled={items.length === 0}
+            className="bg-bg-card border border-border-light px-4 py-2 text-sm text-text-secondary font-semibold hover:bg-border-light transition-colors flex items-center gap-2 disabled:opacity-40"
+          >
             <Download size={16} />
             {t('exportCsv')}
           </button>

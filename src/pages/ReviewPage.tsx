@@ -5,6 +5,7 @@ import { ChevronRight, Loader2 } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getLotResults, executeReview, type LotReviewSummary } from '@/services/review'
 import { getHistory, type HistoryRow } from '@/services/history'
+import { downloadCsv } from '@/utils/exportCsv'
 
 type WaferStatus = 'PASS' | 'WARN' | 'FAIL'
 
@@ -82,6 +83,20 @@ export default function ReviewPage() {
 
   const wafers = summary?.wafers || []
 
+  const handleExportCsv = () => {
+    if (!summary) return
+    const headers = [
+      t('table.waferId'), t('table.dieCount'), t('table.bin1Yield'),
+      t('table.q1Yield'), t('table.q2Yield'), t('table.q3Yield'), t('table.status'),
+    ]
+    const rows = summary.wafers.map((w) => [
+      w.waferId, w.dieCount, `${w.bin1Yield.toFixed(2)}%`,
+      `${w.q1Yield.toFixed(2)}%`, `${w.q2Yield.toFixed(2)}%`,
+      `${w.q3Yield.toFixed(2)}%`, w.status,
+    ])
+    downloadCsv(`review_${summary.lotId}.csv`, [headers, ...rows])
+  }
+
   return (
     <div className="p-12">
       <PageHeader
@@ -90,7 +105,9 @@ export default function ReviewPage() {
           <>
             <button
               type="button"
-              className="border border-border-light bg-bg-card px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-text-secondary hover:bg-bg-page"
+              onClick={handleExportCsv}
+              disabled={!summary}
+              className="border border-border-light bg-bg-card px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-text-secondary hover:bg-bg-page disabled:opacity-40"
             >
               {t('exportCsv')}
             </button>

@@ -100,14 +100,21 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-          {data.yieldTrend.months.length > 0 ? (
+          {data.yieldTrend.months.length > 0 ? (() => {
+            // Dynamic Y-axis: floor min value to nearest 5, ceiling at 100
+            const allVals = data.yieldTrend.vendors.flatMap(v => v.data)
+            const minVal = allVals.length > 0 ? Math.min(...allVals) : 95
+            const yMin = Math.max(0, Math.floor(minVal / 5) * 5)
+            const yMax = 100
+            const yMid = Math.round((yMin + yMax) / 2 * 2) / 2
+            return (
             <>
               <div className="flex flex-1 gap-2 min-h-0">
                 {/* Y-axis labels */}
                 <div className="flex flex-col justify-between items-end pr-1 pb-5 shrink-0">
-                  <span className="text-[9px] text-text-muted">100%</span>
-                  <span className="text-[9px] text-text-muted">97.5%</span>
-                  <span className="text-[9px] text-text-muted">95%</span>
+                  <span className="text-[9px] text-text-muted">{yMax}%</span>
+                  <span className="text-[9px] text-text-muted">{yMid}%</span>
+                  <span className="text-[9px] text-text-muted">{yMin}%</span>
                 </div>
                 {/* Bars */}
                 <div className="flex items-end gap-4 flex-1">
@@ -116,12 +123,12 @@ export default function DashboardPage() {
                       <div className="flex gap-1 items-end w-full justify-center flex-1">
                         {data.yieldTrend.vendors.map((v, vi) => {
                           const val = v.data[mi]
-                          const pct = ((val - 95) / 5) * 100
+                          const pct = Math.max(((val - yMin) / (yMax - yMin)) * 100, 2)
                           return (
                             <div
                               key={vi}
                               className="relative group"
-                              style={{ height: `${Math.max(pct, 5)}%` }}
+                              style={{ height: `${pct}%` }}
                             >
                               <div
                                 className="w-[24px] h-full cursor-default"
@@ -169,7 +176,8 @@ export default function DashboardPage() {
                 </div>
               </div>
             </>
-          ) : (
+            )
+          })() : (
             <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
               {t('noTrendData')}
             </div>
@@ -196,7 +204,7 @@ export default function DashboardPage() {
                   <div
                     className="h-full"
                     style={{
-                      width: `${((v.yield - 95) / 5) * 100}%`,
+                      width: `${Math.max(Math.min(v.yield, 100), 0)}%`,
                       background: v.yield >= 99 ? '#4A7C59' : '#C05A3C',
                     }}
                   />
