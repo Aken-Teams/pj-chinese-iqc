@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/layout/PageHeader'
-import { Sparkles, TrendingUp, TrendingDown, Bell, Loader2 } from 'lucide-react'
+import { Sparkles, TrendingUp, TrendingDown, Loader2 } from 'lucide-react'
 import { getDashboard, type DashboardData } from '@/services/dashboard'
 
 export default function DashboardPage() {
@@ -49,19 +49,7 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 pl-8 flex flex-col gap-4">
-      <PageHeader
-        title={t('title')}
-        actions={
-          <div className="flex items-center gap-3">
-            <select className="bg-bg-card border border-border-light px-3 py-1.5 text-sm text-text-secondary">
-              <option>{t('period')}</option>
-            </select>
-            <button className="p-2 text-text-tertiary hover:text-text-primary">
-              <Bell size={18} />
-            </button>
-          </div>
-        }
-      />
+      <PageHeader title={t('title')} />
 
       {/* KPI Cards */}
       <div className="flex gap-3">
