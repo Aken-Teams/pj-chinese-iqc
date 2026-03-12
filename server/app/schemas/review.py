@@ -7,6 +7,7 @@ class ReviewExecuteRequest(BaseModel):
 
 
 class WaferReviewRow(BaseModel):
+    dbId: int
     waferId: str
     dieCount: int
     bin1Yield: float

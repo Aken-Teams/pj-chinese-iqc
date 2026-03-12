@@ -1,6 +1,7 @@
 import { apiFetch } from './api'
 
 export interface WaferRow {
+  dbId: number
   waferId: string
   dieCount: number
   bin1Yield: number

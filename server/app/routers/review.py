@@ -67,6 +67,7 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db)):
 
         yield_sum += bin1_yield_pct
         wafer_rows.append(WaferReviewRow(
+            dbId=w.id,
             waferId=w.wafer_id,
             dieCount=w.gross_die or 0,
             bin1Yield=round(bin1_yield_pct, 2),

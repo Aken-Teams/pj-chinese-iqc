@@ -25,14 +25,13 @@ export default function ReviewDetailPage() {
     // Load wafer detail
     const loadDetail = getWaferDetail(lotDbId, waferId).then(setDetail).catch(() => null)
 
-    // Load wafer list for prev/next navigation
+    // Load wafer list for prev/next navigation, then load map data
     const loadWaferList = getLotResults(lotDbId).then(res => {
       setWaferIds(res.wafers.map(w => w.waferId))
-      // Find the DB wafer id for map data
-      const waferIdx = res.wafers.findIndex(w => w.waferId === waferId)
-      if (waferIdx >= 0) {
-        // We need the DB wafer id for wafer-map endpoints
-        // For now, use the lot DB id and wafer string id
+      const wafer = res.wafers.find(w => w.waferId === waferId)
+      if (wafer) {
+        getWaferMap(wafer.dbId).then(setMapData).catch(() => null)
+        getBinDistribution(wafer.dbId).then(setBinDist).catch(() => null)
       }
     }).catch(() => null)
 
@@ -46,16 +45,24 @@ export default function ReviewDetailPage() {
   // Build wafer map grid from die data
   const mapGrid = useMemo(() => {
     if (!mapData || !mapData.dies.length) return null
+    // Normalize coordinates to 0-based indices so the grid always fits the display
+    // regardless of the actual coordinate values or range
+    const uniqueXs = [...new Set(mapData.dies.map(d => d.x))].sort((a, b) => a - b)
+    const uniqueYs = [...new Set(mapData.dies.map(d => d.y))].sort((a, b) => a - b)
+    const xToIdx = new Map(uniqueXs.map((x, i) => [x, i] as [number, number]))
+    const yToIdx = new Map(uniqueYs.map((y, i) => [y, i] as [number, number]))
     const grid: Record<string, number> = {}
     for (const die of mapData.dies) {
-      grid[`${die.y},${die.x}`] = die.bin
+      const xi = xToIdx.get(die.x)!
+      const yi = yToIdx.get(die.y)!
+      grid[`${yi},${xi}`] = die.bin
     }
     return {
       grid,
-      minX: mapData.minX,
-      maxX: mapData.maxX,
-      minY: mapData.minY,
-      maxY: mapData.maxY,
+      minX: 0,
+      maxX: uniqueXs.length - 1,
+      minY: 0,
+      maxY: uniqueYs.length - 1,
     }
   }, [mapData])
 
@@ -72,25 +79,33 @@ export default function ReviewDetailPage() {
     if (mapGrid) {
       const cols = mapGrid.maxX - mapGrid.minX + 1
       const rows = mapGrid.maxY - mapGrid.minY + 1
-      const cellSize = Math.min(20, Math.floor(300 / Math.max(cols, rows)))
+      // Pad to square so the wafer appears circular and symmetric
+      const displaySize = Math.max(cols, rows)
+      const colOffset = Math.floor((displaySize - cols) / 2)
+      const rowOffset = Math.floor((displaySize - rows) / 2)
+      const cellSize = Math.min(20, Math.floor(300 / displaySize))
+      const radius = Math.ceil(cellSize / 4)
       return (
         <div
-          className="inline-grid gap-px"
-          style={{ gridTemplateColumns: `repeat(${cols}, ${cellSize}px)` }}
+          className="inline-grid"
+          style={{ gridTemplateColumns: `repeat(${displaySize}, ${cellSize}px)`, gap: '1px' }}
         >
-          {Array.from({ length: rows }, (_, row) =>
-            Array.from({ length: cols }, (_, col) => {
-              const key = `${row + mapGrid.minY},${col + mapGrid.minX}`
-              const bin = mapGrid.grid[key]
-              let cellClass = 'bg-transparent'
-              if (bin !== undefined) {
-                cellClass = bin === 1 ? 'bg-success' : 'bg-text-primary'
-              }
+          {Array.from({ length: displaySize }, (_, row) =>
+            Array.from({ length: displaySize }, (_, col) => {
+              const dataRow = row - rowOffset
+              const dataCol = col - colOffset
+              const inBounds = dataRow >= 0 && dataRow < rows && dataCol >= 0 && dataCol < cols
+              const key = `${dataRow},${dataCol}`
+              const bin = inBounds ? mapGrid.grid[key] : undefined
+              let bgColor: string
+              if (bin === 1) bgColor = 'var(--color-success)'
+              else if (bin !== undefined) bgColor = 'var(--color-error)'
+              else if (inBounds) bgColor = 'rgba(0,0,0,0.06)'
+              else bgColor = 'transparent'
               return (
                 <div
                   key={`${row}-${col}`}
-                  className={cellClass}
-                  style={{ width: cellSize, height: cellSize }}
+                  style={{ width: cellSize, height: cellSize, backgroundColor: bgColor, borderRadius: radius }}
                 />
               )
             })
@@ -164,7 +179,7 @@ export default function ReviewDetailPage() {
               <span className="text-[11px] text-text-secondary">{t('detail.bin1Label')} Pass</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 bg-text-primary" />
+              <div className="w-3 h-3 bg-error" />
               <span className="text-[11px] text-text-secondary">{t('detail.bin2PlusLabel')} Fail</span>
             </div>
             <div className="flex items-center gap-1.5">
