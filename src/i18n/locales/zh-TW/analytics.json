@@ -17,7 +17,8 @@
   "anomaly": {
     "title": "AI 異常偵測",
     "description": "機器學習模型持續監控電性參數趨勢，自動偵測異常模式",
-    "confidence": "置信度"
+    "confidence": "置信度",
+    "analyzing": "AI 分析中..."
   },
   "correlation": {
     "title": "參數相關性矩陣"

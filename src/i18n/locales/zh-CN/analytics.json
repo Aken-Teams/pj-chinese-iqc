@@ -17,7 +17,8 @@
   "anomaly": {
     "title": "AI 异常检测",
     "description": "机器学习模型持续监控电性参数趋势，自动检测异常模式",
-    "confidence": "置信度"
+    "confidence": "置信度",
+    "analyzing": "AI 分析中..."
   },
   "correlation": {
     "title": "参数相关性矩阵"

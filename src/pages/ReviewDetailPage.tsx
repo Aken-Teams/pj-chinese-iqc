@@ -102,7 +102,7 @@ export default function ReviewDetailPage() {
       const displaySize = Math.max(cols, rows)
       const colOffset = Math.floor((displaySize - cols) / 2)
       const rowOffset = Math.floor((displaySize - rows) / 2)
-      const cellSize = Math.min(20, Math.floor(300 / displaySize))
+      const cellSize = Math.min(24, Math.floor(420 / displaySize))
       const radius = Math.ceil(cellSize / 4)
       return (
         <div
@@ -185,7 +185,7 @@ export default function ReviewDetailPage() {
       </div>
 
       {/* Top Row */}
-      <div className="flex gap-5 h-[380px]">
+      <div className="flex gap-5 h-[440px]">
         {/* Wafer Map */}
         <div className="flex-1 bg-bg-card p-5 flex flex-col min-w-0 overflow-hidden">
           <h3 className="font-heading font-bold mb-3">{t('detail.waferMap')} — {waferId}</h3>

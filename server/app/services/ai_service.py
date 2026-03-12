@@ -1,3 +1,4 @@
+import json
 from openai import OpenAI
 from app.config import settings
 
@@ -114,6 +115,94 @@ class AIService:
             f"{params_lbl}:\n{params_text}\n\n"
             f"{conclude_lbl}"
         )
+
+
+    _ANOMALY_SYSTEM_PROMPT = {
+        "zh-TW": (
+            "你是IQC晶圓CP測試數據異常偵測專家，請使用繁體中文回覆。"
+            "分析提供的電性參數統計數據，找出潛在異常。"
+            "回傳純JSON陣列（不加任何包裝），每個異常物件包含以下欄位："
+            "anomaly_type（繁體中文異常類型，如「高變異性」「均值偏移」「失控點」「良率異常」）、"
+            "severity（'warning' 或 'critical'）、"
+            "param_name（參數名稱字串）、"
+            "confidence（0.0~1.0 浮點數）、"
+            "description（繁體中文詳細描述）、"
+            "suggestion（繁體中文改善建議）。"
+            "若無異常，回傳空陣列 []。"
+        ),
+        "zh-CN": (
+            "你是IQC晶圆CP测试数据异常检测专家，请使用简体中文回复。"
+            "分析提供的电性参数统计数据，找出潜在异常。"
+            "返回纯JSON数组（不加任何包装），每个异常对象包含以下字段："
+            "anomaly_type（简体中文异常类型，如「高变异性」「均值偏移」「失控点」「良率异常」）、"
+            "severity（'warning' 或 'critical'）、"
+            "param_name（参数名称字符串）、"
+            "confidence（0.0~1.0 浮点数）、"
+            "description（简体中文详细描述）、"
+            "suggestion（简体中文改善建议）。"
+            "若无异常，返回空数组 []。"
+        ),
+        "en": (
+            "You are an IQC wafer CP test data anomaly detection expert. Reply in English only. "
+            "Analyze the provided electrical parameter statistics and identify potential anomalies. "
+            "Return a pure JSON array (no wrapper), each anomaly object with fields: "
+            "anomaly_type (e.g. 'High Variability', 'Mean Shift', 'Out of Control', 'Yield Issue'), "
+            "severity ('warning' or 'critical'), "
+            "param_name (string), "
+            "confidence (float 0.0-1.0), "
+            "description (detailed English description), "
+            "suggestion (English recommendation). "
+            "Return empty array [] if no anomalies found."
+        ),
+    }
+
+    def detect_anomalies(
+        self,
+        lot_id: str,
+        params_stats: dict,
+        wafer_count: int,
+        lang: str = "zh-TW",
+    ) -> list[dict]:
+        system_prompt = self._ANOMALY_SYSTEM_PROMPT.get(lang, self._ANOMALY_SYSTEM_PROMPT["zh-TW"])
+
+        lines = []
+        for name, p in params_stats.items():
+            avg = p.get("avg", 0)
+            stdev = p.get("stdev", 0)
+            ratio = f"{abs(stdev / avg) * 100:.1f}%" if avg != 0 else "N/A"
+            lines.append(
+                f"  {name}: Avg={avg:.4f}, Stdev={stdev:.4f}, "
+                f"Variation={ratio}, Min={p.get('min', 0):.4f}, Max={p.get('max', 0):.4f}"
+            )
+
+        prompt = (
+            f"Lot {lot_id}, {wafer_count} wafers.\n"
+            f"Parameter statistics:\n" + "\n".join(lines) + "\n\n"
+            "Detect anomalies and return JSON array."
+        )
+
+        try:
+            response = self.client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=1200,
+                temperature=0.2,
+            )
+            content = response.choices[0].message.content or "[]"
+            data = json.loads(content)
+            if isinstance(data, list):
+                return data
+            # Handle {"anomalies": [...]} or {"items": [...]} wrapping
+            for key in ("anomalies", "items", "results", "data"):
+                if key in data and isinstance(data[key], list):
+                    return data[key]
+            return []
+        except Exception:
+            return []
 
 
 # Singleton

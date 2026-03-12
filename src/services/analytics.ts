@@ -74,3 +74,10 @@ export async function getCorrelation(productId: number): Promise<CorrelationResp
 export async function getAnomalies(): Promise<AnomalyItem[]> {
   return apiFetch('/ai/anomalies')
 }
+
+export async function detectAnomalies(lotId: number, lang: string): Promise<AnomalyItem[]> {
+  return apiFetch('/ai/detect-anomalies', {
+    method: 'POST',
+    body: JSON.stringify({ lot_id: lotId, lang }),
+  })
+}

@@ -17,7 +17,8 @@
   "anomaly": {
     "title": "AI Anomaly Detection",
     "description": "Machine learning models continuously monitor electrical parameter trends and automatically detect anomalous patterns",
-    "confidence": "Confidence"
+    "confidence": "Confidence",
+    "analyzing": "AI analyzing..."
   },
   "correlation": {
     "title": "Parameter Correlation Matrix"

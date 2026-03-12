@@ -8,7 +8,7 @@ import {
   getSpc,
   getDistribution,
   getCorrelation,
-  getAnomalies,
+  detectAnomalies,
   type SpcResponse,
   type DistributionResponse,
   type CorrelationResponse,
@@ -23,7 +23,7 @@ function getCellColor(value: number, isDiagonal: boolean): string {
 }
 
 export default function AnalyticsPage() {
-  const { t } = useTranslation('analytics')
+  const { t, i18n } = useTranslation('analytics')
   const [lots, setLots] = useState<HistoryRow[]>([])
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
@@ -31,6 +31,7 @@ export default function AnalyticsPage() {
   const [selectedParam, setSelectedParam] = useState('')
   const [loading, setLoading] = useState(true)
   const [dataLoading, setDataLoading] = useState(false)
+  const [anomalyLoading, setAnomalyLoading] = useState(false)
 
   const [spc, setSpc] = useState<SpcResponse | null>(null)
   const [dist, setDist] = useState<DistributionResponse | null>(null)
@@ -50,6 +51,7 @@ export default function AnalyticsPage() {
     setSelectedLotId(lotId)
     setSelectedProductId(productId)
     setDataLoading(true)
+    setAnomalies([])
     try {
       const paramNames = await getParamNames(lotId)
       setParams(paramNames)
@@ -57,18 +59,20 @@ export default function AnalyticsPage() {
         setSelectedParam(paramNames[0])
         await loadParamData(lotId, productId, paramNames[0])
       }
-      // Load correlation + anomalies in parallel
-      const [corrData, anomalyData] = await Promise.all([
-        getCorrelation(productId).catch(() => ({ params: [], matrix: [] })),
-        getAnomalies().catch(() => []),
-      ])
+      const corrData = await getCorrelation(productId).catch(() => ({ params: [], matrix: [] }))
       setCorr(corrData)
-      setAnomalies(anomalyData)
     } catch {
       // ignore
     } finally {
       setDataLoading(false)
     }
+
+    // Detect anomalies via real AI (runs in background after main data loads)
+    setAnomalyLoading(true)
+    detectAnomalies(lotId, i18n.language)
+      .then(setAnomalies)
+      .catch(() => setAnomalies([]))
+      .finally(() => setAnomalyLoading(false))
   }
 
   const loadParamData = async (lotId: number, productId: number, paramName: string) => {
@@ -89,9 +93,8 @@ export default function AnalyticsPage() {
     }
   }
 
-  // Compute SPC chart dimensions from data
   const spcPoints = spc?.dataPoints || []
-  const chartHeight = 180 // total px height for the SPC chart area
+  const chartHeight = 180
 
   return (
     <div className="p-9 pl-11 flex flex-col gap-6">
@@ -139,7 +142,7 @@ export default function AnalyticsPage() {
         </div>
       ) : (
         <>
-          {/* Top Row */}
+          {/* Row 1: SPC + Distribution */}
           <div className="flex gap-5">
             {/* SPC Control Chart */}
             <div className="flex-1 bg-bg-card p-5">
@@ -163,36 +166,26 @@ export default function AnalyticsPage() {
 
               {spc && spc.dataPoints.length > 0 ? (
                 <div className="relative" style={{ height: chartHeight }}>
-                  {/* UCL zone */}
                   <div className="absolute inset-x-0 top-0 bg-[#FFEBEE] flex items-center justify-end pr-3" style={{ height: '15%' }}>
                     <span className="text-[10px] font-semibold text-error">UCL {spc.ucl.toFixed(4)}</span>
                   </div>
-                  {/* +2σ zone */}
                   <div className="absolute inset-x-0 bg-[#FFF3E0] flex items-center justify-end pr-3" style={{ top: '15%', height: '15%' }}>
                     <span className="text-[10px] font-semibold text-[#E8A849]">+2&sigma;</span>
                   </div>
-                  {/* Normal zone above mean */}
                   <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '30%', height: '20%' }} />
-                  {/* Mean line */}
                   <div className="absolute inset-x-0 bg-success flex items-center justify-end pr-3" style={{ top: '50%', height: '2px' }}>
                     <span className="text-[10px] font-semibold text-success absolute -top-3 right-3">{t('spc.mean')} {spc.grandMean.toFixed(4)}</span>
                   </div>
-                  {/* Normal zone below mean */}
                   <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '50%', height: '20%' }} />
-                  {/* -2σ zone */}
                   <div className="absolute inset-x-0 bg-[#FFF3E0] flex items-center justify-end pr-3" style={{ top: '70%', height: '15%' }}>
                     <span className="text-[10px] font-semibold text-[#E8A849]">-2&sigma;</span>
                   </div>
-                  {/* LCL zone */}
                   <div className="absolute inset-x-0 bg-[#FFEBEE] flex items-center justify-end pr-3" style={{ top: '85%', height: '15%' }}>
                     <span className="text-[10px] font-semibold text-error">LCL {spc.lcl.toFixed(4)}</span>
                   </div>
-
-                  {/* Data points */}
                   <div className="absolute inset-0 pointer-events-none">
                     {spcPoints.map((pt, i) => {
                       const xPct = spcPoints.length > 1 ? (i / (spcPoints.length - 1)) * 90 + 5 : 50
-                      // Map value to Y: UCL = 7.5%, LCL = 92.5%
                       const range = spc.ucl - spc.lcl
                       const yPct = range > 0
                         ? 7.5 + (1 - (pt.value - spc.lcl) / range) * 85
@@ -260,10 +253,10 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* Bottom Row */}
-          <div className="flex gap-5">
+          {/* Row 2: AI Anomaly Detection (left narrow) + Correlation Matrix (right, full-flex) */}
+          <div className="flex gap-5 items-start">
             {/* AI Anomaly Detection */}
-            <div className="flex-1 bg-bg-card p-5 overflow-hidden">
+            <div className="w-[360px] flex-shrink-0 bg-bg-card p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={16} className="text-accent" />
                 <h3 className="font-heading font-bold">{t('anomaly.title')}</h3>
@@ -272,60 +265,72 @@ export default function AnalyticsPage() {
                 {t('anomaly.description')}
               </p>
 
-              <div className="flex flex-col gap-3">
-                {anomalies.length > 0 ? anomalies.map((a) => {
-                  const isWarning = a.severity === 'warning'
-                  return (
-                    <div key={a.id} className={`${isWarning ? 'bg-badge-warn' : 'bg-badge-fail'} p-3 flex items-start gap-3`}>
-                      <div className={`w-8 h-8 ${isWarning ? 'bg-[#E8A849]' : 'bg-error'} flex items-center justify-center flex-shrink-0`}>
-                        {isWarning ? <TriangleAlert size={16} className="text-white" /> : <CircleX size={16} className="text-white" />}
-                      </div>
-                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className={`text-[12px] font-bold ${isWarning ? 'text-warning' : 'text-error'}`}>{a.title}</span>
-                          <span className="text-[10px] text-text-muted">{a.timestamp}</span>
+              {anomalyLoading ? (
+                <div className="flex items-center gap-2 text-text-muted text-[13px] py-4">
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>{t('anomaly.analyzing')}</span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {anomalies.length > 0 ? anomalies.map((a) => {
+                    const isWarning = a.severity === 'warning'
+                    return (
+                      <div key={a.id} className={`${isWarning ? 'bg-badge-warn' : 'bg-badge-fail'} p-3 flex items-start gap-3`}>
+                        <div className={`w-8 h-8 ${isWarning ? 'bg-[#E8A849]' : 'bg-error'} flex items-center justify-center flex-shrink-0`}>
+                          {isWarning ? <TriangleAlert size={16} className="text-white" /> : <CircleX size={16} className="text-white" />}
                         </div>
-                        <span className="text-[11px] text-text-secondary">{a.description}</span>
-                        <span className={`text-[10px] font-semibold ${isWarning ? 'text-[#E8A849]' : 'text-error'}`}>
-                          {t('anomaly.confidence')}: {(a.confidence * 100).toFixed(0)}%
-                        </span>
+                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-[12px] font-bold ${isWarning ? 'text-warning' : 'text-error'}`}>{a.title}</span>
+                            <span className="text-[10px] text-text-muted whitespace-nowrap">{a.timestamp}</span>
+                          </div>
+                          <span className="text-[11px] text-text-secondary">{a.description}</span>
+                          <span className={`text-[10px] font-semibold ${isWarning ? 'text-[#E8A849]' : 'text-error'}`}>
+                            {t('anomaly.confidence')}: {(a.confidence * 100).toFixed(0)}%
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  )
-                }) : (
-                  <div className="text-text-muted text-sm py-4 text-center">{t('noAnomalies')}</div>
-                )}
-              </div>
+                    )
+                  }) : (
+                    <div className="text-text-muted text-sm py-4 text-center">{t('noAnomalies')}</div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Correlation Matrix */}
-            <div className="w-[400px] bg-bg-card p-5">
+            {/* Correlation Matrix — takes remaining width, scrollable */}
+            <div className="flex-1 bg-bg-card p-5 min-w-0 overflow-hidden">
               <h3 className="font-heading font-bold mb-3">{t('correlation.title')}</h3>
               {corr && corr.params.length >= 2 ? (
-                <div className="flex flex-col gap-px overflow-auto">
-                  {/* Header row */}
+                <div className="overflow-auto" style={{ maxHeight: 420 }}>
+                  {/* Sticky header row */}
                   <div className="flex gap-px">
-                    <div className="h-9 w-14 flex-shrink-0" />
+                    <div className="h-8 w-16 flex-shrink-0 sticky left-0 bg-bg-card z-10" />
                     {corr.params.map((p) => (
                       <div
                         key={p}
-                        className="h-9 w-12 flex-shrink-0 flex items-center justify-center text-[10px] font-semibold text-text-secondary"
+                        className="h-8 w-10 flex-shrink-0 flex items-end justify-center pb-1 text-[9px] font-semibold text-text-secondary overflow-hidden"
                         title={p}
+                        style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
                       >
-                        {p.length > 5 ? p.slice(0, 5) : p}
+                        {p.length > 8 ? p.slice(0, 8) : p}
                       </div>
                     ))}
                   </div>
                   {/* Data rows */}
                   {corr.matrix.map((row, ri) => (
-                    <div key={ri} className="flex gap-px">
-                      <div className="h-9 w-14 flex-shrink-0 flex items-center justify-start text-[10px] font-semibold text-text-secondary" title={corr.params[ri]}>
-                        {corr.params[ri].length > 6 ? corr.params[ri].slice(0, 6) : corr.params[ri]}
+                    <div key={ri} className="flex gap-px mt-px">
+                      <div
+                        className="h-10 w-16 flex-shrink-0 flex items-center text-[10px] font-semibold text-text-secondary sticky left-0 bg-bg-card z-10 pr-1"
+                        title={corr.params[ri]}
+                      >
+                        <span className="truncate">{corr.params[ri].length > 8 ? corr.params[ri].slice(0, 8) : corr.params[ri]}</span>
                       </div>
                       {row.map((val, ci) => (
                         <div
                           key={ci}
-                          className={`h-9 w-12 flex-shrink-0 flex items-center justify-center text-[10px] font-semibold ${getCellColor(val, ri === ci)}`}
+                          className={`h-10 w-10 flex-shrink-0 flex items-center justify-center text-[10px] font-semibold ${getCellColor(val, ri === ci)}`}
+                          title={`${corr.params[ri]} × ${corr.params[ci]}: ${val.toFixed(3)}`}
                         >
                           {val.toFixed(2)}
                         </div>

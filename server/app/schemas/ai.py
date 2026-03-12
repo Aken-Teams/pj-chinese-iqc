@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class AnomalyDetectRequest(BaseModel):
     lot_id: int
     params: list[str] | None = None
+    lang: str = "zh-TW"
 
 
 class AnomalyItem(BaseModel):
