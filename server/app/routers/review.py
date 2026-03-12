@@ -38,15 +38,26 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db)):
     total_dies = 0
     yield_sum = 0.0
 
+    has_q2_rules = False
     for w in wafers:
         total_dies += w.gross_die or 0
         bin1_yield_pct = float(w.bin1_yield or 0) * 100
 
-        # Get review results for first param to get q yields
-        rr = db.query(ReviewResult).filter(ReviewResult.wafer_id == w.id).first()
-        q1 = float(rr.q1_yield or 0) * 100 if rr else 0.0
-        q2 = float(rr.q2_yield or 0) * 100 if rr else 0.0
-        q3 = float(rr.q3_yield or 0) * 100 if rr else 0.0
+        # Get review results for ALL params — use average Q yields across params
+        rr_list = db.query(ReviewResult).filter(ReviewResult.wafer_id == w.id).all()
+        if rr_list:
+            q1_vals = [float(rr.q1_yield or 0) * 100 for rr in rr_list]
+            q2_vals = [float(rr.q2_yield or 0) * 100 for rr in rr_list]
+            q3_vals = [float(rr.q3_yield or 0) * 100 for rr in rr_list]
+            q1 = sum(q1_vals) / len(q1_vals)
+            q2 = sum(q2_vals) / len(q2_vals)
+            q3 = sum(q3_vals) / len(q3_vals)
+        else:
+            q1 = q2 = q3 = 0.0
+
+        # Check if any Q2 rules actually exist (non-zero Q2 yield means rules were applied)
+        if rr_list and any(float(rr.q2_yield or 0) > 0 for rr in rr_list):
+            has_q2_rules = True
 
         status = "PASS"
         if bin1_yield_pct < 95:
@@ -67,6 +78,11 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db)):
 
     avg_yield = yield_sum / len(wafers) if wafers else 0.0
 
+    # Q1: use cp_specs fallback so real yields exist
+    q1_compliance = "PASS" if all(w.q1Yield >= 95 for w in wafer_rows) else "FAIL"
+    # Q2: show N/A if no Q2 rules defined
+    q2_compliance = ("PASS" if all(w.q2Yield >= 95 for w in wafer_rows) else "FAIL") if has_q2_rules else "N/A"
+
     return LotReviewSummary(
         lotId=lot.lot_id,
         vendor=vendor.code if vendor else "",
@@ -74,8 +90,8 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db)):
         waferCount=len(wafers),
         avgYield=round(avg_yield, 2),
         totalDies=total_dies,
-        q1Compliance="PASS" if all(w.q1Yield >= 95 for w in wafer_rows) else "FAIL",
-        q2Compliance="PASS" if all(w.q2Yield >= 95 for w in wafer_rows) else "FAIL",
+        q1Compliance=q1_compliance,
+        q2Compliance=q2_compliance,
         wafers=wafer_rows,
     )
 

@@ -12,7 +12,10 @@
       "Bash(curl -s -w \"\\\\n%{http_code}\" \"http://localhost:8000/api/analytics/correlation/1\")",
       "Bash(curl -s \"http://localhost:8000/api/analytics/correlation/1\")",
       "Bash(curl -s -X POST http://localhost:8000/api/specs/compare -H \"Content-Type: application/json\" -d '{\"\"lot_id\"\": 6, \"\"rule\"\": \"\"standard\"\"}')",
-      "Bash(curl -s http://localhost:8000/api/health)"
+      "Bash(curl -s http://localhost:8000/api/health)",
+      "Bash(curl -s http://localhost:8000/api/review/results/7)",
+      "Bash(curl -s -X POST http://localhost:8000/api/review/execute -H \"Content-Type: application/json\" -d '{\"\"lot_id\"\": 6}')",
+      "Bash(curl -s http://localhost:8000/api/review/results/6)"
     ]
   }
 }

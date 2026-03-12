@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.wafer import Wafer
 from app.models.die_data import DieData, ElectricalValue
 from app.models.review import ReviewResult, ReviewRule
+from app.models.spec import CpSpec
 
 
 @dataclass
@@ -57,10 +58,16 @@ def calculate_wafer_param_review(
     bin1_yield = bin1_count / total_die_count if total_die_count > 0 else 0.0
 
     def q_yield(lower: Optional[float], upper: Optional[float]) -> float:
-        if lower is None or upper is None:
+        if lower is None and upper is None:
             return 0.0
-        # STRICT inequalities: > lower AND < upper (matching VBA COUNTIFS)
-        count = int(np.sum((arr > lower) & (arr < upper)))
+        # Inclusive inequalities (>= and <=) for spec limit boundaries
+        if lower is not None and upper is not None:
+            mask = (arr >= lower) & (arr <= upper)
+        elif lower is not None:
+            mask = arr >= lower
+        else:
+            mask = arr <= upper
+        count = int(np.sum(mask))
         return count / total_die_count if total_die_count > 0 else 0.0
 
     return {
@@ -97,6 +104,12 @@ def execute_review(db: Session, lot_id: int, param_names: list[str] | None = Non
         for r in rule_rows:
             rules[r.param_name] = r
 
+    # Fallback: load cp_specs limits for Q1 when no ReviewRule exists
+    cp_spec_map: dict[str, CpSpec] = {}
+    spec_rows = db.query(CpSpec).filter(CpSpec.lot_id == lot_id).all()
+    for s in spec_rows:
+        cp_spec_map[s.param_name] = s
+
     # Delete old results for this lot's wafers
     wafer_ids = [w.id for w in wafers]
     db.query(ReviewResult).filter(ReviewResult.wafer_id.in_(wafer_ids)).delete(synchronize_session=False)
@@ -128,15 +141,25 @@ def execute_review(db: Session, lot_id: int, param_names: list[str] | None = Non
             values = param_values.get(pname, [])
 
             rule = rules.get(pname)
+            spec = cp_spec_map.get(pname)
+
+            # Q1 limits: prefer ReviewRule, fallback to cp_specs
+            q1_lo = float(rule.q1_lower) if rule and rule.q1_lower is not None else (
+                float(spec.lower_limit) if spec and spec.lower_limit is not None else None
+            )
+            q1_hi = float(rule.q1_upper) if rule and rule.q1_upper is not None else (
+                float(spec.upper_limit) if spec and spec.upper_limit is not None else None
+            )
+
             calc = calculate_wafer_param_review(
                 values=values,
                 total_die_count=total_die_count,
-                q1_lower=float(rule.q1_lower) if rule and rule.q1_lower else None,
-                q1_upper=float(rule.q1_upper) if rule and rule.q1_upper else None,
-                q2_lower=float(rule.q2_lower) if rule and rule.q2_lower else None,
-                q2_upper=float(rule.q2_upper) if rule and rule.q2_upper else None,
-                q3_lower=float(rule.q3_lower) if rule and rule.q3_lower else None,
-                q3_upper=float(rule.q3_upper) if rule and rule.q3_upper else None,
+                q1_lower=q1_lo,
+                q1_upper=q1_hi,
+                q2_lower=float(rule.q2_lower) if rule and rule.q2_lower is not None else None,
+                q2_upper=float(rule.q2_upper) if rule and rule.q2_upper is not None else None,
+                q3_lower=float(rule.q3_lower) if rule and rule.q3_lower is not None else None,
+                q3_upper=float(rule.q3_upper) if rule and rule.q3_upper is not None else None,
             )
 
             result_objects.append({

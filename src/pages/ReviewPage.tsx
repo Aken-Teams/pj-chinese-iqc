@@ -14,14 +14,15 @@ function yieldColor(value: number): string {
   return 'text-error'
 }
 
-function StatusBadge({ status }: { status: WaferStatus }) {
-  const styles: Record<WaferStatus, string> = {
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
     PASS: 'bg-badge-pass text-success',
     WARN: 'bg-badge-warn text-warning',
     FAIL: 'bg-badge-fail text-error',
+    'N/A': 'bg-bg-page text-text-muted',
   }
   return (
-    <span className={`inline-block px-2.5 py-0.5 text-[11px] font-bold ${styles[status]}`}>
+    <span className={`inline-block px-2.5 py-0.5 text-[11px] font-bold ${styles[status] || 'bg-bg-page text-text-muted'}`}>
       {status}
     </span>
   )
@@ -149,12 +150,15 @@ export default function ReviewPage() {
             <div className="flex-1 bg-bg-card p-4">
               <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('summary.q1')}</span>
               <div className={`mt-1 font-heading text-2xl font-bold ${summary.q1Compliance === 'PASS' ? 'text-success' : 'text-error'}`}>{summary.q1Compliance}</div>
-              <StatusBadge status={summary.q1Compliance as WaferStatus} />
+              <StatusBadge status={summary.q1Compliance} />
             </div>
             <div className="flex-1 bg-bg-card p-4">
               <span className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('summary.q2')}</span>
-              <div className={`mt-1 font-heading text-2xl font-bold ${summary.q2Compliance === 'PASS' ? 'text-success' : 'text-error'}`}>{summary.q2Compliance}</div>
-              <StatusBadge status={summary.q2Compliance as WaferStatus} />
+              <div className={`mt-1 font-heading text-2xl font-bold ${
+                summary.q2Compliance === 'PASS' ? 'text-success' :
+                summary.q2Compliance === 'N/A' ? 'text-text-muted' : 'text-error'
+              }`}>{summary.q2Compliance}</div>
+              <StatusBadge status={summary.q2Compliance} />
             </div>
           </div>
 
