@@ -3,18 +3,27 @@ import { useTranslation } from 'react-i18next'
 import PageHeader from '@/components/layout/PageHeader'
 import { Sparkles, TrendingUp, TrendingDown, Bell, Loader2 } from 'lucide-react'
 import { getDashboard, type DashboardData } from '@/services/dashboard'
-import { mockDashboard } from '@/mock/dashboard'
 
 export default function DashboardPage() {
   const { t } = useTranslation('dashboard')
-  const [data, setData] = useState<DashboardData>(mockDashboard)
+  const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getDashboard()
-      .then(setData)
-      .catch(() => setData(mockDashboard))
-      .finally(() => setLoading(false))
+    const load = async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await getDashboard()
+          setData(res)
+          setLoading(false)
+          return
+        } catch {
+          if (attempt < 2) await new Promise(r => setTimeout(r, 2000))
+        }
+      }
+      setLoading(false)
+    }
+    load()
   }, [])
 
   if (loading) {
@@ -25,8 +34,19 @@ export default function DashboardPage() {
     )
   }
 
+  if (!data) {
+    return (
+      <div className="p-6 pl-8 flex flex-col gap-4">
+        <PageHeader title={t('title')} />
+        <div className="text-center text-text-muted py-16">
+          Unable to load dashboard data. Please check that the backend is running.
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="p-6 pl-8 flex flex-col gap-4 min-h-full">
+    <div className="p-6 pl-8 flex flex-col gap-4">
       <PageHeader
         title={t('title')}
         actions={
@@ -64,7 +84,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts Row */}
-      <div className="flex gap-4 flex-1 min-h-0">
+      <div className="flex gap-4">
         {/* Yield Trend Chart */}
         <div className="flex-1 bg-bg-card p-5 flex flex-col">
           <div className="flex items-center justify-between mb-3">
@@ -79,18 +99,18 @@ export default function DashboardPage() {
             </div>
           </div>
           {data.yieldTrend.months.length > 0 ? (
-            <div className="flex-1 flex items-end gap-2 min-h-[120px]">
+            <div className="flex items-end gap-4 h-[180px]">
               {data.yieldTrend.months.map((month, mi) => (
-                <div key={mi} className="flex-1 flex flex-col items-center gap-1 h-full">
-                  <div className="flex gap-0.5 items-end w-full justify-center flex-1">
+                <div key={mi} className="flex flex-col items-center gap-1 h-full" style={{ width: Math.max(60, 100 / data.yieldTrend.months.length) }}>
+                  <div className="flex gap-1 items-end w-full justify-center flex-1">
                     {data.yieldTrend.vendors.map((v, vi) => {
                       const val = v.data[mi]
                       const pct = ((val - 95) / 5) * 100
                       return (
                         <div
                           key={vi}
-                          className="flex-1 max-w-[24px]"
-                          style={{ height: `${Math.max(pct, 3)}%`, background: v.color }}
+                          className="w-[24px]"
+                          style={{ height: `${Math.max(pct, 5)}%`, background: v.color }}
                           title={`${v.name}: ${val}%`}
                         />
                       )
@@ -101,7 +121,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
+            <div className="h-[180px] flex items-center justify-center text-text-muted text-sm">
               No trend data yet
             </div>
           )}
@@ -139,7 +159,7 @@ export default function DashboardPage() {
           </div>
 
           {/* AI Insights */}
-          <div className="bg-bg-card p-4 flex flex-col gap-2 flex-1">
+          <div className="bg-bg-card p-4 flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <Sparkles size={14} className="text-accent" />
               <h3 className="font-heading text-sm font-bold">{t('aiInsights')}</h3>
