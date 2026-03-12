@@ -12,6 +12,7 @@
   "signInButton": "Sign In",
   "or": "or",
   "ssoButton": "Sign in with SSO",
+  "quickLogin": "Quick Login",
   "copyright": "PANJIT International Inc.",
   "version": "IQC Wafer CP Review System v1.0",
   "loginFailed": "Invalid employee ID or password"

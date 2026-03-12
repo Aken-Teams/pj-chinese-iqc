@@ -12,7 +12,6 @@ export default function LoginPage() {
   const [employeeId, setEmployeeId] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -20,12 +19,11 @@ export default function LoginPage() {
     return <Navigate to="/dashboard" replace />
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const doLogin = async (id: string, pwd: string) => {
     setError('')
     setLoading(true)
     try {
-      const res = await apiLogin(employeeId, password)
+      const res = await apiLogin(id, pwd)
       login({
         id: res.user.id,
         name: res.user.name,
@@ -40,6 +38,17 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    doLogin(employeeId, password)
+  }
+
+  const handleQuickLogin = () => {
+    setEmployeeId('admin')
+    setPassword('admin123')
+    doLogin('admin', 'admin123')
   }
 
   return (
@@ -127,22 +136,6 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Options */}
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 accent-accent"
-              />
-              <span className="text-[13px] text-text-secondary">{t('rememberMe')}</span>
-            </label>
-            <button type="button" className="text-[13px] text-accent hover:underline cursor-pointer">
-              {t('forgotPassword')}
-            </button>
-          </div>
-
           {/* Sign In */}
           <button
             type="submit"
@@ -159,13 +152,14 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-border-light" />
           </div>
 
-          {/* SSO */}
+          {/* Quick Login */}
           <button
             type="button"
+            onClick={handleQuickLogin}
             className="w-full bg-bg-page border border-border-light text-text-secondary font-heading text-[13px] font-semibold tracking-[1px] py-3 flex items-center justify-center gap-2 hover:bg-border-light transition-colors cursor-pointer"
           >
             <Shield size={16} />
-            {t('ssoButton')}
+            {t('quickLogin')}
           </button>
         </form>
       </div>

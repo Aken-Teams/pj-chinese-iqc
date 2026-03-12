@@ -12,6 +12,7 @@
   "signInButton": "登录",
   "or": "或",
   "ssoButton": "使用 SSO 单点登录",
+  "quickLogin": "快速登录",
   "copyright": "磐集国际股份有限公司",
   "version": "IQC 晶圆 CP 审核系统 v1.0",
   "loginFailed": "工号或密码错误"
