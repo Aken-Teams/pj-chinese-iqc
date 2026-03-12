@@ -187,23 +187,23 @@ export default function ReviewDetailPage() {
       {/* Top Row */}
       <div className="flex gap-5 h-[380px]">
         {/* Wafer Map */}
-        <div className="flex-1 bg-bg-card p-5 flex flex-col">
+        <div className="flex-1 bg-bg-card p-5 flex flex-col min-w-0 overflow-hidden">
           <h3 className="font-heading font-bold mb-3">{t('detail.waferMap')} — {waferId}</h3>
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center overflow-hidden">
             {renderWaferMap()}
           </div>
-          <div className="flex gap-4 mt-2">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 bg-success" />
-              <span className="text-[11px] text-text-secondary">{t('detail.bin1Label')} Pass</span>
+              <div className="w-3 h-3 bg-success rounded-sm flex-shrink-0" />
+              <span className="text-[11px] text-text-secondary whitespace-nowrap">{t('detail.bin1Label')} Pass</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 bg-error" />
-              <span className="text-[11px] text-text-secondary">{t('detail.bin2PlusLabel')} Fail</span>
+              <div className="w-3 h-3 bg-error rounded-sm flex-shrink-0" />
+              <span className="text-[11px] text-text-secondary whitespace-nowrap">{t('detail.bin2PlusLabel')} Fail</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 border border-border-light" />
-              <span className="text-[11px] text-text-secondary">No Die</span>
+              <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: 'rgba(0,0,0,0.06)' }} />
+              <span className="text-[11px] text-text-secondary whitespace-nowrap">No Die</span>
             </div>
           </div>
         </div>
@@ -275,13 +275,21 @@ export default function ReviewDetailPage() {
               <span>{t('detail.aiGenerating')}</span>
             </div>
           ) : (
-            <p className="text-[13px] text-text-secondary leading-relaxed whitespace-pre-wrap">
-              {aiSummary || (detail ? (
+            <div className="text-[13px] text-text-secondary leading-relaxed space-y-1">
+              {(aiSummary || (detail ? (
                 detail.failCount > 0
                   ? t('detail.aiSummaryWithFail', { waferId, yield: detail.bin1Yield.toFixed(2), failCount: detail.failCount, paramCount: params.length })
                   : t('detail.aiSummaryAllPass', { waferId, yield: detail.bin1Yield.toFixed(2), paramCount: params.length })
-              ) : t('detail.noData'))}
-            </p>
+              ) : t('detail.noData'))).split('\n').map((line, i) => (
+                <p key={i}>
+                  {line.split(/(\*\*[^*]+\*\*)/).map((part, j) =>
+                    part.startsWith('**') && part.endsWith('**')
+                      ? <strong key={j} className="font-semibold text-text-primary">{part.slice(2, -2)}</strong>
+                      : part
+                  )}
+                </p>
+              ))}
+            </div>
           )}
         </div>
 
