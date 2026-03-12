@@ -15,6 +15,64 @@ import {
   type AnomalyItem,
 } from '@/services/analytics'
 
+function DistributionChart({ counts }: { counts: number[] }) {
+  const [hovered, setHovered] = useState<number | null>(null)
+
+  const maxCount = Math.max(...counts, 1)
+  const W = 290, H = 120
+  const PAD = { top: 20, right: 6, bottom: 6, left: 28 }
+  const cW = W - PAD.left - PAD.right
+  const cH = H - PAD.top - PAD.bottom
+  const barW = cW / counts.length
+  const gap = Math.max(1, barW * 0.2)
+  const toY = (v: number) => PAD.top + cH - (v / maxCount) * cH
+  const toX = (i: number) => PAD.left + i * barW + gap / 2
+  const yTicks = [0, Math.round(maxCount / 2), maxCount]
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}
+      onMouseLeave={() => setHovered(null)}>
+      {yTicks.map((tick) => (
+        <g key={tick}>
+          <line x1={PAD.left} y1={toY(tick)} x2={W - PAD.right} y2={toY(tick)}
+            stroke="var(--color-border-light)" strokeDasharray="3 3" />
+          <text x={PAD.left - 4} y={toY(tick) + 3.5} textAnchor="end" fontSize="8"
+            fill="var(--color-text-muted)">{tick}</text>
+        </g>
+      ))}
+      {counts.map((c, i) => {
+        const isCenterRange = i >= Math.floor(counts.length * 0.3) && i <= Math.floor(counts.length * 0.7)
+        const x = toX(i)
+        const bw = Math.max(barW - gap, 1)
+        const bh = maxCount > 0 ? (c / maxCount) * cH : 0
+        return (
+          <rect key={i} x={x} y={toY(c)} width={bw} height={Math.max(bh, 0)}
+            fill={isCenterRange ? 'var(--color-accent)' : 'var(--color-bar-track)'}
+            opacity={hovered !== null && hovered !== i ? 0.5 : 1}
+            style={{ cursor: 'pointer' }}
+            onMouseEnter={() => setHovered(i)}
+          />
+        )
+      })}
+      {hovered !== null && (() => {
+        const c = counts[hovered]
+        const cx = toX(hovered) + (barW - gap) / 2
+        const ty = toY(c)
+        const label = `${c} wafers`
+        const tw = label.length * 5.2 + 10
+        return (
+          <g>
+            <rect x={cx - tw / 2} y={ty - 17} width={tw} height={15} rx={2}
+              fill="var(--color-text-primary)" />
+            <text x={cx} y={ty - 6} textAnchor="middle" fontSize="9"
+              fill="var(--color-bg-card)" fontWeight="600">{label}</text>
+          </g>
+        )
+      })()}
+    </svg>
+  )
+}
+
 function getCellColor(value: number, isDiagonal: boolean): string {
   if (isDiagonal) return 'bg-accent text-white'
   if (Math.abs(value) > 0.7) return 'bg-[#D4B8A8]'
@@ -229,20 +287,9 @@ export default function AnalyticsPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-end gap-1 flex-1">
-                    {dist.counts.map((c, i) => {
-                      const maxCount = Math.max(...dist.counts)
-                      const hPct = maxCount > 0 ? (c / maxCount) * 100 : 0
-                      const isCenterRange = i >= Math.floor(dist.counts.length * 0.3) && i <= Math.floor(dist.counts.length * 0.7)
-                      return (
-                        <div
-                          key={i}
-                          className={`flex-1 ${isCenterRange ? 'bg-accent' : 'bg-bar-track'}`}
-                          style={{ height: `${hPct}%` }}
-                          title={`${c} wafers`}
-                        />
-                      )
-                    })}
+                  {/* SVG distribution chart with Y-axis and tooltip */}
+                  <div className="flex-1 min-h-0" style={{ minHeight: 100 }}>
+                    <DistributionChart counts={dist.counts} />
                   </div>
                 </>
               ) : (
@@ -306,7 +353,7 @@ export default function AnalyticsPage() {
                   {/* Header row — tall enough for vertical param names */}
                   <div className="flex gap-px">
                     {/* Corner spacer matches label column width and header height */}
-                    <div className="flex-shrink-0 sticky left-0 bg-bg-card z-10" style={{ width: 88, height: 88 }} />
+                    <div className="flex-shrink-0 sticky left-0 bg-bg-card z-10" style={{ width: 120, height: 88 }} />
                     {corr.params.map((p) => (
                       <div
                         key={p}
@@ -322,11 +369,11 @@ export default function AnalyticsPage() {
                   {corr.matrix.map((row, ri) => (
                     <div key={ri} className="flex gap-px mt-px">
                       <div
-                        className="flex-shrink-0 flex items-center text-[10px] font-semibold text-text-secondary sticky left-0 bg-bg-card z-10 pr-2"
-                        style={{ width: 88, height: 40 }}
+                        className="flex-shrink-0 flex items-center text-[9px] font-semibold text-text-secondary sticky left-0 bg-bg-card z-10 pr-2 leading-tight"
+                        style={{ width: 120, height: 40, wordBreak: 'break-all', overflowWrap: 'anywhere', overflow: 'hidden' }}
                         title={corr.params[ri]}
                       >
-                        <span className="truncate">{corr.params[ri]}</span>
+                        {corr.params[ri]}
                       </div>
                       {row.map((val, ci) => (
                         <div
