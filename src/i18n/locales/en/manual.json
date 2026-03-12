@@ -1,0 +1,73 @@
+{
+  "title": "User Manual",
+  "subtitle": "IQC System Feature Guide",
+  "upload": {
+    "title": "Data Upload",
+    "subtitle": "Import CP data files from the wafer fab",
+    "steps": [
+      { "label": "Select Vendor", "desc": "Choose the corresponding vendor (JJW, XRW) in the Format Configuration panel. The system will use the matching parse template — ensure the selection matches the file source." },
+      { "label": "Upload File", "desc": "Drag and drop an .xlsx file onto the upload area, or click Browse Files to select manually. The system will automatically parse and display a preview." },
+      { "label": "Verify Preview", "desc": "The preview panel shows wafer count, data rows, format code, product ID, and lot ID. Confirm the information is correct before proceeding." },
+      { "label": "Confirm & Import", "desc": "Click Confirm & Import to write the data to the database. A success banner will display the lot code, wafer count, and total rows." }
+    ],
+    "notes": [
+      "Only .xlsx format is supported. For old .xls files, re-save as .xlsx in Excel first.",
+      "The selected vendor must match the actual file format — a mismatch will be rejected with an error.",
+      "If the system cannot auto-detect the format, manually select a vendor and retry."
+    ]
+  },
+  "review": {
+    "title": "CP Review",
+    "subtitle": "View yield and electrical compliance per wafer",
+    "steps": [
+      { "label": "Select Lot", "desc": "Choose the lot to review from the dropdown at the top. The list shows vendor, product, and lot code." },
+      { "label": "Run Review", "desc": "Click Run Review. The system calculates Q1 yield for each electrical parameter on every wafer using the CP Spec limits, then saves the results." },
+      { "label": "View Summary", "desc": "The table shows BIN1 yield, Q1/Q2 compliance, and PASS / WARN / FAIL status for each wafer." },
+      { "label": "View Details", "desc": "Click any wafer row to open the detail page — showing average, stdev, Q1 yield, and failure distribution per parameter." }
+    ],
+    "notes": [
+      "Q1 compliance threshold: all wafers must have yield ≥ 95%. Q2 requires additional review rules to be configured.",
+      "Always click Run Review after uploading. Re-run if spec limits are changed to refresh results."
+    ]
+  },
+  "compare": {
+    "title": "Spec Compare",
+    "subtitle": "Cross-lot electrical spec comparison",
+    "steps": [
+      { "label": "Select Lot", "desc": "Choose the lot from the dropdown. The system loads all electrical parameter specs for that lot." },
+      { "label": "Select Parameters", "desc": "Check the parameters you want to compare — multiple selections are supported." },
+      { "label": "View Results", "desc": "The view shows spec limits (upper/lower), measured averages, and deviation from spec center. Out-of-spec values are highlighted in red." }
+    ]
+  },
+  "history": {
+    "title": "History",
+    "subtitle": "Search historical lot records by criteria",
+    "steps": [
+      { "label": "Set Filters", "desc": "Filter by vendor, product, lot code, or date range." },
+      { "label": "View Results", "desc": "The list shows matching lots with vendor, product, wafer count, yield, and review status." },
+      { "label": "Open Review", "desc": "Click any lot row to navigate to the CP Review page for that lot." }
+    ]
+  },
+  "analytics": {
+    "title": "Analytics & AI",
+    "subtitle": "Yield trends, correlation matrix, and AI summaries",
+    "steps": [
+      { "label": "Yield Trend", "desc": "A line chart displays BIN1 yield trends across recent lots per vendor, making it easy to spot declining or improving yield." },
+      { "label": "Anomaly Detection", "desc": "Lots with yield below the target threshold are flagged. The table shows the reason and deviation value for each anomaly." },
+      { "label": "Correlation Matrix", "desc": "A heatmap shows correlation coefficients between electrical parameters. High-correlation pairs are highlighted to help identify common-cause failures." },
+      { "label": "AI Summary", "desc": "Select a lot and click Generate Summary. The AI analyzes yield, anomalies, and parameter patterns to produce a written summary report." }
+    ],
+    "notes": [
+      "AI summaries require a valid backend API key. Contact your system administrator if errors occur."
+    ]
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Account management and system configuration",
+    "steps": [
+      { "label": "Account", "desc": "Update your password and personal information. First-time users should obtain credentials from the administrator." },
+      { "label": "Vendor Config", "desc": "Administrators can add or modify vendor codes to support new CP data formats." },
+      { "label": "Notifications", "desc": "Configure system alert conditions for when yield falls below a defined threshold." }
+    ]
+  }
+}

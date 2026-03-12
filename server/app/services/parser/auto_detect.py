@@ -18,12 +18,12 @@ def auto_detect_parser(filepath: str) -> BaseParser | None:
 
         wb.close()
 
-        # If row 8, col 15 has a header value -> likely JJW format
-        if row8_val is not None and str(row8_val).strip():
+        # JJW header row 8 col 15 must be a string param name (not a numeric data value)
+        if row8_val is not None and isinstance(row8_val, str) and row8_val.strip():
             return JJWParser()
 
-        # If row 5, col 12 has a header value -> likely XRW format
-        if row5_val is not None and str(row5_val).strip():
+        # XRW header row 5 col 12 must be a string param name
+        if row5_val is not None and isinstance(row5_val, str) and row5_val.strip():
             return XRWParser()
 
     except Exception:

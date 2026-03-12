@@ -8,6 +8,7 @@ import ReviewDetailPage from '@/pages/ReviewDetailPage'
 import ComparePage from '@/pages/ComparePage'
 import HistoryPage from '@/pages/HistoryPage'
 import AnalyticsPage from '@/pages/AnalyticsPage'
+import ManualPage from '@/pages/ManualPage'
 import SettingsPage from '@/pages/SettingsPage'
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/manual" element={<ManualPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -31,18 +31,23 @@ _ERR = {
         "cannot_detect": "無法識別檔案格式，請手動選擇廠商後重新上傳",
         "xls_not_supported": "不支援舊版 .xls 格式，請用 Excel 另存為 .xlsx 後再上傳",
         "parse_failed": "檔案解析失敗：{detail}",
+        "format_mismatch": "檔案格式偵測為 {detected}，與選擇廠商 {selected} 不符，請確認後重新上傳",
     },
     "zh-CN": {
         "cannot_detect": "无法识别文件格式，请手动选择厂商后重新上传",
         "xls_not_supported": "不支持旧版 .xls 格式，请用 Excel 另存为 .xlsx 后再上传",
         "parse_failed": "文件解析失败：{detail}",
+        "format_mismatch": "文件格式检测为 {detected}，与选择厂商 {selected} 不符，请确认后重新上传",
     },
     "en": {
         "cannot_detect": "Cannot detect file format. Please select a vendor and try again.",
         "xls_not_supported": "Old .xls format is not supported. Please save as .xlsx and try again.",
         "parse_failed": "Failed to parse file: {detail}",
+        "format_mismatch": "File detected as {detected} format but {selected} was selected. Please check and re-upload.",
     },
 }
+
+_PARSER_VENDOR = {v: k for k, v in PARSERS.items()}
 
 
 @router.post("/cp-data", response_model=UploadPreview)
@@ -63,6 +68,10 @@ async def upload_cp_data(
     # Try auto-detect or use provided vendor
     parser = None
     if vendor and vendor in PARSERS:
+        detected = auto_detect_parser(file_path)
+        if detected is not None and not isinstance(detected, PARSERS[vendor]):
+            detected_vendor = _PARSER_VENDOR.get(type(detected), "unknown")
+            raise HTTPException(400, err["format_mismatch"].format(selected=vendor, detected=detected_vendor))
         parser = PARSERS[vendor]()
     else:
         parser = auto_detect_parser(file_path)

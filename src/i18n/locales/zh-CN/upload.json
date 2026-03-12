@@ -3,7 +3,7 @@
   "subtitle": "上传晶圆厂 CP 数据文件",
   "dropzone": {
     "title": "拖拽 CP 数据文件至此处",
-    "subtitle": "支持 .xlsx、.xls、.csv 格式，来自任意晶圆厂",
+    "subtitle": "支持 .xlsx、.csv 格式，来自任意晶圆厂",
     "browse": "浏览文件",
     "uploading": "上传中..."
   },

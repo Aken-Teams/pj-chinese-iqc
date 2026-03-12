@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Cpu, LayoutGrid, Upload, FileSearch, GitCompare,
-  History, ChartNoAxesColumn, Settings, LogOut,
+  History, ChartNoAxesColumn, BookOpen, Settings, LogOut,
   PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
@@ -16,6 +16,7 @@ const navItems = [
   { icon: GitCompare, labelKey: 'nav.compare', to: ROUTES.COMPARE },
   { icon: History, labelKey: 'nav.history', to: ROUTES.HISTORY },
   { icon: ChartNoAxesColumn, labelKey: 'nav.analytics', to: ROUTES.ANALYTICS },
+  { icon: BookOpen, labelKey: 'nav.manual', to: ROUTES.MANUAL },
   { icon: Settings, labelKey: 'nav.settings', to: ROUTES.SETTINGS },
 ]
 

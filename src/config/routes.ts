@@ -7,5 +7,6 @@ export const ROUTES = {
   COMPARE: '/compare',
   HISTORY: '/history',
   ANALYTICS: '/analytics',
+  MANUAL: '/manual',
   SETTINGS: '/settings',
 } as const

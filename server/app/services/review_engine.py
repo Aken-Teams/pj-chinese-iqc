@@ -59,7 +59,7 @@ def calculate_wafer_param_review(
 
     def q_yield(lower: Optional[float], upper: Optional[float]) -> float:
         if lower is None and upper is None:
-            return 0.0
+            return 1.0  # No spec defined = all dies pass by default
         # Inclusive inequalities (>= and <=) for spec limit boundaries
         if lower is not None and upper is not None:
             mask = (arr >= lower) & (arr <= upper)
