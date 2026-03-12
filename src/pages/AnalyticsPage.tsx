@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Sparkles, TriangleAlert, CircleX } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
@@ -183,11 +183,41 @@ export default function AnalyticsPage() {
       .catch(() => setLoading(false))
   }, [])
 
+  const loadAnomalies = useCallback(async (lotId: number, lang: string) => {
+    setAnomalyLoading(true)
+    setAnomalies([])
+    try {
+      const existing = await getAnomalies(lotId, lang)
+      if (existing.length > 0) {
+        setAnomalies(existing)
+      } else {
+        const result = await detectAnomalies(lotId, lang)
+        setAnomalies(result)
+      }
+    } catch {
+      try {
+        const result = await detectAnomalies(lotId, lang)
+        setAnomalies(result)
+      } catch {
+        setAnomalies([])
+      }
+    } finally {
+      setAnomalyLoading(false)
+    }
+  }, [])
+
+  // Re-fetch anomalies when language changes (if a lot is already selected)
+  useEffect(() => {
+    if (selectedLotId) {
+      loadAnomalies(selectedLotId, i18n.language)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language])
+
   const handleLotChange = async (lotId: number, productId: number) => {
     setSelectedLotId(lotId)
     setSelectedProductId(productId)
     setDataLoading(true)
-    setAnomalies([])
     try {
       const paramNames = await getParamNames(lotId)
       setParams(paramNames)
@@ -203,26 +233,8 @@ export default function AnalyticsPage() {
       setDataLoading(false)
     }
 
-    // Load anomalies: use cached DB results for current lang, otherwise call AI
-    setAnomalyLoading(true)
-    getAnomalies(lotId, i18n.language)
-      .then(existing => {
-        if (existing.length > 0) {
-          setAnomalies(existing)
-          setAnomalyLoading(false)
-        } else {
-          return detectAnomalies(lotId, i18n.language)
-            .then(setAnomalies)
-            .catch(() => setAnomalies([]))
-            .finally(() => setAnomalyLoading(false))
-        }
-      })
-      .catch(() => {
-        detectAnomalies(lotId, i18n.language)
-          .then(setAnomalies)
-          .catch(() => setAnomalies([]))
-          .finally(() => setAnomalyLoading(false))
-      })
+    // Load anomalies for current language (cache-first)
+    loadAnomalies(lotId, i18n.language)
   }
 
   const loadParamData = async (lotId: number, productId: number, paramName: string) => {

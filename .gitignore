@@ -7,6 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Frontend build output
 node_modules
 dist
 dist-ssr
@@ -22,3 +23,59 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Python virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+server/venv/
+server/.venv/
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# Alembic (keep versions, ignore runtime files)
+server/alembic/__pycache__/
+
+# Uploaded files
+server/uploads/
+uploads/
+
+# Database files (local dev SQLite)
+*.db
+*.sqlite
+*.sqlite3
+
+# OS generated
+Thumbs.db
+ehthumbs.db
+Desktop.ini
