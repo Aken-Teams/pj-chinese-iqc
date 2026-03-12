@@ -56,11 +56,19 @@ export default function LoginPage() {
       {/* Left panel - Branding */}
       <div className="w-[560px] bg-bg-sidebar flex flex-col justify-between px-[60px] py-20 shrink-0">
         <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-3">
-            <Cpu size={32} className="text-accent" />
-            <span className="font-heading text-[22px] font-bold tracking-[2px] text-text-on-dark">
-              IQC SYSTEM
-            </span>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-3">
+              <Cpu size={32} className="text-accent" />
+              <span className="font-heading text-[22px] font-bold tracking-[2px] text-text-on-dark">
+                IQC SYSTEM
+              </span>
+            </div>
+            <div className="flex items-center gap-2 pl-[44px]">
+              <div className="w-[3px] h-[18px] bg-accent shrink-0" />
+              <span className="text-[18px] font-semibold text-text-secondary tracking-wide">
+                {t('clientName')}
+              </span>
+            </div>
           </div>
           <h2 className="font-heading text-[36px] font-bold text-white leading-[1.2] whitespace-pre-line mt-4">
             {t('tagline')}
@@ -68,10 +76,6 @@ export default function LoginPage() {
           <p className="text-[15px] text-text-tertiary leading-[1.6] mt-2">
             {t('description')}
           </p>
-          <div className="mt-6 border-l-2 border-accent pl-4">
-            <p className="text-[11px] font-bold uppercase tracking-[2px] text-accent mb-1">Client</p>
-            <p className="text-[18px] font-bold text-white tracking-wide">強茂科技股份有限公司</p>
-          </div>
         </div>
         <div className="flex flex-col gap-2">
           <a
