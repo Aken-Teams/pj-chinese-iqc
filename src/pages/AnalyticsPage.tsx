@@ -18,6 +18,24 @@ import {
   type AnomalyItem,
 } from '@/services/analytics'
 
+// OOC marker styles — size in px, clipPath for shape, filter for visibility over colored bands
+const OOC_STYLES: Record<string, {
+  color: string
+  label: string
+  size: number
+  clipPath?: string
+  borderRadius?: string
+}> = {
+  ucl:   { color: '#E53935', label: '超出 UCL',  size: 10, borderRadius: '50%' },
+  lcl:   { color: '#E53935', label: '超出 LCL',  size: 10, borderRadius: '50%' },
+  // gem diamond ◆ — 7 points clustered on same side
+  run:   { color: '#FF6D00', label: '連7點同側', size: 12,
+           clipPath: 'polygon(50% 0%, 100% 38%, 50% 100%, 0% 38%)' },
+  // gem diamond ◆ — 6 consecutive directional trend
+  trend: { color: '#9C27B0', label: '連6點趨勢', size: 12,
+           clipPath: 'polygon(50% 0%, 100% 38%, 50% 100%, 0% 38%)' },
+}
+
 function SpcChart({ spc, chartHeight }: { spc: SpcResponse; chartHeight: number }) {
   const { t } = useTranslation('analytics')
   const [hovered, setHovered] = useState<number | null>(null)
@@ -54,16 +72,26 @@ function SpcChart({ spc, chartHeight }: { spc: SpcResponse; chartHeight: number 
         {points.map((pt, i) => {
           const { xPct, yPct } = getPos(i)
           const isHov = hovered === i
+          const ooc = pt.oocReason ? OOC_STYLES[pt.oocReason] : null
+          const size = ooc ? ooc.size : 8
           return (
             <div
               key={i}
-              className={`absolute w-2 h-2 rounded-full ${pt.isOoc ? 'bg-error' : 'bg-accent'}`}
+              className="absolute"
               style={{
                 left: `${xPct}%`,
                 top: `${yPct}%`,
-                transform: `translate(-50%, -50%) scale(${isHov ? 1.6 : 1})`,
+                width: size,
+                height: size,
+                backgroundColor: ooc ? ooc.color : 'var(--color-accent)',
+                borderRadius: ooc?.borderRadius ?? (pt.oocReason ? 0 : '50%'),
+                clipPath: ooc?.clipPath,
+                transform: `translate(-50%, -50%) scale(${isHov ? 1.4 : 1})`,
+                filter: ooc?.clipPath
+                  ? `drop-shadow(0 0 2px white) drop-shadow(0 0 1px ${ooc.color})`
+                  : undefined,
                 cursor: 'pointer',
-                zIndex: isHov ? 10 : 1,
+                zIndex: isHov ? 10 : (ooc ? 3 : 1),
                 transition: 'transform 0.1s ease',
               }}
               onMouseEnter={() => setHovered(i)}
@@ -72,22 +100,24 @@ function SpcChart({ spc, chartHeight }: { spc: SpcResponse; chartHeight: number 
           )
         })}
       </div>
-      {/* Tooltip — outside dot div so it's not affected by the dot's scale transform */}
+      {/* Tooltip */}
       {hovered !== null && (() => {
         const { xPct, yPct } = getPos(hovered)
         const pt = points[hovered]
+        const ooc = pt.oocReason ? OOC_STYLES[pt.oocReason] : null
         return (
           <div
-            className="absolute text-[10px] font-semibold px-2 py-1 whitespace-nowrap pointer-events-none z-20"
+            className="absolute text-[10px] font-semibold px-2 py-1 whitespace-nowrap pointer-events-none z-20 flex flex-col gap-0.5"
             style={{
               left: `${xPct}%`,
               top: `${yPct}%`,
-              transform: 'translate(-50%, calc(-100% - 10px))',
+              transform: 'translate(-50%, calc(-100% - 12px))',
               background: 'var(--color-text-primary)',
               color: 'var(--color-bg-card)',
             }}
           >
-            {pt.waferId}: {pt.value.toFixed(4)}
+            <span>{pt.waferId}: {pt.value.toFixed(4)}</span>
+            {ooc && <span style={{ color: ooc.color, filter: 'brightness(1.8)' }}>⚠ {ooc.label}</span>}
           </div>
         )
       })()}
@@ -312,8 +342,16 @@ export default function AnalyticsPage() {
                     <span className="text-[11px] text-text-secondary">{t('spc.sigma2')}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 bg-error" />
+                    <div className="w-2.5 h-2.5 bg-error rounded-full" />
                     <span className="text-[11px] text-text-secondary">{t('spc.uclLcl')}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex-shrink-0" style={{ width: 11, height: 11, backgroundColor: OOC_STYLES.run.color, clipPath: OOC_STYLES.run.clipPath }} />
+                    <span className="text-[11px] text-text-secondary">{OOC_STYLES.run.label}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex-shrink-0" style={{ width: 11, height: 11, backgroundColor: OOC_STYLES.trend.color, clipPath: OOC_STYLES.trend.clipPath }} />
+                    <span className="text-[11px] text-text-secondary">{OOC_STYLES.trend.label}</span>
                   </div>
                 </div>
               </div>

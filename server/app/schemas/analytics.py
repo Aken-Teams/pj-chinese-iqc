@@ -5,6 +5,7 @@ class SpcDataPoint(BaseModel):
     waferId: str
     value: float
     isOoc: bool = False
+    oocReason: str | None = None  # 'ucl' | 'lcl' | 'run' | 'trend'
 
 
 class SpcResponse(BaseModel):

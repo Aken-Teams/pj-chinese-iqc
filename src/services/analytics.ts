@@ -4,6 +4,7 @@ export interface SpcDataPoint {
   waferId: string
   value: number
   isOoc: boolean
+  oocReason: 'ucl' | 'lcl' | 'run' | 'trend' | null
 }
 
 export interface SpcResponse {

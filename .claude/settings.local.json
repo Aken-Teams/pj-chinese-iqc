@@ -15,7 +15,8 @@
       "Bash(curl -s http://localhost:8000/api/health)",
       "Bash(curl -s http://localhost:8000/api/review/results/7)",
       "Bash(curl -s -X POST http://localhost:8000/api/review/execute -H \"Content-Type: application/json\" -d '{\"\"lot_id\"\": 6}')",
-      "Bash(curl -s http://localhost:8000/api/review/results/6)"
+      "Bash(curl -s http://localhost:8000/api/review/results/6)",
+      "Bash(python3:*)"
     ]
   }
 }

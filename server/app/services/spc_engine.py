@@ -27,25 +27,32 @@ def calculate_spc(
 
     data_points = []
     for i, (wid, val) in enumerate(wafer_values):
-        is_ooc = val > ucl or val < lcl
+        ooc_reason: Optional[str] = None
 
-        # Run rule: 7 consecutive same side
-        if i >= 6:
+        # Rule 1: Beyond control limits (UCL / LCL)
+        if val > ucl:
+            ooc_reason = "ucl"
+        elif val < lcl:
+            ooc_reason = "lcl"
+
+        # Rule 2: 7 consecutive points on same side of mean
+        if ooc_reason is None and i >= 6:
             window = x_bars[i - 6 : i + 1]
             if all(w > grand_mean for w in window) or all(w < grand_mean for w in window):
-                is_ooc = True
+                ooc_reason = "run"
 
-        # Trend rule: 6 consecutive increasing/decreasing
-        if i >= 5:
+        # Rule 3: 6 consecutive points monotonically increasing or decreasing
+        if ooc_reason is None and i >= 5:
             window = x_bars[i - 5 : i + 1]
             diffs = np.diff(window)
             if all(d > 0 for d in diffs) or all(d < 0 for d in diffs):
-                is_ooc = True
+                ooc_reason = "trend"
 
         data_points.append({
             "waferId": wid,
             "value": float(val),
-            "isOoc": bool(is_ooc),
+            "isOoc": ooc_reason is not None,
+            "oocReason": ooc_reason,
         })
 
     return {
