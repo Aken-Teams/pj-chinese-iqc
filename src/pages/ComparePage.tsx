@@ -4,6 +4,7 @@ import { Loader2, FileText } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getHistory, type HistoryRow } from '@/services/history'
 import LotSearchSelect from '@/components/ui/LotSearchSelect'
+import SearchSelect from '@/components/ui/SearchSelect'
 import { compareSpecs, type SpecCompareResponse } from '@/services/specs'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
@@ -125,14 +126,11 @@ export default function ComparePage() {
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">
             {t('reviewRule')}
           </label>
-          <select
-            value={rule}
-            onChange={(e) => setRule(e.target.value)}
-            className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary w-full"
-          >
-            <option value="standard">{t('ruleStandard')}</option>
-            <option value="strict">{t('ruleStrict')}</option>
-          </select>
+          <SearchSelect
+            items={[t('ruleStandard'), t('ruleStrict')]}
+            value={rule === 'standard' ? t('ruleStandard') : t('ruleStrict')}
+            onChange={(label) => setRule(label === t('ruleStandard') ? 'standard' : 'strict')}
+          />
         </div>
         <button
           onClick={handleCompare}

@@ -56,7 +56,7 @@ export default function SearchSelect({
         type="button"
         onClick={handleOpen}
         disabled={disabled}
-        className="w-full flex items-center justify-between border border-border-light bg-bg-card px-3 py-2 text-[13px] text-text-primary hover:border-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-between border border-border-light bg-white px-3 py-2 text-[13px] text-text-primary hover:border-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <span className={value ? 'text-text-primary' : 'text-text-muted truncate'}>
           {value || placeholder}

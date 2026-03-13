@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CloudUpload, FileSpreadsheet, Loader2, CheckCircle, XCircle } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
+import SearchSelect from '@/components/ui/SearchSelect'
 import { uploadCpData, confirmUpload, batchUpload, type UploadPreview, type BatchUploadResult } from '@/services/upload'
 
 const VENDOR_OPTIONS = ['JJW', 'XRW', 'HJM']
@@ -82,15 +83,17 @@ function SingleUpload({ selectedVendor, setSelectedVendor }: { selectedVendor: s
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.vendor')}</label>
-              <select value={selectedVendor} onChange={(e) => setSelectedVendor(e.target.value)} className="border border-border-light bg-white px-3 py-2 text-[13px] text-text-primary">
-                {VENDOR_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
+              <SearchSelect
+                items={VENDOR_OPTIONS}
+                value={selectedVendor}
+                onChange={setSelectedVendor}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.formatId')}</label>
-              <select disabled className="border border-border-light bg-white px-3 py-2 text-[13px] text-text-muted">
-                <option>{preview ? preview.format : t('formatConfig.autoDetected')}</option>
-              </select>
+              <div className="border border-border-light bg-bg-page px-3 py-2 text-[13px] text-text-muted">
+                {preview ? preview.format : t('formatConfig.autoDetected')}
+              </div>
             </div>
             <p className="text-[13px] text-text-secondary">{t('formatConfig.description')}</p>
           </div>
@@ -169,9 +172,12 @@ function BatchUpload({ selectedVendor, setSelectedVendor }: { selectedVendor: st
       <div className="bg-bg-card p-6 flex flex-wrap gap-6 items-end">
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.vendor')}</label>
-          <select value={selectedVendor} onChange={(e) => setSelectedVendor(e.target.value)} className="border border-border-light bg-white px-3 py-2 text-[13px] text-text-primary min-w-32">
-            {VENDOR_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
-          </select>
+          <SearchSelect
+            items={VENDOR_OPTIONS}
+            value={selectedVendor}
+            onChange={setSelectedVendor}
+            className="min-w-[140px]"
+          />
         </div>
 
         <div className="flex flex-col gap-1.5 flex-1">
