@@ -237,6 +237,7 @@ export default function AnalyticsPage() {
   const [dist, setDist] = useState<DistributionResponse | null>(null)
   const [corr, setCorr] = useState<CorrelationResponse | null>(null)
   const [anomalies, setAnomalies] = useState<AnomalyItem[]>([])
+  const [corrHover, setCorrHover] = useState<{ ri: number; ci: number; x: number; y: number } | null>(null)
 
   useEffect(() => {
     getHistory({ pageSize: 50 })
@@ -496,16 +497,22 @@ export default function AnalyticsPage() {
                       >
                         {corr.params[ri]}
                       </div>
-                      {row.map((val, ci) => (
-                        <div
-                          key={ci}
-                          className={`flex-shrink-0 flex items-center justify-center text-[10px] font-semibold ${getCellColor(val, ri === ci)}`}
-                          style={{ width: 40, height: 40 }}
-                          title={`${corr.params[ri]} × ${corr.params[ci]}: ${val.toFixed(3)}`}
-                        >
-                          {val.toFixed(2)}
-                        </div>
-                      ))}
+                      {row.map((val, ci) => {
+                        const isHovered = corrHover?.ri === ri && corrHover?.ci === ci
+                        const isDimmed = corrHover !== null && !isHovered
+                        return (
+                          <div
+                            key={ci}
+                            className={`flex-shrink-0 flex items-center justify-center text-[10px] font-semibold cursor-pointer transition-all duration-100 ${getCellColor(val, ri === ci)} ${isHovered ? 'ring-2 ring-inset ring-black/30 brightness-90' : ''} ${isDimmed ? 'opacity-40' : ''}`}
+                            style={{ width: 40, height: 40 }}
+                            onMouseEnter={(e) => setCorrHover({ ri, ci, x: e.clientX, y: e.clientY })}
+                            onMouseMove={(e) => setCorrHover((h) => h ? { ...h, x: e.clientX, y: e.clientY } : null)}
+                            onMouseLeave={() => setCorrHover(null)}
+                          >
+                            {val.toFixed(2)}
+                          </div>
+                        )
+                      })}
                     </div>
                   ))}
                 </div>
@@ -517,6 +524,24 @@ export default function AnalyticsPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Correlation cell tooltip */}
+      {corrHover !== null && corr && (
+        <div
+          className="fixed z-50 pointer-events-none bg-text-primary text-bg-card px-3 py-2 shadow-lg"
+          style={{
+            left: corrHover.x + 14,
+            top: corrHover.y - 56,
+          }}
+        >
+          <div className="text-[10px] opacity-60 leading-snug">
+            {corr.params[corrHover.ri]} × {corr.params[corrHover.ci]}
+          </div>
+          <div className="text-[15px] font-bold mt-0.5 leading-none">
+            {corr.matrix[corrHover.ri][corrHover.ci].toFixed(3)}
+          </div>
+        </div>
       )}
     </div>
   )
