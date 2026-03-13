@@ -60,13 +60,15 @@ def calculate_wafer_param_review(
     def q_yield(lower: Optional[float], upper: Optional[float]) -> float:
         if lower is None and upper is None:
             return 1.0  # No spec defined = all dies pass by default
-        # Inclusive inequalities (>= and <=) for spec limit boundaries
+        # Strict inequalities (> and <) matching VBA COUNTIFS behavior:
+        # VBA uses CountIfs(range, ">" & QIL, range, "<" & QIU)
+        # A value exactly equal to a limit counts as FAILING.
         if lower is not None and upper is not None:
-            mask = (arr >= lower) & (arr <= upper)
+            mask = (arr > lower) & (arr < upper)
         elif lower is not None:
-            mask = arr >= lower
+            mask = arr > lower
         else:
-            mask = arr <= upper
+            mask = arr < upper
         count = int(np.sum(mask))
         return count / total_die_count if total_die_count > 0 else 0.0
 
