@@ -4,6 +4,7 @@ import { Plus, Trash2, Check, X } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getProducts, type Product } from '@/services/vendors'
 import { getRules, createRule, updateRule, deleteRule, type ReviewRule } from '@/services/rules'
+import ProductSearchSelect from '@/components/ui/ProductSearchSelect'
 
 const LIMIT_KEYS: { key: keyof ReviewRule; labelKey: string }[] = [
   { key: 'q1_lower', labelKey: 'q1Lower' },
@@ -145,37 +146,35 @@ export default function RulesPage() {
   }, [selectedProductId])
 
   return (
-    <div className="p-9 pl-11 flex flex-col gap-5">
-      <div className="flex items-center justify-between">
-        <PageHeader title={t('rules.title')} subtitle={t('rules.desc')} />
-        {selectedProductId != null && (
-          <button
-            onClick={() => setAddingNew(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 cursor-pointer"
-          >
-            <Plus size={16} /> {t('rules.addRule')}
-          </button>
-        )}
-      </div>
-
-      {/* Product selector */}
-      <div className="flex items-center gap-3">
-        <label className="text-xs font-semibold text-text-muted uppercase tracking-[1px] shrink-0">
-          Product
-        </label>
-        <select
-          className="bg-bg-card border border-border-light px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent cursor-pointer min-w-48"
-          value={selectedProductId ?? ''}
-          onChange={(e) => setSelectedProductId(e.target.value ? Number(e.target.value) : null)}
-        >
-          <option value="">{t('rules.selectProduct')}</option>
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>
-              [{p.vendor_code}] {p.product_code}
-            </option>
-          ))}
-        </select>
-      </div>
+    <div className="p-9 pl-11 flex flex-col gap-6">
+      <PageHeader
+        title={t('rules.title')}
+        subtitle={t('rules.desc')}
+        actions={
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-text-muted uppercase tracking-[1px] shrink-0">
+                Product
+              </label>
+              <ProductSearchSelect
+                products={products}
+                selectedProductId={selectedProductId}
+                onSelect={(id) => setSelectedProductId(id)}
+                placeholder={t('rules.selectProduct')}
+                className="w-[220px]"
+              />
+            </div>
+            {selectedProductId != null && (
+              <button
+                onClick={() => setAddingNew(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 cursor-pointer whitespace-nowrap"
+              >
+                <Plus size={16} /> {t('rules.addRule')}
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {selectedProductId == null ? (
         <p className="text-sm text-text-muted">{t('rules.selectProduct')}</p>
