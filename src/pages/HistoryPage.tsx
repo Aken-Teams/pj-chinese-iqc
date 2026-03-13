@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '@/components/layout/PageHeader'
 import { Download, Search, Loader2, FileText } from 'lucide-react'
+import SearchSelect from '@/components/ui/SearchSelect'
 import { getHistory, type HistoryRow, type HistoryResponse } from '@/services/history'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
@@ -195,32 +196,31 @@ export default function HistoryPage() {
       <div className="flex flex-wrap gap-4 items-end mt-7">
         <div className="w-[160px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('vendor')}</label>
-          <select value={vendor} onChange={(e) => setVendor(e.target.value)} className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary w-full">
-            <option value="">{t('allVendors')}</option>
-            <option value="JJW">JJW</option>
-            <option value="XRW">XRW</option>
-            <option value="HJM">HJM</option>
-          </select>
+          <SearchSelect
+            items={[t('allVendors'), 'JJW', 'XRW', 'HJM']}
+            value={vendor || t('allVendors')}
+            onChange={(v) => setVendor(v === t('allVendors') ? '' : v)}
+          />
         </div>
         <div className="w-[160px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('product')}</label>
-          <input type="text" value={product} onChange={(e) => setProduct(e.target.value)} placeholder={t('allProducts')} className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary w-full" />
+          <input type="text" value={product} onChange={(e) => setProduct(e.target.value)} placeholder={t('allProducts')} className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary w-full outline-none focus:border-accent/60" />
         </div>
-        <div className="w-[130px] flex flex-col gap-1.5">
+        <div className="w-[140px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('status')}</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary w-full">
-            <option value="">{t('allStatus')}</option>
-            <option value="reviewed">{t('reviewed')}</option>
-            <option value="pending">{t('pending')}</option>
-          </select>
+          <SearchSelect
+            items={[t('allStatus'), t('reviewed'), t('pending')]}
+            value={status === 'reviewed' ? t('reviewed') : status === 'pending' ? t('pending') : t('allStatus')}
+            onChange={(v) => setStatus(v === t('reviewed') ? 'reviewed' : v === t('pending') ? 'pending' : '')}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('fromDate')}</label>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary" />
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60" />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('toDate')}</label>
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary" />
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60" />
         </div>
         <button onClick={handleSearch} className="bg-accent text-white px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-2">
           <Search size={16} />
