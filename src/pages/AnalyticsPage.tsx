@@ -10,7 +10,6 @@ import {
   getSpc,
   getDistribution,
   getCorrelation,
-  getAnomalies,
   detectAnomalies,
   type SpcResponse,
   type DistributionResponse,
@@ -125,10 +124,33 @@ function SpcChart({ spc, chartHeight }: { spc: SpcResponse; chartHeight: number 
   )
 }
 
-function DistributionChart({ counts }: { counts: number[] }) {
+function DistributionChart({ counts: rawCounts, bins, mean, stdev }: {
+  counts: number[]
+  bins: number[]
+  mean: number
+  stdev: number
+}) {
   const [hovered, setHovered] = useState<number | null>(null)
 
-  const maxCount = Math.max(...counts, 1)
+  // Pad 3 empty bins on each side so tail area is always visible
+  const PADDING = 3
+  const counts = [...Array(PADDING).fill(0), ...rawCounts, ...Array(PADDING).fill(0)]
+  const dataStart = PADDING
+  const dataEnd = dataStart + rawCounts.length - 1
+
+  // Extend bins array for padding (bins has length rawCounts.length + 1)
+  const binWidth = bins.length >= 2 ? bins[1] - bins[0] : 0
+  const paddedBins = [
+    ...Array.from({ length: PADDING }, (_, k) => bins[0] - (PADDING - k) * binWidth),
+    ...bins,
+    ...Array.from({ length: PADDING }, (_, k) => (bins[bins.length - 1] ?? 0) + (k + 1) * binWidth),
+  ]
+
+  // ±2σ range
+  const lo2 = mean - 2 * stdev
+  const hi2 = mean + 2 * stdev
+
+  const maxCount = Math.max(...rawCounts, 1)
   const W = 290, H = 120
   const PAD = { top: 20, right: 6, bottom: 6, left: 28 }
   const cW = W - PAD.left - PAD.right
@@ -138,6 +160,7 @@ function DistributionChart({ counts }: { counts: number[] }) {
   const toY = (v: number) => PAD.top + cH - (v / maxCount) * cH
   const toX = (i: number) => PAD.left + i * barW + gap / 2
   const yTicks = [0, Math.round(maxCount / 2), maxCount]
+  const MIN_BAR_H = 3
 
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}
@@ -151,22 +174,31 @@ function DistributionChart({ counts }: { counts: number[] }) {
         </g>
       ))}
       {counts.map((c, i) => {
-        const isCenterRange = i >= Math.floor(counts.length * 0.3) && i <= Math.floor(counts.length * 0.7)
+        const inData = i >= dataStart && i <= dataEnd
+        // Bin center from padded bins array
+        const binCenter = paddedBins[i] !== undefined && paddedBins[i + 1] !== undefined
+          ? (paddedBins[i] + paddedBins[i + 1]) / 2
+          : NaN
+        // ±2σ: accent color; outside or padding: lighter
+        const isWithin2Sigma = !isNaN(binCenter) && binCenter >= lo2 && binCenter <= hi2
         const x = toX(i)
         const bw = Math.max(barW - gap, 1)
         const bh = maxCount > 0 ? (c / maxCount) * cH : 0
+        const displayH = Math.max(bh, isWithin2Sigma ? 0 : MIN_BAR_H)
         return (
-          <rect key={i} x={x} y={toY(c)} width={bw} height={Math.max(bh, 0)}
-            fill={isCenterRange ? 'var(--color-accent)' : 'var(--color-bar-track)'}
-            opacity={hovered !== null && hovered !== i ? 0.5 : 1}
-            style={{ cursor: 'pointer' }}
-            onMouseEnter={() => setHovered(i)}
+          <rect key={i} x={x} y={PAD.top + cH - displayH} width={bw} height={displayH}
+            fill="var(--color-accent)"
+            fillOpacity={isWithin2Sigma ? 1 : 0.25}
+            opacity={hovered !== null && hovered !== (i - dataStart) ? 0.5 : 1}
+            style={{ cursor: inData ? 'pointer' : 'default' }}
+            onMouseEnter={() => inData && setHovered(i - dataStart)}
           />
         )
       })}
       {hovered !== null && (() => {
-        const c = counts[hovered]
-        const cx = toX(hovered) + (barW - gap) / 2
+        const paddedIdx = hovered + dataStart
+        const c = rawCounts[hovered]
+        const cx = toX(paddedIdx) + (barW - gap) / 2
         const ty = toY(c)
         const label = `${c} wafers`
         const tw = label.length * 5.2 + 10
@@ -219,20 +251,10 @@ export default function AnalyticsPage() {
     setAnomalyLoading(true)
     setAnomalies([])
     try {
-      const existing = await getAnomalies(lotId, lang)
-      if (existing.length > 0) {
-        setAnomalies(existing)
-      } else {
-        const result = await detectAnomalies(lotId, lang)
-        setAnomalies(result)
-      }
+      const result = await detectAnomalies(lotId, lang)
+      setAnomalies(result)
     } catch {
-      try {
-        const result = await detectAnomalies(lotId, lang)
-        setAnomalies(result)
-      } catch {
-        setAnomalies([])
-      }
+      setAnomalies([])
     } finally {
       setAnomalyLoading(false)
     }
@@ -388,7 +410,7 @@ export default function AnalyticsPage() {
                   </div>
                   {/* SVG distribution chart with Y-axis and tooltip */}
                   <div className="flex-1 min-h-0" style={{ minHeight: 100 }}>
-                    <DistributionChart counts={dist.counts} />
+                    <DistributionChart counts={dist.counts} bins={dist.bins} mean={dist.mean} stdev={dist.stdev} />
                   </div>
                 </>
               ) : (
