@@ -28,12 +28,12 @@ const OOC_STYLES: Record<string, {
 }> = {
   ucl:   { color: '#E53935', label: '超出 UCL',  size: 10, borderRadius: '50%' },
   lcl:   { color: '#E53935', label: '超出 LCL',  size: 10, borderRadius: '50%' },
-  // gem diamond ◆ — 7 points clustered on same side
+  // diamond ♦ — 7 points clustered on same side
   run:   { color: '#FF6D00', label: '連7點同側', size: 12,
-           clipPath: 'polygon(50% 0%, 100% 38%, 50% 100%, 0% 38%)' },
-  // gem diamond ◆ — 6 consecutive directional trend
+           clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' },
+  // diamond ♦ — 6 consecutive directional trend
   trend: { color: '#9C27B0', label: '連6點趨勢', size: 12,
-           clipPath: 'polygon(50% 0%, 100% 38%, 50% 100%, 0% 38%)' },
+           clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' },
 }
 
 function SpcChart({ spc, chartHeight }: { spc: SpcResponse; chartHeight: number }) {
