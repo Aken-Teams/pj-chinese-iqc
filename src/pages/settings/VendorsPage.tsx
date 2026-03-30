@@ -55,6 +55,8 @@ function FormatRow({
     { key: 'electrical_start_col', labelKey: 'electricalStartCol' },
     { key: 'wafer_id_col', labelKey: 'waferIdCol' },
     { key: 'bin_col', labelKey: 'binCol' },
+    { key: 'product_id_col', labelKey: 'productIdCol', nullable: true },
+    { key: 'lot_id_col', labelKey: 'lotIdCol', nullable: true },
     { key: 'fixed_die_count', labelKey: 'fixedDieCount', nullable: true },
   ]
 

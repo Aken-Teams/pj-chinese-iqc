@@ -41,6 +41,8 @@
     "electricalStartCol": "电性起始列",
     "waferIdCol": "Wafer ID 列",
     "binCol": "BIN 列",
+    "productIdCol": "Product ID 列（选填）",
+    "lotIdCol": "Lot ID 列（选填）",
     "fixedDieCount": "固定 Die 数（选填）",
     "confirmDelete": "确定要删除此模板吗？"
   },

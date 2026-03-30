@@ -41,6 +41,8 @@
     "electricalStartCol": "Electrical Start Col",
     "waferIdCol": "Wafer ID Col",
     "binCol": "BIN Col",
+    "productIdCol": "Product ID Col (optional)",
+    "lotIdCol": "Lot ID Col (optional)",
     "fixedDieCount": "Fixed Die Count (optional)",
     "confirmDelete": "Delete this template?"
   },
