@@ -15,43 +15,33 @@ from app.models.wafer import Wafer
 from app.models.die_data import DieData, ElectricalValue
 from app.models.spec import CpSpec
 from app.schemas.upload import UploadPreview, UploadConfirmRequest
-from app.services.parser.auto_detect import auto_detect_parser
-from app.services.parser.jjw_parser import JJWParser
-from app.services.parser.xrw_parser import XRWParser
 from app.services.parser.dynamic_parser import DynamicParser
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
-PARSERS = {
-    "JJW": JJWParser,
-    "XRW": XRWParser,
-}
-
 _ERR = {
     "zh-TW": {
-        "cannot_detect": "無法識別檔案格式，請手動選擇廠商後重新上傳",
+        "cannot_detect": "無法識別檔案格式，請先選擇廠商再上傳",
         "xls_not_supported": "不支援舊版 .xls 格式，請用 Excel 另存為 .xlsx 後再上傳",
         "parse_failed": "檔案解析失敗：{detail}",
-        "format_mismatch": "檔案格式偵測為 {detected}，與選擇廠商 {selected} 不符，請確認後重新上傳",
+        "no_format_config": "廠商 {vendor} 尚未設定格式模板，請先至「廠商管理」設定後再上傳",
         "unsupported_format": "不支援此檔案格式，請上傳 .xlsx 或 .xls 格式",
     },
     "zh-CN": {
-        "cannot_detect": "无法识别文件格式，请手动选择厂商后重新上传",
+        "cannot_detect": "无法识别文件格式，请先选择厂商再上传",
         "xls_not_supported": "不支持旧版 .xls 格式，请用 Excel 另存为 .xlsx 后再上传",
         "parse_failed": "文件解析失败：{detail}",
-        "format_mismatch": "文件格式检测为 {detected}，与选择厂商 {selected} 不符，请确认后重新上传",
+        "no_format_config": "厂商 {vendor} 尚未设定格式模板，请先至「厂商管理」设定后再上传",
         "unsupported_format": "不支持此文件格式，请上传 .xlsx 或 .xls 格式",
     },
     "en": {
         "cannot_detect": "Cannot detect file format. Please select a vendor and try again.",
         "xls_not_supported": "Old .xls format is not supported. Please save as .xlsx and try again.",
         "parse_failed": "Failed to parse file: {detail}",
-        "format_mismatch": "File detected as {detected} format but {selected} was selected. Please check and re-upload.",
+        "no_format_config": "Vendor {vendor} has no format configured. Please set it up in Vendor Management first.",
         "unsupported_format": "Unsupported file format. Please upload .xlsx or .xls files.",
     },
 }
-
-_PARSER_VENDOR = {v: k for k, v in PARSERS.items()}
 
 
 def _convert_xls_to_xlsx(xls_path: str) -> str:
@@ -76,10 +66,7 @@ def _save_upload(file: UploadFile) -> str:
 def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, db: Session = None):
     """Return (parser_instance, actual_path_to_use), handling .xls conversion.
 
-    Resolution order:
-    1. If vendor has a VendorFormat in DB → DynamicParser with those column mappings
-    2. If vendor matches a hardcoded parser (JJW/XRW) → use that parser
-    3. Fall back to auto-detect
+    All vendors use DynamicParser driven by VendorFormat config from DB.
     """
     name_lower = original_name.lower()
     actual_path = file_path
@@ -89,27 +76,21 @@ def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, 
     elif not name_lower.endswith(".xlsx"):
         raise HTTPException(400, err.get("unsupported_format", "Unsupported format"))
 
-    # 1. Try VendorFormat from DB (configured in 廠商管理)
-    if vendor and db:
-        vendor_obj = db.query(Vendor).filter(Vendor.code == vendor).first()
-        if vendor_obj:
-            fmt = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).first()
-            if fmt:
-                return DynamicParser.from_vendor_format(vendor, fmt), actual_path
-
-    # 2. Try hardcoded parsers
-    if vendor and vendor in PARSERS:
-        detected = auto_detect_parser(actual_path)
-        if detected is not None and not isinstance(detected, PARSERS[vendor]):
-            detected_vendor = _PARSER_VENDOR.get(type(detected), "unknown")
-            raise HTTPException(400, err["format_mismatch"].format(selected=vendor, detected=detected_vendor))
-        return PARSERS[vendor](), actual_path
-
-    # 3. Auto-detect
-    parser = auto_detect_parser(actual_path)
-    if not parser:
+    if not vendor:
         raise HTTPException(400, err["cannot_detect"])
-    return parser, actual_path
+
+    if not db:
+        raise HTTPException(500, "Database session not available")
+
+    vendor_obj = db.query(Vendor).filter(Vendor.code == vendor).first()
+    if not vendor_obj:
+        raise HTTPException(400, err["no_format_config"].format(vendor=vendor))
+
+    fmt = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).first()
+    if not fmt:
+        raise HTTPException(400, err["no_format_config"].format(vendor=vendor))
+
+    return DynamicParser.from_vendor_format(vendor, fmt), actual_path
 
 
 def _persist_result(result, db: Session) -> dict:
@@ -247,19 +228,17 @@ def confirm_upload(
     if file_path.lower().endswith(".xls") and not file_path.lower().endswith(".xlsx"):
         file_path = _convert_xls_to_xlsx(file_path)
 
-    # Try VendorFormat from DB first, then hardcoded parsers
+    # Use VendorFormat from DB (configured in 廠商管理)
     vendor_code = req.vendor_code
     vendor_obj = db.query(Vendor).filter(Vendor.code == vendor_code).first()
-    parser = None
-    if vendor_obj:
-        fmt = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).first()
-        if fmt:
-            parser = DynamicParser.from_vendor_format(vendor_code, fmt)
-    if parser is None:
-        parser_cls = PARSERS.get(vendor_code)
-        if not parser_cls:
-            raise HTTPException(400, f"Unknown vendor code: {vendor_code}")
-        parser = parser_cls()
+    if not vendor_obj:
+        raise HTTPException(400, f"Vendor {vendor_code} not found in database")
+
+    fmt = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).first()
+    if not fmt:
+        raise HTTPException(400, f"Vendor {vendor_code} has no format configured")
+
+    parser = DynamicParser.from_vendor_format(vendor_code, fmt)
 
     result = parser.parse(file_path)
     return _persist_result(result, db)
