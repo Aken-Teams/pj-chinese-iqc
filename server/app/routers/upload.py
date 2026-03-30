@@ -18,6 +18,7 @@ from app.schemas.upload import UploadPreview, UploadConfirmRequest
 from app.services.parser.auto_detect import auto_detect_parser
 from app.services.parser.jjw_parser import JJWParser
 from app.services.parser.xrw_parser import XRWParser
+from app.services.parser.dynamic_parser import DynamicParser
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
@@ -72,8 +73,14 @@ def _save_upload(file: UploadFile) -> str:
     return file_path
 
 
-def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict):
-    """Return (parser_instance, actual_path_to_use), handling .xls conversion."""
+def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, db: Session = None):
+    """Return (parser_instance, actual_path_to_use), handling .xls conversion.
+
+    Resolution order:
+    1. If vendor has a VendorFormat in DB → DynamicParser with those column mappings
+    2. If vendor matches a hardcoded parser (JJW/XRW) → use that parser
+    3. Fall back to auto-detect
+    """
     name_lower = original_name.lower()
     actual_path = file_path
 
@@ -82,17 +89,27 @@ def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict):
     elif not name_lower.endswith(".xlsx"):
         raise HTTPException(400, err.get("unsupported_format", "Unsupported format"))
 
+    # 1. Try VendorFormat from DB (configured in 廠商管理)
+    if vendor and db:
+        vendor_obj = db.query(Vendor).filter(Vendor.code == vendor).first()
+        if vendor_obj:
+            fmt = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).first()
+            if fmt:
+                return DynamicParser.from_vendor_format(vendor, fmt), actual_path
+
+    # 2. Try hardcoded parsers
     if vendor and vendor in PARSERS:
         detected = auto_detect_parser(actual_path)
         if detected is not None and not isinstance(detected, PARSERS[vendor]):
             detected_vendor = _PARSER_VENDOR.get(type(detected), "unknown")
             raise HTTPException(400, err["format_mismatch"].format(selected=vendor, detected=detected_vendor))
         return PARSERS[vendor](), actual_path
-    else:
-        parser = auto_detect_parser(actual_path)
-        if not parser:
-            raise HTTPException(400, err["cannot_detect"])
-        return parser, actual_path
+
+    # 3. Auto-detect
+    parser = auto_detect_parser(actual_path)
+    if not parser:
+        raise HTTPException(400, err["cannot_detect"])
+    return parser, actual_path
 
 
 def _persist_result(result, db: Session) -> dict:
@@ -101,7 +118,10 @@ def _persist_result(result, db: Session) -> dict:
     if not vendor:
         raise HTTPException(400, f"Vendor {result.vendor_code} not found in database")
 
-    product = db.query(Product).filter(Product.product_code == result.product_id).first()
+    product = db.query(Product).filter(
+        Product.product_code == result.product_id,
+        Product.vendor_id == vendor.id,
+    ).first()
     if not product:
         product = Product(product_code=result.product_id, vendor_id=vendor.id)
         db.add(product)
@@ -185,7 +205,7 @@ async def upload_cp_data(
     file_path = _save_upload(file)
 
     try:
-        parser, actual_path = _resolve_parser(file_path, file.filename, vendor, err)
+        parser, actual_path = _resolve_parser(file_path, file.filename, vendor, err, db)
     except HTTPException:
         raise
     except Exception as e:
@@ -227,11 +247,20 @@ def confirm_upload(
     if file_path.lower().endswith(".xls") and not file_path.lower().endswith(".xlsx"):
         file_path = _convert_xls_to_xlsx(file_path)
 
-    parser_cls = PARSERS.get(req.vendor_code)
-    if not parser_cls:
-        raise HTTPException(400, f"Unknown vendor code: {req.vendor_code}")
+    # Try VendorFormat from DB first, then hardcoded parsers
+    vendor_code = req.vendor_code
+    vendor_obj = db.query(Vendor).filter(Vendor.code == vendor_code).first()
+    parser = None
+    if vendor_obj:
+        fmt = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).first()
+        if fmt:
+            parser = DynamicParser.from_vendor_format(vendor_code, fmt)
+    if parser is None:
+        parser_cls = PARSERS.get(vendor_code)
+        if not parser_cls:
+            raise HTTPException(400, f"Unknown vendor code: {vendor_code}")
+        parser = parser_cls()
 
-    parser = parser_cls()
     result = parser.parse(file_path)
     return _persist_result(result, db)
 
@@ -251,7 +280,7 @@ async def batch_upload(
         entry: dict = {"fileName": file.filename, "success": False, "error": None}
         try:
             file_path = _save_upload(file)
-            parser, actual_path = _resolve_parser(file_path, file.filename, vendor, err)
+            parser, actual_path = _resolve_parser(file_path, file.filename, vendor, err, db)
             parsed = parser.parse(actual_path)
             summary = _persist_result(parsed, db)
             entry.update(summary)

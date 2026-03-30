@@ -78,7 +78,7 @@ export default function SearchSelect({
               className="flex-1 text-[13px] outline-none bg-transparent text-text-primary placeholder:text-text-muted"
             />
           </div>
-          <ul className="max-h-[240px] overflow-y-auto">
+          <ul className="max-h-[120px] overflow-y-auto">
             {filtered.length === 0 ? (
               <li className="px-3 py-2 text-[13px] text-text-muted">無符合結果</li>
             ) : (
