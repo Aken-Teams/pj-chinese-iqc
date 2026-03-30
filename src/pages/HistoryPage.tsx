@@ -4,6 +4,7 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Download, Search, Loader2, FileText } from 'lucide-react'
 import SearchSelect from '@/components/ui/SearchSelect'
 import { getHistory, type HistoryRow, type HistoryResponse } from '@/services/history'
+import { getVendors } from '@/services/vendors'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
 
@@ -106,6 +107,11 @@ export default function HistoryPage() {
   const [toDate, setToDate] = useState('')
   const [page, setPage] = useState(1)
   const [allItems, setAllItems] = useState<HistoryRow[]>([])
+  const [vendorCodes, setVendorCodes] = useState<string[]>([])
+
+  useEffect(() => {
+    getVendors().then((list) => setVendorCodes(list.map((v) => v.code))).catch(() => {})
+  }, [])
 
   const buildParams = () => ({ vendor, product, status, fromDate: fromDate || undefined, toDate: toDate || undefined })
 
@@ -197,7 +203,7 @@ export default function HistoryPage() {
         <div className="w-[160px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('vendor')}</label>
           <SearchSelect
-            items={[t('allVendors'), 'JJW', 'XRW', 'HJM']}
+            items={[t('allVendors'), ...vendorCodes]}
             value={vendor || t('allVendors')}
             onChange={(v) => setVendor(v === t('allVendors') ? '' : v)}
           />

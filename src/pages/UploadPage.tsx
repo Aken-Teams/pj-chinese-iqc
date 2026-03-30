@@ -1,15 +1,14 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CloudUpload, FileSpreadsheet, Loader2, CheckCircle, XCircle } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import SearchSelect from '@/components/ui/SearchSelect'
 import { uploadCpData, confirmUpload, batchUpload, type UploadPreview, type BatchUploadResult } from '@/services/upload'
-
-const VENDOR_OPTIONS = ['JJW', 'XRW', 'HJM']
+import { getVendors } from '@/services/vendors'
 
 type Mode = 'single' | 'batch'
 
-function SingleUpload({ selectedVendor, setSelectedVendor }: { selectedVendor: string; setSelectedVendor: (v: string) => void }) {
+function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { selectedVendor: string; setSelectedVendor: (v: string) => void; vendorCodes: string[] }) {
   const { t, i18n } = useTranslation('upload')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -84,7 +83,7 @@ function SingleUpload({ selectedVendor, setSelectedVendor }: { selectedVendor: s
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.vendor')}</label>
               <SearchSelect
-                items={VENDOR_OPTIONS}
+                items={vendorCodes}
                 value={selectedVendor}
                 onChange={setSelectedVendor}
               />
@@ -138,7 +137,7 @@ function SingleUpload({ selectedVendor, setSelectedVendor }: { selectedVendor: s
   )
 }
 
-function BatchUpload({ selectedVendor, setSelectedVendor }: { selectedVendor: string; setSelectedVendor: (v: string) => void }) {
+function BatchUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { selectedVendor: string; setSelectedVendor: (v: string) => void; vendorCodes: string[] }) {
   const { t, i18n } = useTranslation('upload')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<File[]>([])
@@ -173,7 +172,7 @@ function BatchUpload({ selectedVendor, setSelectedVendor }: { selectedVendor: st
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.vendor')}</label>
           <SearchSelect
-            items={VENDOR_OPTIONS}
+            items={vendorCodes}
             value={selectedVendor}
             onChange={setSelectedVendor}
             className="min-w-[140px]"
@@ -259,7 +258,16 @@ function BatchUpload({ selectedVendor, setSelectedVendor }: { selectedVendor: st
 export default function UploadPage() {
   const { t } = useTranslation('upload')
   const [mode, setMode] = useState<Mode>('single')
-  const [selectedVendor, setSelectedVendor] = useState('JJW')
+  const [vendorCodes, setVendorCodes] = useState<string[]>([])
+  const [selectedVendor, setSelectedVendor] = useState('')
+
+  useEffect(() => {
+    getVendors().then((list) => {
+      const codes = list.map((v) => v.code)
+      setVendorCodes(codes)
+      if (codes.length > 0) setSelectedVendor(codes[0])
+    }).catch(() => {})
+  }, [])
 
   return (
     <div className="p-12">
@@ -281,8 +289,8 @@ export default function UploadPage() {
       </div>
 
       {mode === 'single'
-        ? <SingleUpload selectedVendor={selectedVendor} setSelectedVendor={setSelectedVendor} />
-        : <BatchUpload selectedVendor={selectedVendor} setSelectedVendor={setSelectedVendor} />}
+        ? <SingleUpload selectedVendor={selectedVendor} setSelectedVendor={setSelectedVendor} vendorCodes={vendorCodes} />
+        : <BatchUpload selectedVendor={selectedVendor} setSelectedVendor={setSelectedVendor} vendorCodes={vendorCodes} />}
     </div>
   )
 }
