@@ -51,6 +51,15 @@ class DynamicParser(BaseParser):
             fixed_die_count=fmt.fixed_die_count,
         )
 
+    @staticmethod
+    def _safe_float(val):
+        if val is None or val == "":
+            return None
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return None
+
     def _open_workbook(self, filepath: str):
         return openpyxl.load_workbook(filepath, data_only=True, read_only=True)
 
@@ -123,8 +132,8 @@ class DynamicParser(BaseParser):
             upper = ws.cell(row=self.UPPER_LIMIT_ROW, column=ecol).value
             cp_specs.append(ParsedCpSpec(
                 param_name=pname,
-                lower_limit=float(lower) if lower is not None and lower != "" else None,
-                upper_limit=float(upper) if upper is not None and upper != "" else None,
+                lower_limit=self._safe_float(lower),
+                upper_limit=self._safe_float(upper),
             ))
 
         # 3. Read die data, group by wafer
@@ -164,7 +173,7 @@ class DynamicParser(BaseParser):
                 ecol_idx = self.ELECTRICAL_START_COL - 1 + j
                 if ecol_idx < len(row):
                     v = row[ecol_idx].value
-                    electrical[pname] = float(v) if v is not None else None
+                    electrical[pname] = self._safe_float(v)
                 else:
                     electrical[pname] = None
 

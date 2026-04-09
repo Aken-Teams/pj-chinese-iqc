@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X, HelpCircle } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import {
   getVendors,
@@ -31,6 +31,148 @@ const DEFAULT_FORMAT: Omit<VendorFormat, 'id'> = {
 
 type FormatDraft = Omit<VendorFormat, 'id'>
 
+/* ── Tooltip wrapper ── */
+function FieldTip({ tip }: { tip: string }) {
+  return (
+    <div className="relative group inline-flex items-center">
+      <HelpCircle size={13} className="text-text-muted/50 hover:text-accent cursor-help" />
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
+        <div className="bg-bg-dark-surface text-text-on-dark px-2.5 py-1.5 text-[11px] whitespace-nowrap shadow-lg max-w-[280px]">
+          {tip}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Excel-style diagram ── */
+function FormatHelpDiagram({ t: tv }: { t: (k: string) => string }) {
+  return (
+    <div className="border border-accent/20 bg-accent/5 p-5 flex flex-col gap-4">
+      <div className="font-heading text-sm font-bold uppercase tracking-[1px] text-accent">
+        {tv('helpToggle')}
+      </div>
+
+      {/* Excel diagram */}
+      <div className="overflow-x-auto">
+        <table className="border-collapse font-mono text-sm leading-normal w-full">
+          <thead>
+            <tr className="text-text-muted text-xs">
+              <th className="px-3 py-2 text-right border border-border-light bg-bg-page w-12" />
+              <th className="px-3 py-2 border border-border-light bg-bg-page min-w-[90px]">A</th>
+              <th className="px-3 py-2 border border-border-light bg-bg-page min-w-[64px]">B</th>
+              <th className="px-3 py-2 border border-border-light bg-bg-page min-w-[64px]">C</th>
+              <th className="px-3 py-2 border border-border-light bg-bg-page min-w-[64px]">D</th>
+              <th className="px-3 py-2 border border-border-light bg-bg-page min-w-[80px]">E</th>
+              <th className="px-3 py-2 border border-border-light bg-bg-page min-w-[80px]">F</th>
+              <th className="px-3 py-2 border border-border-light bg-bg-page min-w-[80px]">G</th>
+              <th className="px-4 py-2 text-left min-w-[200px]" />
+            </tr>
+          </thead>
+          <tbody>
+            {/* Row 1 - product/lot */}
+            <tr>
+              <td className="px-3 py-2 text-right text-text-muted border border-border-light bg-bg-page font-semibold">1</td>
+              <td className="px-3 py-2 border border-border-light text-text-muted">Prod01</td>
+              <td className="px-3 py-2 border border-border-light text-text-muted">LOT001</td>
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-4 py-2 text-text-muted/60 italic text-xs">
+                &larr; {tv('diagramProductLot')}
+              </td>
+            </tr>
+            {/* Row 2 - lower limits */}
+            <tr className="bg-blue-500/5">
+              <td className="px-3 py-2 text-right text-text-muted border border-border-light bg-bg-page font-semibold">2</td>
+              <td className="px-3 py-2 border border-border-light text-text-muted">{tv('diagramLower')}</td>
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-3 py-2 border border-border-light font-bold text-blue-500">0.3</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-blue-500">-70</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-blue-500">1.0</td>
+              <td className="px-4 py-2 text-blue-500 font-semibold text-sm">
+                &larr; {tv('diagramLowerRow')}
+              </td>
+            </tr>
+            {/* Row 3 - upper limits */}
+            <tr className="bg-orange-500/5">
+              <td className="px-3 py-2 text-right text-text-muted border border-border-light bg-bg-page font-semibold">3</td>
+              <td className="px-3 py-2 border border-border-light text-text-muted">{tv('diagramUpper')}</td>
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-3 py-2 border border-border-light" />
+              <td className="px-3 py-2 border border-border-light font-bold text-orange-500">5.4</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-orange-500">70</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-orange-500">50</td>
+              <td className="px-4 py-2 text-orange-500 font-semibold text-sm">
+                &larr; {tv('diagramUpperRow')}
+              </td>
+            </tr>
+            {/* Row 4 - header row */}
+            <tr className="bg-accent/8">
+              <td className="px-3 py-2 text-right text-text-muted border border-border-light bg-bg-page font-semibold">4</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-accent">WAFER</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-accent">BIN</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-accent">X</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-accent">Y</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-green-600">Param1</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-green-600">Param2</td>
+              <td className="px-3 py-2 border border-border-light font-bold text-green-600">Param3</td>
+              <td className="px-4 py-2 text-accent font-semibold text-sm">
+                &larr; {tv('diagramHeaderRow')}
+              </td>
+            </tr>
+            {/* Row 5 - data row */}
+            <tr className="bg-emerald-500/5">
+              <td className="px-3 py-2 text-right text-text-muted border border-border-light bg-bg-page font-semibold">5</td>
+              <td className="px-3 py-2 border border-border-light">W01</td>
+              <td className="px-3 py-2 border border-border-light">1</td>
+              <td className="px-3 py-2 border border-border-light">13</td>
+              <td className="px-3 py-2 border border-border-light">2</td>
+              <td className="px-3 py-2 border border-border-light">1.05</td>
+              <td className="px-3 py-2 border border-border-light">-0.8</td>
+              <td className="px-3 py-2 border border-border-light">12.3</td>
+              <td className="px-4 py-2 text-emerald-600 font-semibold text-sm">
+                &larr; {tv('diagramDataRow')}
+              </td>
+            </tr>
+            {/* Row 6 - data row 2 */}
+            <tr>
+              <td className="px-3 py-2 text-right text-text-muted border border-border-light bg-bg-page font-semibold">6</td>
+              <td className="px-3 py-2 border border-border-light">W01</td>
+              <td className="px-3 py-2 border border-border-light">1</td>
+              <td className="px-3 py-2 border border-border-light">17</td>
+              <td className="px-3 py-2 border border-border-light">2</td>
+              <td className="px-3 py-2 border border-border-light">1.02</td>
+              <td className="px-3 py-2 border border-border-light">-0.6</td>
+              <td className="px-3 py-2 border border-border-light">11.9</td>
+              <td className="px-4 py-2 text-text-muted/60 italic text-xs">...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Column annotations */}
+      <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-text-secondary mt-1">
+        <span><b className="text-accent">A(1)</b> = {tv('diagramColWafer')}</span>
+        <span><b className="text-accent">B(2)</b> = {tv('diagramColBin')}</span>
+        <span><b className="text-accent">C(3)</b> = {tv('diagramColX')}</span>
+        <span><b className="text-accent">D(4)</b> = {tv('diagramColY')}</span>
+        <span><b className="text-green-600">E(5)</b> = {tv('diagramColElec')}</span>
+      </div>
+
+      <p className="text-sm text-text-muted mt-1">
+        {tv('helpNote')}
+      </p>
+    </div>
+  )
+}
+
+/* ── Format row editor ── */
 function FormatRow({
   fmt,
   vendorId,
@@ -46,18 +188,23 @@ function FormatRow({
   const [editing, setEditing] = useState(fmt === null)
   const [draft, setDraft] = useState<FormatDraft>(fmt ?? DEFAULT_FORMAT)
   const [saving, setSaving] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
 
-  const numFields: { key: keyof FormatDraft; labelKey: string; nullable?: boolean }[] = [
-    { key: 'header_row', labelKey: 'headerRow' },
-    { key: 'data_start_row', labelKey: 'dataStartRow' },
-    { key: 'lower_limit_row', labelKey: 'lowerLimitRow' },
-    { key: 'upper_limit_row', labelKey: 'upperLimitRow' },
-    { key: 'electrical_start_col', labelKey: 'electricalStartCol' },
-    { key: 'wafer_id_col', labelKey: 'waferIdCol' },
-    { key: 'bin_col', labelKey: 'binCol' },
-    { key: 'product_id_col', labelKey: 'productIdCol', nullable: true },
-    { key: 'lot_id_col', labelKey: 'lotIdCol', nullable: true },
-    { key: 'fixed_die_count', labelKey: 'fixedDieCount', nullable: true },
+  const tv = (k: string) => t(`vendors.${k}`)
+
+  const numFields: { key: keyof FormatDraft; labelKey: string; helpKey: string; nullable?: boolean }[] = [
+    { key: 'header_row', labelKey: 'headerRow', helpKey: 'helpHeaderRow' },
+    { key: 'data_start_row', labelKey: 'dataStartRow', helpKey: 'helpDataStartRow' },
+    { key: 'lower_limit_row', labelKey: 'lowerLimitRow', helpKey: 'helpLowerLimitRow' },
+    { key: 'upper_limit_row', labelKey: 'upperLimitRow', helpKey: 'helpUpperLimitRow' },
+    { key: 'electrical_start_col', labelKey: 'electricalStartCol', helpKey: 'helpElectricalStartCol' },
+    { key: 'wafer_id_col', labelKey: 'waferIdCol', helpKey: 'helpWaferIdCol' },
+    { key: 'bin_col', labelKey: 'binCol', helpKey: 'helpBinCol' },
+    { key: 'x_coord_col', labelKey: 'xCoordCol', helpKey: 'helpXCoordCol', nullable: true },
+    { key: 'y_coord_col', labelKey: 'yCoordCol', helpKey: 'helpYCoordCol', nullable: true },
+    { key: 'product_id_col', labelKey: 'productIdCol', helpKey: 'helpProductIdCol', nullable: true },
+    { key: 'lot_id_col', labelKey: 'lotIdCol', helpKey: 'helpLotIdCol', nullable: true },
+    { key: 'fixed_die_count', labelKey: 'fixedDieCount', helpKey: 'helpFixedDieCount', nullable: true },
   ]
 
   async function save() {
@@ -104,21 +251,39 @@ function FormatRow({
 
   return (
     <div className="border border-accent/30 bg-bg-page p-4 flex flex-col gap-3">
+      {/* Format name + help toggle */}
       <div className="flex gap-3 items-center">
         <label className="text-xs font-semibold text-text-muted uppercase tracking-[1px] w-36 shrink-0">
-          {t('vendors.formatName')}
+          {tv('formatName')}
         </label>
         <input
           className="flex-1 bg-bg-card border border-border-light px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent"
           value={draft.format_name ?? ''}
           onChange={(e) => setDraft((d) => ({ ...d, format_name: e.target.value }))}
         />
+        <button
+          onClick={() => setShowHelp((v) => !v)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium cursor-pointer transition-colors ${
+            showHelp
+              ? 'bg-accent/10 text-accent border border-accent/30'
+              : 'text-text-muted hover:text-accent border border-transparent'
+          }`}
+        >
+          <HelpCircle size={14} />
+          {tv('helpToggle')}
+        </button>
       </div>
+
+      {/* Collapsible help diagram */}
+      {showHelp && <FormatHelpDiagram t={tv} />}
+
+      {/* Fields grid */}
       <div className="grid grid-cols-2 gap-3">
-        {numFields.map(({ key, labelKey, nullable }) => (
+        {numFields.map(({ key, labelKey, helpKey, nullable }) => (
           <div key={key} className="flex gap-2 items-center">
-            <label className="text-xs font-semibold text-text-muted uppercase tracking-[1px] w-36 shrink-0">
-              {t(`vendors.${labelKey}`)}
+            <label className="text-xs font-semibold text-text-muted uppercase tracking-[1px] w-36 shrink-0 flex items-center gap-1.5">
+              {tv(labelKey)}
+              <FieldTip tip={tv(helpKey)} />
             </label>
             <input
               type="number"
@@ -135,6 +300,8 @@ function FormatRow({
           </div>
         ))}
       </div>
+
+      {/* Action buttons */}
       <div className="flex gap-2 justify-end">
         <button onClick={cancel} className="flex items-center gap-1.5 px-4 py-1.5 text-sm border border-border-light text-text-secondary hover:text-text-primary cursor-pointer">
           <X size={13} /> Cancel

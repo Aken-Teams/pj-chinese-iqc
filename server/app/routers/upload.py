@@ -26,6 +26,7 @@ _ERR = {
         "parse_failed": "檔案解析失敗：{detail}",
         "no_format_config": "廠商 {vendor} 尚未設定格式模板，請先至「廠商管理」設定後再上傳",
         "unsupported_format": "不支援此檔案格式，請上傳 .xlsx 或 .xls 格式",
+        "product_vendor_mismatch": "產品 {code} 已屬於廠商 {existing}，無法以 {new} 匯入。請確認廠商選擇，或先在「審核規則」刪除衝突的產品規則。",
     },
     "zh-CN": {
         "cannot_detect": "无法识别文件格式，请先选择厂商再上传",
@@ -33,6 +34,7 @@ _ERR = {
         "parse_failed": "文件解析失败：{detail}",
         "no_format_config": "厂商 {vendor} 尚未设定格式模板，请先至「厂商管理」设定后再上传",
         "unsupported_format": "不支持此文件格式，请上传 .xlsx 或 .xls 格式",
+        "product_vendor_mismatch": "产品 {code} 已属于厂商 {existing}，无法以 {new} 导入。请确认厂商选择，或先在\"审核规则\"删除冲突的产品规则。",
     },
     "en": {
         "cannot_detect": "Cannot detect file format. Please select a vendor and try again.",
@@ -40,6 +42,7 @@ _ERR = {
         "parse_failed": "Failed to parse file: {detail}",
         "no_format_config": "Vendor {vendor} has no format configured. Please set it up in Vendor Management first.",
         "unsupported_format": "Unsupported file format. Please upload .xlsx or .xls files.",
+        "product_vendor_mismatch": "Product {code} already belongs to vendor {existing}, cannot import as {new}. Please verify the vendor selection, or remove the conflicting product rules first.",
     },
 }
 
@@ -93,18 +96,40 @@ def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, 
     return DynamicParser.from_vendor_format(vendor, fmt), actual_path
 
 
-def _persist_result(result, db: Session) -> dict:
+def _persist_result(result, db: Session, err: dict | None = None) -> dict:
     """Persist parsed CP data to DB, return import summary."""
+    err = err or _ERR["en"]
     vendor = db.query(Vendor).filter(Vendor.code == result.vendor_code).first()
     if not vendor:
         raise HTTPException(400, f"Vendor {result.vendor_code} not found in database")
 
-    product = db.query(Product).filter(
-        Product.product_code == result.product_id,
-        Product.vendor_id == vendor.id,
-    ).first()
-    if not product:
-        product = Product(product_code=result.product_id, vendor_id=vendor.id)
+    product_code = result.product_id.strip() if result.product_id else ""
+    if not product_code:
+        product_code = f"{result.vendor_code}_default"
+
+    # product_code is globally unique — look up by code alone to match the
+    # rules-import auto-create behaviour and avoid UNIQUE violations.
+    product = db.query(Product).filter(Product.product_code == product_code).first()
+    if product:
+        if product.vendor_id is None:
+            # Orphaned product (rules-imported without a vendor) → claim it.
+            product.vendor_id = vendor.id
+            db.flush()
+        elif product.vendor_id != vendor.id:
+            existing_vendor = (
+                db.query(Vendor).filter(Vendor.id == product.vendor_id).first()
+            )
+            existing_code = existing_vendor.code if existing_vendor else f"id={product.vendor_id}"
+            raise HTTPException(
+                400,
+                err["product_vendor_mismatch"].format(
+                    code=product_code,
+                    existing=existing_code,
+                    new=vendor.code,
+                ),
+            )
+    else:
+        product = Product(product_code=product_code, vendor_id=vendor.id)
         db.add(product)
         db.flush()
 
@@ -218,6 +243,7 @@ def confirm_upload(
     db: Session = Depends(get_db),
 ):
     """Parse file fully and persist to database."""
+    err = _ERR.get(getattr(req, "lang", None) or "zh-TW", _ERR["zh-TW"])
     file_path = req.file_path
     if not os.path.exists(file_path):
         file_path = os.path.join(settings.UPLOAD_DIR, req.file_path)
@@ -241,7 +267,7 @@ def confirm_upload(
     parser = DynamicParser.from_vendor_format(vendor_code, fmt)
 
     result = parser.parse(file_path)
-    return _persist_result(result, db)
+    return _persist_result(result, db, err)
 
 
 @router.post("/batch")
@@ -261,7 +287,7 @@ async def batch_upload(
             file_path = _save_upload(file)
             parser, actual_path = _resolve_parser(file_path, file.filename, vendor, err, db)
             parsed = parser.parse(actual_path)
-            summary = _persist_result(parsed, db)
+            summary = _persist_result(parsed, db, err)
             entry.update(summary)
         except HTTPException as exc:
             entry["error"] = exc.detail

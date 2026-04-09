@@ -10,10 +10,25 @@ export interface ReviewRule {
   q2_upper: number | null
   q3_lower: number | null
   q3_upper: number | null
+  // Enriched fields populated when listing across products
+  product_code?: string | null
+  vendor_code?: string | null
 }
 
-export async function getRules(productId: number): Promise<ReviewRule[]> {
-  return apiFetch(`/rules?product_id=${productId}`)
+export async function getRules(productId?: number): Promise<ReviewRule[]> {
+  const qs = productId != null ? `?product_id=${productId}` : ''
+  return apiFetch(`/rules${qs}`)
+}
+
+export interface DeleteProductRulesResult {
+  success: boolean
+  deleted_rules: number
+  deleted_product: boolean
+  kept_reason: 'has_lots' | 'has_specs' | null
+}
+
+export async function deleteProductRules(productId: number): Promise<DeleteProductRulesResult> {
+  return apiFetch(`/rules/product/${productId}`, { method: 'DELETE' })
 }
 
 export async function createRule(data: Omit<ReviewRule, 'id'>): Promise<ReviewRule> {
@@ -26,4 +41,86 @@ export async function updateRule(id: number, data: Partial<ReviewRule>): Promise
 
 export async function deleteRule(id: number): Promise<void> {
   return apiFetch(`/rules/${id}`, { method: 'DELETE' })
+}
+
+/* ------------------------------------------------------------------ */
+/* Import                                                              */
+/* ------------------------------------------------------------------ */
+
+export interface RulePreviewRow {
+  product_code: string
+  product_code_pjxz: string
+  product_id: number | null
+  vendor_code: string
+  param_name_excel: string
+  param_name_matched: string | null
+  match_confidence: number
+  q1_lower: number | null
+  q1_upper: number | null
+  q2_lower: number | null
+  q2_upper: number | null
+  q3_lower: number | null
+  q3_upper: number | null
+  status: string
+}
+
+export interface RulesImportPreview {
+  file_path: string
+  sheets_parsed: string[]
+  total_rules: number
+  ready_count: number
+  warning_count: number
+  rules: RulePreviewRow[]
+}
+
+export interface RulesImportResult {
+  success: boolean
+  created: number
+  updated: number
+  skipped: number
+  products_created: number
+}
+
+export interface RuleImportItem {
+  product_id: number | null
+  vendor_code: string | null
+  product_code: string | null
+  param_name: string
+  q1_lower: number | null
+  q1_upper: number | null
+  q2_lower: number | null
+  q2_upper: number | null
+  q3_lower: number | null
+  q3_upper: number | null
+}
+
+export async function importRulesPreview(file: File, lang = 'zh-TW'): Promise<RulesImportPreview> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('lang', lang)
+
+  const token = localStorage.getItem('iqc-auth-token')
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch('/api/rules/import-preview', {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || `Import failed: ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function confirmRulesImport(
+  filePath: string,
+  rules: RuleImportItem[],
+): Promise<RulesImportResult> {
+  return apiFetch('/rules/import-confirm', {
+    method: 'POST',
+    body: JSON.stringify({ file_path: filePath, rules }),
+  })
 }
