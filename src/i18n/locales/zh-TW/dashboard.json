@@ -12,6 +12,11 @@
     "needsReview": "待審查"
   },
   "yieldTrend": "良率趨勢",
+  "trendPeriod": {
+    "14d": "14 天",
+    "30d": "30 天",
+    "6m": "6 個月"
+  },
   "target": "目標",
   "vendorPerformance": "廠商績效",
   "rank": "#{{rank}}",

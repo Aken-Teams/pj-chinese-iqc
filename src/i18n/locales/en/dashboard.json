@@ -12,6 +12,11 @@
     "needsReview": "Needs Review"
   },
   "yieldTrend": "Yield Trend",
+  "trendPeriod": {
+    "14d": "14 Days",
+    "30d": "30 Days",
+    "6m": "6 Months"
+  },
   "target": "Target",
   "vendorPerformance": "Vendor Performance",
   "rank": "#{{rank}}",

@@ -12,6 +12,11 @@
     "needsReview": "待审查"
   },
   "yieldTrend": "良率趋势",
+  "trendPeriod": {
+    "14d": "14 天",
+    "30d": "30 天",
+    "6m": "6 个月"
+  },
   "target": "目标",
   "vendorPerformance": "厂商绩效",
   "rank": "#{{rank}}",

@@ -1,3 +1,5 @@
+from datetime import date, datetime, timedelta
+
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.lot import Lot
@@ -8,6 +10,68 @@ from app.models.review import ReviewResult
 from app.models.spec import CpSpec
 from app.models.ai import AiAnomaly
 from app.services.cpk_engine import calculate_cpk
+
+_VENDOR_COLORS = [
+    "#C05A3C", "#4A7C59", "#5C4033", "#B58A3C", "#3C6E91", "#8A4F7D",
+    "#7A8450", "#A24936", "#2E5E4E", "#8C5E2A", "#5B6B8D", "#9C5C8A",
+]
+
+
+def _color_for_index(i: int) -> str:
+    if i < len(_VENDOR_COLORS):
+        return _VENDOR_COLORS[i]
+    # HSL fallback for many vendors (golden-angle distribution)
+    hue = (i * 137) % 360
+    return f"hsl({hue}, 55%, 45%)"
+
+
+def _generate_buckets(period: str) -> tuple[list[datetime], list[datetime], list[str], str]:
+    """Return (starts, ends, labels, mode) for the given period.
+
+    starts/ends are datetime ranges [start, end) per bucket.
+    mode is 'day' for 14d/30d and 'month' for 6m.
+    """
+    now = datetime.now()
+    today = datetime(now.year, now.month, now.day)
+
+    if period == "6m":
+        # 6 monthly buckets ending with current month (inclusive)
+        starts: list[datetime] = []
+        ends: list[datetime] = []
+        labels: list[str] = []
+        # Walk back 5 months
+        y, m = today.year, today.month
+        months_back: list[tuple[int, int]] = []
+        for _ in range(6):
+            months_back.append((y, m))
+            m -= 1
+            if m == 0:
+                m = 12
+                y -= 1
+        months_back.reverse()
+        for (yy, mm) in months_back:
+            start = datetime(yy, mm, 1)
+            if mm == 12:
+                end = datetime(yy + 1, 1, 1)
+            else:
+                end = datetime(yy, mm + 1, 1)
+            starts.append(start)
+            ends.append(end)
+            labels.append(f"{yy % 100:02d}/{mm:02d}")
+        return starts, ends, labels, "month"
+
+    # Daily buckets: 14d or 30d (default 14d)
+    days = 30 if period == "30d" else 14
+    starts = []
+    ends = []
+    labels = []
+    for i in range(days - 1, -1, -1):
+        day = today - timedelta(days=i)
+        starts.append(day)
+        ends.append(day + timedelta(days=1))
+        labels.append(day.strftime("%m/%d"))
+    return starts, ends, labels, "day"
+
 
 _INSIGHT_T = {
     "zh-TW": {
@@ -28,8 +92,10 @@ _INSIGHT_T = {
 }
 
 
-def get_dashboard_summary(db: Session, lang: str = "zh-TW") -> dict:
+def get_dashboard_summary(db: Session, lang: str = "zh-TW", period: str = "14d") -> dict:
     """Aggregate data for the dashboard page."""
+    if period not in ("14d", "30d", "6m"):
+        period = "14d"
 
     # KPIs
     total_lots = db.query(func.count(Lot.id)).scalar() or 0
@@ -106,42 +172,60 @@ def get_dashboard_summary(db: Session, lang: str = "zh-TW") -> dict:
             cpk_data.sort(key=lambda x: x["value"])
             cpk_data = cpk_data[:8]  # Show top 8 (worst first)
 
-    # Yield trend: group by vendor per month
-    yield_trend = {"months": [], "vendors": []}
-    # Get lots with data
-    lots_with_data = (
+    # Yield trend: period-bucketed, fixed slots (None for empty)
+    starts, ends, labels, _mode = _generate_buckets(period)
+    window_start = starts[0]
+    window_end = ends[-1]
+
+    lots_in_window = (
         db.query(Lot)
         .filter(Lot.upload_time.isnot(None))
-        .order_by(Lot.upload_time)
+        .filter(Lot.upload_time >= window_start)
+        .filter(Lot.upload_time < window_end)
         .all()
     )
-    if lots_with_data:
-        from collections import defaultdict
-        monthly: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-        for lot in lots_with_data:
-            month_key = lot.upload_time.strftime("%b")
-            vendor_code = lot.product.vendor.code if lot.product and lot.product.vendor else "?"
-            avg_y = db.query(func.avg(Wafer.bin1_yield)).filter(Wafer.lot_id == lot.id).scalar()
-            if avg_y is not None:
-                monthly[month_key][vendor_code].append(float(avg_y * 100))
 
-        months = list(monthly.keys())
-        vendor_codes = sorted({vc for m in monthly.values() for vc in m.keys()})
-        colors = ["#C05A3C", "#5C4033", "#4A7C59"]
+    from collections import defaultdict
+    # bucket_index -> vendor_code -> list[float yield%]
+    buckets: dict[int, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    vendor_codes_set: set[str] = set()
 
-        vendor_series = []
-        for idx, vc in enumerate(vendor_codes):
-            data_points = []
-            for m in months:
-                vals = monthly[m].get(vc, [])
-                data_points.append(round(sum(vals) / len(vals), 2) if vals else 0)
-            vendor_series.append({
-                "name": vc,
-                "color": colors[idx % len(colors)],
-                "data": data_points,
-            })
+    for lot in lots_in_window:
+        # find bucket index
+        idx = None
+        for i, (s, e) in enumerate(zip(starts, ends)):
+            if s <= lot.upload_time < e:
+                idx = i
+                break
+        if idx is None:
+            continue
+        vendor_code = lot.product.vendor.code if lot.product and lot.product.vendor else "?"
+        avg_y = db.query(func.avg(Wafer.bin1_yield)).filter(Wafer.lot_id == lot.id).scalar()
+        if avg_y is not None:
+            buckets[idx][vendor_code].append(float(avg_y * 100))
+            vendor_codes_set.add(vendor_code)
 
-        yield_trend = {"months": months, "vendors": vendor_series}
+    vendor_codes = sorted(vendor_codes_set)
+    vendor_series = []
+    for vi, vc in enumerate(vendor_codes):
+        data_points: list[float | None] = []
+        for i in range(len(starts)):
+            vals = buckets.get(i, {}).get(vc, [])
+            if vals:
+                data_points.append(round(sum(vals) / len(vals), 2))
+            else:
+                data_points.append(None)
+        vendor_series.append({
+            "name": vc,
+            "color": _color_for_index(vi),
+            "data": data_points,
+        })
+
+    yield_trend = {
+        "period": period,
+        "months": labels,
+        "vendors": vendor_series,
+    }
 
     # AI Insights: combine AiAnomaly records + CPK-based rule insights
     tmpl = _INSIGHT_T.get(lang, _INSIGHT_T["zh-TW"])

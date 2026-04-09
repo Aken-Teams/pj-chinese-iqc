@@ -3,19 +3,24 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/layout/PageHeader'
 import { Sparkles, TrendingUp, TrendingDown, Loader2 } from 'lucide-react'
-import { getDashboard, type DashboardData } from '@/services/dashboard'
+import { getDashboard, type DashboardData, type TrendPeriod } from '@/services/dashboard'
+
+const PERIODS: TrendPeriod[] = ['14d', '30d', '6m']
 
 export default function DashboardPage() {
   const { t, i18n } = useTranslation('dashboard')
   const navigate = useNavigate()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<TrendPeriod>('14d')
+  const [hiddenVendors, setHiddenVendors] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true)
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const res = await getDashboard(i18n.language)
+          const res = await getDashboard(i18n.language, period)
           setData(res)
           setLoading(false)
           return
@@ -26,7 +31,16 @@ export default function DashboardPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [period, i18n.language])
+
+  const toggleVendor = (name: string) => {
+    setHiddenVendors(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
 
   if (loading) {
     return (
@@ -76,90 +90,228 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="flex gap-4">
         {/* Yield Trend Chart */}
-        <div className="flex-1 bg-bg-card p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-3">
+        <div className="flex-1 bg-bg-card p-5 flex flex-col min-w-0">
+          <div className="flex items-center justify-between mb-3 shrink-0 gap-2">
             <h3 className="font-heading text-sm font-bold">{t('yieldTrend')}</h3>
-            <div className="flex gap-4">
-              {data.yieldTrend.vendors.map((v, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5" style={{ background: v.color }} />
-                  <span className="text-[11px] text-text-secondary">{v.name}</span>
-                </div>
+            <div className="flex items-center gap-0.5 bg-bar-track p-0.5">
+              {PERIODS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                    period === p
+                      ? 'bg-bg-card text-text-primary'
+                      : 'text-text-muted hover:text-text-secondary'
+                  }`}
+                >
+                  {t(`trendPeriod.${p}`)}
+                </button>
               ))}
             </div>
           </div>
           {data.yieldTrend.months.length > 0 ? (() => {
+            const allVendors = data.yieldTrend.vendors
+            const months = data.yieldTrend.months
+            const visibleVendors = allVendors.filter(v => !hiddenVendors.has(v.name))
             // Dynamic Y-axis: floor min value to nearest 5, ceiling at 100
-            const allVals = data.yieldTrend.vendors.flatMap(v => v.data)
+            const allVals = visibleVendors
+              .flatMap(v => v.data)
+              .filter((v): v is number => v !== null)
             const minVal = allVals.length > 0 ? Math.min(...allVals) : 95
             const yMin = Math.max(0, Math.floor(minVal / 5) * 5)
             const yMax = 100
-            const yMid = Math.round((yMin + yMax) / 2 * 2) / 2
+            const yMid = Math.round((yMin + yMax) / 2)
+
+            // Percent-based coordinate mapping (0–100 in both axes)
+            const xPct = (i: number) =>
+              months.length === 1 ? 50 : 3 + (i / (months.length - 1)) * 94
+            const yPct = (v: number) =>
+              (1 - (v - yMin) / (yMax - yMin)) * 100
+
+            const hasTarget = 99 >= yMin && 99 < yMax
+
+            // X-axis label step: show ~6-7 labels max
+            const labelStep = Math.max(1, Math.ceil(months.length / 7))
+
+            // Build SVG path with gaps for null values
+            const buildPath = (data: (number | null)[]): string => {
+              let path = ''
+              let penUp = true
+              data.forEach((val, i) => {
+                if (val === null) {
+                  penUp = true
+                  return
+                }
+                const x = xPct(i).toFixed(2)
+                const y = yPct(val).toFixed(2)
+                if (penUp) {
+                  path += `M${x},${y}`
+                  penUp = false
+                } else {
+                  path += `L${x},${y}`
+                }
+              })
+              return path
+            }
+
             return (
             <>
               <div className="flex flex-1 gap-2 min-h-0">
                 {/* Y-axis labels */}
-                <div className="flex flex-col justify-between items-end pr-1 pb-5 shrink-0">
+                <div className="flex flex-col justify-between items-end pb-5 shrink-0">
                   <span className="text-[9px] text-text-muted">{yMax}%</span>
                   <span className="text-[9px] text-text-muted">{yMid}%</span>
                   <span className="text-[9px] text-text-muted">{yMin}%</span>
                 </div>
-                {/* Bars */}
-                <div className="flex items-end gap-4 flex-1">
-                  {data.yieldTrend.months.map((month, mi) => (
-                    <div key={mi} className="flex flex-col items-center gap-1 h-full" style={{ width: Math.max(60, 100 / data.yieldTrend.months.length) }}>
-                      <div className="flex gap-1 items-end w-full justify-center flex-1">
-                        {data.yieldTrend.vendors.map((v, vi) => {
-                          const val = v.data[mi]
-                          const pct = Math.max(((val - yMin) / (yMax - yMin)) * 100, 2)
-                          return (
-                            <div
-                              key={vi}
-                              className="relative group"
-                              style={{ height: `${pct}%` }}
-                            >
-                              <div
-                                className="w-[24px] h-full cursor-default"
-                                style={{ background: v.color }}
-                              />
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
-                                <div
-                                  className="bg-bg-dark-surface px-2.5 py-1.5 whitespace-nowrap shadow-lg"
-                                  style={{ borderLeft: `2px solid ${v.color}` }}
-                                >
-                                  <div className="text-[9px] text-text-muted font-heading tracking-[1px] uppercase">{v.name}</div>
-                                  <div className="text-[14px] font-bold text-text-on-dark font-heading leading-tight">{val.toFixed(1)}%</div>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      <span className="text-[10px] text-text-muted">{month}</span>
-                    </div>
-                  ))}
+                {/* Plot + X labels */}
+                <div className="flex-1 flex flex-col min-w-0">
+                  <div className="relative flex-1 min-h-0">
+                    <svg
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                      className="absolute inset-0 w-full h-full"
+                    >
+                      {/* Horizontal grid */}
+                      {[0, 50, 100].map((y) => (
+                        <line
+                          key={`grid-${y}`}
+                          x1="0"
+                          y1={y}
+                          x2="100"
+                          y2={y}
+                          stroke="currentColor"
+                          strokeOpacity="0.08"
+                          strokeWidth="1"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ))}
+                      {/* Target reference at 99% */}
+                      {hasTarget && (
+                        <line
+                          x1="0"
+                          y1={yPct(99)}
+                          x2="100"
+                          y2={yPct(99)}
+                          stroke="#B58A3C"
+                          strokeWidth="1"
+                          strokeDasharray="4 4"
+                          strokeOpacity="0.55"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      )}
+                      {/* Vendor paths with gap support */}
+                      {visibleVendors.map((v, vi) => {
+                        const d = buildPath(v.data)
+                        if (!d) return null
+                        return (
+                          <path
+                            key={`line-${vi}`}
+                            d={d}
+                            fill="none"
+                            stroke={v.color}
+                            strokeWidth="2"
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        )
+                      })}
+                    </svg>
+                    {/* Dots as HTML overlay (skip nulls) */}
+                    {visibleVendors.map((v) =>
+                      v.data.map((val, i) =>
+                        val === null ? null : (
+                          <div
+                            key={`dot-${v.name}-${i}`}
+                            className="absolute w-[7px] h-[7px] -translate-x-1/2 -translate-y-1/2 cursor-default hover:scale-[1.6] transition-transform"
+                            style={{
+                              left: `${xPct(i)}%`,
+                              top: `${yPct(val)}%`,
+                              background: v.color,
+                              boxShadow: '0 0 0 1.5px var(--color-bg-card, #F5F1E8)',
+                            }}
+                            title={`${v.name} · ${months[i]}: ${val.toFixed(1)}%`}
+                          />
+                        ),
+                      ),
+                    )}
+                    {/* Target label */}
+                    {hasTarget && (
+                      <span
+                        className="absolute text-[9px] font-semibold text-warning pointer-events-none pr-0.5"
+                        style={{
+                          top: `${yPct(99)}%`,
+                          right: 0,
+                          transform: 'translateY(-110%)',
+                        }}
+                      >
+                        ≥99%
+                      </span>
+                    )}
+                  </div>
+                  {/* X-axis labels (auto-thinned) */}
+                  <div className="relative h-4 mt-1 shrink-0">
+                    {months.map((m, i) => {
+                      if (i % labelStep !== 0 && i !== months.length - 1) return null
+                      return (
+                        <span
+                          key={`x-${i}`}
+                          className="absolute text-[10px] text-text-muted -translate-x-1/2 whitespace-nowrap"
+                          style={{ left: `${xPct(i)}%` }}
+                        >
+                          {m}
+                        </span>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
-              {/* Bottom stats strip */}
-              <div className="mt-3 pt-3 border-t border-border-light flex items-center gap-6 shrink-0">
-                {data.yieldTrend.vendors.map((v) => {
-                  const latest = v.data[v.data.length - 1]
+              {/* Bottom: interactive legend with latest values */}
+              <div className="mt-3 pt-3 border-t border-border-light flex flex-wrap items-center gap-x-3 gap-y-2 shrink-0">
+                {allVendors.map((v) => {
+                  // Find the most recent non-null value for this vendor
+                  let latest: number | null = null
+                  for (let i = v.data.length - 1; i >= 0; i--) {
+                    if (v.data[i] !== null) {
+                      latest = v.data[i]
+                      break
+                    }
+                  }
+                  const isHidden = hiddenVendors.has(v.name)
                   return (
-                    <div key={v.name} className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 shrink-0" style={{ background: v.color }} />
-                        <span className="text-[10px] text-text-muted">{v.name}</span>
-                      </div>
-                      <span className={`font-heading text-[18px] font-bold leading-none ${latest >= 99 ? 'text-success' : 'text-error'}`}>
-                        {latest.toFixed(1)}<span className="text-[12px]">%</span>
-                      </span>
-                    </div>
+                    <button
+                      key={v.name}
+                      onClick={() => toggleVendor(v.name)}
+                      className={`flex items-center gap-1.5 px-1.5 py-0.5 transition-opacity cursor-pointer ${
+                        isHidden ? 'opacity-40 hover:opacity-60' : 'hover:opacity-80'
+                      }`}
+                      title={isHidden ? 'Show' : 'Hide'}
+                    >
+                      <div
+                        className={`w-2.5 h-2.5 shrink-0 ${isHidden ? 'border border-current bg-transparent' : ''}`}
+                        style={isHidden ? { borderColor: v.color } : { background: v.color }}
+                      />
+                      <span className="text-[11px] text-text-secondary">{v.name}</span>
+                      {latest !== null && (
+                        <span
+                          className={`font-heading text-[14px] font-bold leading-none tabular-nums ${
+                            isHidden
+                              ? 'text-text-muted'
+                              : latest >= 99
+                              ? 'text-success'
+                              : 'text-error'
+                          }`}
+                        >
+                          {latest.toFixed(1)}%
+                        </span>
+                      )}
+                    </button>
                   )
                 })}
-                <div className="ml-auto flex flex-col gap-0.5 items-end">
+                <div className="ml-auto flex items-center gap-1.5">
                   <span className="text-[10px] text-text-muted">{t('target')}</span>
-                  <span className="font-heading text-[18px] font-bold leading-none text-text-tertiary">
-                    ≥99.0<span className="text-[12px]">%</span>
+                  <span className="font-heading text-[14px] font-bold leading-none text-text-tertiary tabular-nums">
+                    ≥99.0%
                   </span>
                 </div>
               </div>
