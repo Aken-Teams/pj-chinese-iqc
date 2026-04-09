@@ -50,15 +50,22 @@ def _calc(values, total_die_count=None, q1_lower=None, q1_upper=None,
 
 class TestEmptyInput:
     def test_empty_values_returns_all_zeros(self):
+        # With an empty values list AND no spec defined, q_yield should be None
+        # (N/A — no rule). When a spec IS defined but there are no values,
+        # q_yield should be 0.0.
         result = _calc([], total_die_count=10)
         assert result["average"] == 0.0
         assert result["stdev"] == 0.0
         assert result["max_val"] == 0.0
         assert result["min_val"] == 0.0
         assert result["bin1_yield"] == 0.0
+        assert result["q1_yield"] is None
+        assert result["q2_yield"] is None
+        assert result["q3_yield"] is None
+
+    def test_empty_values_with_spec_q_yield_is_zero(self):
+        result = _calc([], total_die_count=10, q1_lower=0.0, q1_upper=1.0)
         assert result["q1_yield"] == 0.0
-        assert result["q2_yield"] == 0.0
-        assert result["q3_yield"] == 0.0
 
     def test_single_value_stdev_is_zero(self):
         result = _calc([5.0], total_die_count=1)
@@ -79,11 +86,12 @@ class TestEmptyInput:
                        q1_lower=0.0, q1_upper=10.0)
         assert result["q1_yield"] == 0.0
 
-    def test_zero_total_die_count_no_spec_q_yield_is_one(self):
-        # No spec defined -> yield is 1.0 regardless (convention: no limits = all pass).
+    def test_zero_total_die_count_no_spec_q_yield_is_none(self):
+        # No spec defined -> yield is None (N/A). CP review must NOT
+        # default to "pass" when no rule exists.
         result = _calc([1.0, 2.0, 3.0], total_die_count=0,
                        q1_lower=None, q1_upper=None)
-        assert result["q1_yield"] == pytest.approx(1.0)
+        assert result["q1_yield"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -270,11 +278,11 @@ class TestQYieldStrictInequality:
         # Values < 7.0: 1,2,3,4,5,6 -> 6
         assert result["q1_yield"] == pytest.approx(6 / 12)
 
-    def test_no_spec_yields_one(self):
-        """No spec limits defined -> all dies pass by default."""
+    def test_no_spec_yields_none(self):
+        """No spec limits defined -> yield is None (N/A, NOT default pass)."""
         result = _calc(self.VALUES, total_die_count=self.TOTAL,
                        q1_lower=None, q1_upper=None)
-        assert result["q1_yield"] == pytest.approx(1.0)
+        assert result["q1_yield"] is None
 
     def test_three_q_levels_independently(self):
         """Q1, Q2, Q3 are computed independently with independent limits."""
@@ -283,13 +291,13 @@ class TestQYieldStrictInequality:
         result = _calc(vals, total_die_count=total,
                        q1_lower=1.0, q1_upper=4.0,   # strict: 2,3 -> 2 pass
                        q2_lower=0.0, q2_upper=3.0,   # strict: 1,2 -> 2 pass
-                       q3_lower=None, q3_upper=None)  # no spec -> 1.0
+                       q3_lower=None, q3_upper=None)  # no spec -> None
         # Q1: values strictly between 1.0 and 4.0 => 2.0, 3.0 => 2
         assert result["q1_yield"] == pytest.approx(2 / 5)
         # Q2: values strictly between 0.0 and 3.0 => 1.0, 2.0 => 2
         assert result["q2_yield"] == pytest.approx(2 / 5)
-        # Q3: no spec
-        assert result["q3_yield"] == pytest.approx(1.0)
+        # Q3: no spec -> None
+        assert result["q3_yield"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -315,7 +323,7 @@ class TestFullSyntheticDataset:
       bin1_yield   = 10/12
       q1_yield     = 5/12  (values 3,4,5,6,7 strictly inside [2,8])
       q2_yield     = 5/12  (values 1,2,3,4,5 -> only 1,2,3,4,5: strict >0 <6: 1,2,3,4,5 -> 5)
-      q3_yield     = 1.0   (no spec)
+      q3_yield     = None  (no spec)
     """
     VALUES = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
     TOTAL  = 12
@@ -353,7 +361,7 @@ class TestFullSyntheticDataset:
         assert self.result["q2_yield"] == pytest.approx(5 / 12)
 
     def test_q3_yield_no_spec(self):
-        assert self.result["q3_yield"] == pytest.approx(1.0)
+        assert self.result["q3_yield"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -500,12 +508,15 @@ class TestJJWFileIntegration:
                     q1_upper=spec.upper_limit if spec else None,
                 )
                 for key, val in result.items():
+                    # Q yields may legitimately be None (no rule defined).
+                    if val is None:
+                        continue
                     assert math.isfinite(val), (
                         f"Non-finite result for wafer={wafer.wafer_id}, "
                         f"param={pname}, key={key}: {val}"
                     )
-                    assert 0.0 <= result["q1_yield"] <= 1.0
-                    assert 0.0 <= result["bin1_yield"] <= 1.0
+                assert 0.0 <= (result["q1_yield"] or 0.0) <= 1.0
+                assert 0.0 <= result["bin1_yield"] <= 1.0
 
 
 @pytest.mark.skipif(not _XRW_AVAILABLE, reason="XRW .xlsx test file not found")

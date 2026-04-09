@@ -21,9 +21,9 @@ class WaferReviewResult:
     max_val: float
     min_val: float
     bin1_yield: float
-    q1_yield: float
-    q2_yield: float
-    q3_yield: float
+    q1_yield: Optional[float]
+    q2_yield: Optional[float]
+    q3_yield: Optional[float]
 
 
 def calculate_wafer_param_review(
@@ -40,11 +40,23 @@ def calculate_wafer_param_review(
     Core VBA port: calculate statistics and yields for one param on one wafer.
     Uses STRICT inequalities (> and <) matching VBA COUNTIFS behavior.
     Uses sample stdev (ddof=1) matching VBA STDEV.
+
+    Q yields return None when no rule is defined (both lower and upper are None).
+    This is distinct from 0.0 (rule defined but no dies pass).
     """
+    def q_yield_empty(lower: Optional[float], upper: Optional[float]) -> Optional[float]:
+        # No rule defined → N/A (None), not "pass by default"
+        if lower is None and upper is None:
+            return None
+        return 0.0
+
     if not values:
         return {
             "average": 0.0, "stdev": 0.0, "max_val": 0.0, "min_val": 0.0,
-            "bin1_yield": 0.0, "q1_yield": 0.0, "q2_yield": 0.0, "q3_yield": 0.0,
+            "bin1_yield": 0.0,
+            "q1_yield": q_yield_empty(q1_lower, q1_upper),
+            "q2_yield": q_yield_empty(q2_lower, q2_upper),
+            "q3_yield": q_yield_empty(q3_lower, q3_upper),
         }
 
     arr = np.array(values, dtype=np.float64)
@@ -57,9 +69,9 @@ def calculate_wafer_param_review(
 
     bin1_yield = bin1_count / total_die_count if total_die_count > 0 else 0.0
 
-    def q_yield(lower: Optional[float], upper: Optional[float]) -> float:
+    def q_yield(lower: Optional[float], upper: Optional[float]) -> Optional[float]:
         if lower is None and upper is None:
-            return 1.0  # No spec defined = all dies pass by default
+            return None  # No rule defined → N/A, NOT "pass by default"
         # Strict inequalities (> and <) matching VBA COUNTIFS behavior:
         # VBA uses CountIfs(range, ">" & QIL, range, "<" & QIU)
         # A value exactly equal to a limit counts as FAILING.

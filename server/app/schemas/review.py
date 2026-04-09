@@ -11,9 +11,9 @@ class WaferReviewRow(BaseModel):
     waferId: str
     dieCount: int
     bin1Yield: float
-    q1Yield: float
-    q2Yield: float
-    q3Yield: float
+    q1Yield: float | None = None
+    q2Yield: float | None = None
+    q3Yield: float | None = None
     status: str
 
 

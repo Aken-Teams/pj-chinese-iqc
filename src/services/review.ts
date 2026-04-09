@@ -5,9 +5,11 @@ export interface WaferRow {
   waferId: string
   dieCount: number
   bin1Yield: number
-  q1Yield: number
-  q2Yield: number
-  q3Yield: number
+  // Q yields are null when the product has no rule for that Q level
+  // (distinct from 0 which means "rule exists but no dies pass").
+  q1Yield: number | null
+  q2Yield: number | null
+  q3Yield: number | null
   status: 'PASS' | 'WARN' | 'FAIL'
 }
 

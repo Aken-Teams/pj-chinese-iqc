@@ -11,10 +11,15 @@ import LotSearchSelect from '@/components/ui/LotSearchSelect'
 
 type WaferStatus = 'PASS' | 'WARN' | 'FAIL'
 
-function yieldColor(value: number): string {
+function yieldColor(value: number | null): string {
+  if (value === null) return 'text-text-muted'
   if (value >= 99) return 'text-success'
   if (value >= 97) return 'text-warning'
   return 'text-error'
+}
+
+function formatYield(value: number | null): string {
+  return value === null ? 'N/A' : `${value.toFixed(2)}%`
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -126,8 +131,8 @@ export default function ReviewPage() {
     ]
     const rows = summary.wafers.map((w) => [
       w.waferId, w.dieCount, `${w.bin1Yield.toFixed(2)}%`,
-      `${w.q1Yield.toFixed(2)}%`, `${w.q2Yield.toFixed(2)}%`,
-      `${w.q3Yield.toFixed(2)}%`, w.status,
+      formatYield(w.q1Yield), formatYield(w.q2Yield),
+      formatYield(w.q3Yield), w.status,
     ])
     downloadCsv(`review_${summary.lotId}.csv`, [headers, ...rows])
   }
@@ -141,8 +146,8 @@ export default function ReviewPage() {
     const rows = summary.wafers.map((w) => `
       <tr>
         <td>${w.waferId}</td><td>${w.dieCount}</td>
-        <td>${w.bin1Yield.toFixed(2)}%</td><td>${w.q1Yield.toFixed(2)}%</td>
-        <td>${w.q2Yield.toFixed(2)}%</td><td>${w.q3Yield.toFixed(2)}%</td>
+        <td>${w.bin1Yield.toFixed(2)}%</td><td>${formatYield(w.q1Yield)}</td>
+        <td>${formatYield(w.q2Yield)}</td><td>${formatYield(w.q3Yield)}</td>
         <td><span class="badge badge-${w.status === 'PASS' ? 'pass' : w.status === 'WARN' ? 'warn' : 'fail'}">${w.status}</span></td>
       </tr>`).join('')
     const html = `<table>
@@ -267,9 +272,9 @@ export default function ReviewPage() {
                     <td className="py-2.5 text-[13px] font-semibold text-text-primary">{wafer.waferId}</td>
                     <td className="py-2.5 text-[13px] text-text-primary">{wafer.dieCount}</td>
                     <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.bin1Yield)}`}>{wafer.bin1Yield.toFixed(2)}%</td>
-                    <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.q1Yield)}`}>{wafer.q1Yield.toFixed(2)}%</td>
-                    <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.q2Yield)}`}>{wafer.q2Yield.toFixed(2)}%</td>
-                    <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.q3Yield)}`}>{wafer.q3Yield.toFixed(2)}%</td>
+                    <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.q1Yield)}`}>{formatYield(wafer.q1Yield)}</td>
+                    <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.q2Yield)}`}>{formatYield(wafer.q2Yield)}</td>
+                    <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.q3Yield)}`}>{formatYield(wafer.q3Yield)}</td>
                     <td className="py-2.5"><StatusBadge status={wafer.status as WaferStatus} /></td>
                     <td className="py-2.5 text-text-muted"><ChevronRight size={16} /></td>
                   </tr>

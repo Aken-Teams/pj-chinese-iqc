@@ -134,7 +134,15 @@
     "testCondition": "Test Condition (optional)",
     "noSpecs": "No packaging specs for this product",
     "confirmDelete": "Delete this spec?",
-    "importCsv": "Import CSV"
+    "importCsv": "Import CSV",
+    "filterVendor": "Vendor",
+    "filterProduct": "Search product",
+    "filterParam": "Search parameter",
+    "allVendors": "All vendors",
+    "summary": "{{products}} products / {{specs}} specs",
+    "specsCount": "{{count}} specs",
+    "noSpecsAtAll": "No packaging specs yet — expand a product and click + to add one",
+    "addSpecFor": "Add spec for this product"
   },
   "scores": {
     "title": "Vendor Scores",
@@ -152,5 +160,10 @@
     "cpkAvg": "Avg Cpk",
     "score": "Score",
     "scoreFormula": "Score = Yield×50% + Cpk×30% + Anomaly-free×20%"
+  },
+  "pagination": {
+    "prev": "Prev",
+    "next": "Next",
+    "pageInfo": "Page {{page}} / {{total}}"
   }
 }

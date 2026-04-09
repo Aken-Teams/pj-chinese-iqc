@@ -48,6 +48,8 @@ class PackagingSpecResponse(BaseModel):
     upper_limit: float | None
     unit: str | None
     test_condition: str | None
+    product_code: str | None = None
+    vendor_code: str | None = None
 
     class Config:
         from_attributes = True

@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.dependencies import get_db
 from app.models.lot import Lot
+from app.models.product import Product
 from app.models.spec import CpSpec, PackagingSpec, SpecComparison
+from app.models.vendor import Vendor
 from app.schemas.spec import (
     SpecCompareRequest, SpecCompareResponse, CompareRow,
     PackagingSpecCreate, PackagingSpecUpdate, PackagingSpecResponse,
@@ -78,13 +80,39 @@ def compare_specs(req: SpecCompareRequest, db: Session = Depends(get_db)):
 # --- Packaging Specs CRUD ---
 
 @router.get("/packaging", response_model=list[PackagingSpecResponse])
-def list_packaging_specs(product_id: int = Query(...), db: Session = Depends(get_db)):
-    return (
-        db.query(PackagingSpec)
-        .filter(PackagingSpec.product_id == product_id)
-        .order_by(PackagingSpec.param_name)
-        .all()
+def list_packaging_specs(
+    product_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """List packaging specs.
+
+    - With `product_id`: returns specs for that product (legacy behaviour).
+    - Without: returns ALL packaging specs joined with product/vendor info,
+      ordered by vendor → product → param. Used by the master specs view.
+    """
+    q = (
+        db.query(PackagingSpec, Product, Vendor)
+        .join(Product, PackagingSpec.product_id == Product.id)
+        .outerjoin(Vendor, Product.vendor_id == Vendor.id)
     )
+    if product_id is not None:
+        q = q.filter(PackagingSpec.product_id == product_id)
+    q = q.order_by(Vendor.code, Product.product_code, PackagingSpec.param_name)
+
+    out: list[PackagingSpecResponse] = []
+    for spec, product, vendor in q.all():
+        out.append(PackagingSpecResponse(
+            id=spec.id,
+            product_id=spec.product_id,
+            param_name=spec.param_name,
+            lower_limit=float(spec.lower_limit) if spec.lower_limit is not None else None,
+            upper_limit=float(spec.upper_limit) if spec.upper_limit is not None else None,
+            unit=spec.unit,
+            test_condition=spec.test_condition,
+            product_code=product.product_code if product else None,
+            vendor_code=vendor.code if vendor else None,
+        ))
+    return out
 
 
 @router.post("/packaging", response_model=PackagingSpecResponse)

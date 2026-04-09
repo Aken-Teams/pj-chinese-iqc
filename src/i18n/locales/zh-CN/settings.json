@@ -134,7 +134,15 @@
     "testCondition": "测试条件（选填）",
     "noSpecs": "此产品暂无封装测规",
     "confirmDelete": "确定要删除此测规吗？",
-    "importCsv": "导入 CSV"
+    "importCsv": "导入 CSV",
+    "filterVendor": "厂商",
+    "filterProduct": "搜索产品",
+    "filterParam": "搜索参数",
+    "allVendors": "全部厂商",
+    "summary": "{{products}} 个产品 / {{specs}} 条测规",
+    "specsCount": "{{count}} 条测规",
+    "noSpecsAtAll": "暂无封装测规，请展开产品并点击「+」新增",
+    "addSpecFor": "为此产品新增测规"
   },
   "scores": {
     "title": "厂商评分表",
@@ -152,5 +160,10 @@
     "cpkAvg": "平均 Cpk",
     "score": "评分",
     "scoreFormula": "评分 = 良率×50% + Cpk×30% + 无异常×20%"
+  },
+  "pagination": {
+    "prev": "上一页",
+    "next": "下一页",
+    "pageInfo": "第 {{page}} / {{total}} 页"
   }
 }

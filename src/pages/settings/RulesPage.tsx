@@ -526,6 +526,8 @@ function RuleGroupCard({
 /* Main page                                                           */
 /* ------------------------------------------------------------------ */
 
+const PAGE_SIZE = 10
+
 export default function RulesPage() {
   const { t } = useTranslation('settings')
   const [rules, setRules] = useState<ReviewRule[]>([])
@@ -537,6 +539,7 @@ export default function RulesPage() {
   const [addingNewFor, setAddingNewFor] = useState<number | null>(null)
   const [importMode, setImportMode] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
 
   async function loadRules() {
     const data = await getRules()
@@ -588,6 +591,15 @@ export default function RulesPage() {
     () => groups.reduce((s, g) => s + g.rules.length, 0),
     [groups],
   )
+
+  const totalPages = Math.max(1, Math.ceil(groups.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pagedGroups = groups.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  // Reset to first page whenever filters change
+  useEffect(() => {
+    setPage(1)
+  }, [filterVendor, filterProduct, filterParam])
 
   const vendorOptions = useMemo(() => {
     const set = new Set<string>()
@@ -739,7 +751,7 @@ export default function RulesPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {groups.map((group) => (
+          {pagedGroups.map((group) => (
             <RuleGroupCard
               key={group.productId}
               group={group}
@@ -756,6 +768,27 @@ export default function RulesPage() {
               onDeleteGroup={() => handleDeleteGroup(group)}
             />
           ))}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="px-3 py-1.5 border border-border-light text-sm text-text-secondary hover:bg-bg-page cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {t('pagination.prev')}
+              </button>
+              <span className="text-sm text-text-muted tabular-nums">
+                {t('pagination.pageInfo', { page: currentPage, total: totalPages })}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="px-3 py-1.5 border border-border-light text-sm text-text-secondary hover:bg-bg-page cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {t('pagination.next')}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
