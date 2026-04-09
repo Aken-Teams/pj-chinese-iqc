@@ -120,7 +120,16 @@
     "rulesCount": "{{count}} 條規則",
     "noRulesAtAll": "尚無審核規則，請點擊「匯入 Excel」開始建立",
     "deleteAllRulesTitle": "刪除此產品的所有規則",
-    "deleteAllRulesConfirm": "確定要刪除產品 {{code}} 的所有規則嗎？若該產品無其他資料，產品本身也會一併刪除。"
+    "deleteAllRulesConfirm": "確定要刪除產品 {{code}} 的所有規則嗎？若該產品無其他資料，產品本身也會一併刪除。",
+    "matrixView": "表格檢視",
+    "matrixTitle": "審核規則表格檢視",
+    "matrixDesc": "以矩陣格式呈現所有規則，行為產品、列為參數 × Q1/Q2/Q3 上下限",
+    "matrixExportCsv": "匯出 CSV",
+    "matrixClose": "關閉",
+    "matrixNoRules": "無可顯示的規則",
+    "matrixColProduct": "產品",
+    "matrixColVendor": "廠商",
+    "matrixNoValue": "/"
   },
   "specs": {
     "title": "封裝測規管理",

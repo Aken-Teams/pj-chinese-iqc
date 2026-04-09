@@ -120,7 +120,16 @@
     "rulesCount": "{{count}} 条规则",
     "noRulesAtAll": "暂无审核规则，请点击\"导入 Excel\"开始建立",
     "deleteAllRulesTitle": "删除此产品的所有规则",
-    "deleteAllRulesConfirm": "确定要删除产品 {{code}} 的所有规则吗？若该产品无其他数据，产品本身也会一并删除。"
+    "deleteAllRulesConfirm": "确定要删除产品 {{code}} 的所有规则吗？若该产品无其他数据，产品本身也会一并删除。",
+    "matrixView": "表格检视",
+    "matrixTitle": "审核规则表格检视",
+    "matrixDesc": "以矩阵格式呈现所有规则，行为产品、列为参数 × Q1/Q2/Q3 上下限",
+    "matrixExportCsv": "导出 CSV",
+    "matrixClose": "关闭",
+    "matrixNoRules": "无可显示的规则",
+    "matrixColProduct": "产品",
+    "matrixColVendor": "厂商",
+    "matrixNoValue": "/"
   },
   "specs": {
     "title": "封装测规管理",

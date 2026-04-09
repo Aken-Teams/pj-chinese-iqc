@@ -120,7 +120,16 @@
     "rulesCount": "{{count}} rules",
     "noRulesAtAll": "No review rules yet. Click \"Import Excel\" to get started.",
     "deleteAllRulesTitle": "Delete all rules for this product",
-    "deleteAllRulesConfirm": "Delete all rules for product {{code}}? If the product has no other data, the product itself will also be removed."
+    "deleteAllRulesConfirm": "Delete all rules for product {{code}}? If the product has no other data, the product itself will also be removed.",
+    "matrixView": "Matrix View",
+    "matrixTitle": "Review Rules Matrix",
+    "matrixDesc": "Pivot view of all rules: rows are products, columns are parameters × Q1/Q2/Q3 upper/lower limits",
+    "matrixExportCsv": "Export CSV",
+    "matrixClose": "Close",
+    "matrixNoRules": "No rules to display",
+    "matrixColProduct": "Product",
+    "matrixColVendor": "Vendor",
+    "matrixNoValue": "/"
   },
   "specs": {
     "title": "Packaging Specs",

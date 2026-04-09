@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Plus, Trash2, Check, X, Upload, Loader2, CheckCircle, AlertTriangle, XCircle, RefreshCw,
-  PackagePlus, ChevronDown, ChevronRight, Search,
+  PackagePlus, ChevronDown, ChevronRight, Search, Table2, Download,
 } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getProducts, type Product } from '@/services/vendors'
@@ -523,6 +523,276 @@ function RuleGroupCard({
 }
 
 /* ------------------------------------------------------------------ */
+/* Matrix (pivot) view modal                                           */
+/* ------------------------------------------------------------------ */
+
+function RulesMatrixModal({
+  groups,
+  onClose,
+}: {
+  groups: RuleGroup[]
+  onClose: () => void
+}) {
+  const { t } = useTranslation('settings')
+
+  const { params, rows } = useMemo(() => {
+    const paramSet = new Set<string>()
+    for (const g of groups) {
+      for (const r of g.rules) paramSet.add(r.param_name)
+    }
+    const paramsArr = Array.from(paramSet).sort()
+    const rowsArr = groups.map((g) => {
+      const byName = new Map<string, ReviewRule>()
+      g.rules.forEach((r) => byName.set(r.param_name, r))
+      return {
+        productId: g.productId,
+        vendorCode: g.vendorCode,
+        productCode: g.productCode,
+        cells: paramsArr.map((p) => byName.get(p) ?? null),
+      }
+    })
+    return { params: paramsArr, rows: rowsArr }
+  }, [groups])
+
+  const noValue = t('rules.matrixNoValue')
+
+  function fmt(v: number | null | undefined): string {
+    return v == null ? noValue : String(v)
+  }
+
+  function exportCsv() {
+    const BOM = '\uFEFF'
+    // Row 1: vendor, product, [param repeated 6 times per param]
+    const row1 = ['', '']
+    params.forEach((p) => row1.push(p, '', '', '', '', ''))
+    // Row 2: empty, empty, Q1-L Q1-U Q2-L Q2-U Q3-L Q3-U repeated
+    const row2 = [t('rules.matrixColVendor'), t('rules.matrixColProduct')]
+    params.forEach(() => {
+      row2.push(
+        t('rules.q1Lower'),
+        t('rules.q1Upper'),
+        t('rules.q2Lower'),
+        t('rules.q2Upper'),
+        t('rules.q3Lower'),
+        t('rules.q3Upper'),
+      )
+    })
+    const escape = (s: string) => {
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return `"${s.replace(/"/g, '""')}"`
+      }
+      return s
+    }
+    const lines = [row1.map(escape).join(','), row2.map(escape).join(',')]
+    rows.forEach((row) => {
+      const cells: string[] = [row.vendorCode ?? '', row.productCode]
+      row.cells.forEach((rule) => {
+        cells.push(fmt(rule?.q1_lower))
+        cells.push(fmt(rule?.q1_upper))
+        cells.push(fmt(rule?.q2_lower))
+        cells.push(fmt(rule?.q2_upper))
+        cells.push(fmt(rule?.q3_lower))
+        cells.push(fmt(rule?.q3_upper))
+      })
+      lines.push(cells.map(escape).join(','))
+    })
+    const blob = new Blob([BOM + lines.join('\n')], {
+      type: 'text/csv;charset=utf-8',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `review-rules-matrix-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const subColLabels = [
+    t('rules.q1Lower'),
+    t('rules.q1Upper'),
+    t('rules.q2Lower'),
+    t('rules.q2Upper'),
+    t('rules.q3Lower'),
+    t('rules.q3Upper'),
+  ]
+  const subColKeys: (keyof ReviewRule)[] = [
+    'q1_lower', 'q1_upper', 'q2_lower', 'q2_upper', 'q3_lower', 'q3_upper',
+  ]
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6"
+      onClick={onClose}
+    >
+      <div
+        className="bg-bg-card w-full max-w-[95vw] max-h-[90vh] flex flex-col border border-border-light"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-border-light shrink-0">
+          <div>
+            <h3 className="text-base font-heading font-bold text-text-primary">
+              {t('rules.matrixTitle')}
+            </h3>
+            <p className="text-xs text-text-muted mt-0.5">{t('rules.matrixDesc')}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportCsv}
+              disabled={rows.length === 0 || params.length === 0}
+              className="flex items-center gap-2 px-3 py-1.5 bg-accent text-white text-sm font-medium hover:bg-accent/90 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Download size={14} /> {t('rules.matrixExportCsv')}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-text-muted hover:text-text-primary cursor-pointer"
+              title={t('rules.matrixClose')}
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-auto min-h-0">
+          {rows.length === 0 || params.length === 0 ? (
+            <div className="p-12 text-center text-sm text-text-muted">
+              {t('rules.matrixNoRules')}
+            </div>
+          ) : (
+            <table className="text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '48px' }} />
+                <col style={{ width: '104px' }} />
+                {params.map((p) => (
+                  <Fragment key={`cg-${p}`}>
+                    <col style={{ width: '60px' }} />
+                    <col style={{ width: '60px' }} />
+                    <col style={{ width: '60px' }} />
+                    <col style={{ width: '60px' }} />
+                    <col style={{ width: '60px' }} />
+                    <col style={{ width: '60px' }} />
+                  </Fragment>
+                ))}
+              </colgroup>
+              <thead className="sticky top-0 z-20">
+                {/* Row 1: param names (span 6 sub-cols each) */}
+                <tr className="bg-bg-page">
+                  <th
+                    className="sticky left-0 z-30 bg-bg-page px-1.5 py-2 text-[11px] font-semibold text-text-muted uppercase tracking-[1px] whitespace-nowrap text-left overflow-hidden"
+                    rowSpan={2}
+                    style={{ boxShadow: 'inset -1px 0 0 var(--color-border-light)' }}
+                  >
+                    {t('rules.matrixColVendor')}
+                  </th>
+                  <th
+                    className="sticky left-[48px] z-30 bg-bg-page px-2 py-2 text-[11px] font-semibold text-text-muted uppercase tracking-[1px] whitespace-nowrap text-left"
+                    rowSpan={2}
+                    style={{ boxShadow: 'inset -2px 0 0 var(--color-border-light)' }}
+                  >
+                    {t('rules.matrixColProduct')}
+                  </th>
+                  {params.map((p, pi) => (
+                    <th
+                      key={p}
+                      colSpan={6}
+                      className={`px-3 py-2 text-[11px] font-mono font-semibold text-text-primary text-center whitespace-nowrap border-b border-border-light ${
+                        pi < params.length - 1 ? 'border-r-2 border-border-light' : ''
+                      }`}
+                    >
+                      {p}
+                    </th>
+                  ))}
+                </tr>
+                {/* Row 2: Q1-L Q1-U Q2-L Q2-U Q3-L Q3-U repeated */}
+                <tr className="bg-bg-page">
+                  {params.map((p, pi) => (
+                    <Fragment key={`sub-${p}`}>
+                      {subColLabels.map((lbl, si) => (
+                        <th
+                          key={`${p}-sub-${si}`}
+                          className={`px-2 py-1.5 text-[10px] font-semibold text-text-muted tracking-wide whitespace-nowrap text-right border-b-2 border-border-light ${
+                            si === 5 && pi < params.length - 1
+                              ? 'border-r-2 border-border-light'
+                              : ''
+                          }`}
+                        >
+                          {lbl}
+                        </th>
+                      ))}
+                    </Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr
+                    key={row.productId}
+                    className="border-b border-border-light hover:bg-bg-page/50"
+                  >
+                    <td
+                      className="sticky left-0 z-10 bg-bg-card px-1.5 py-1.5 whitespace-nowrap overflow-hidden"
+                      style={{ boxShadow: 'inset -1px 0 0 var(--color-border-light)' }}
+                    >
+                      {row.vendorCode ? (
+                        <span className="px-1 py-0.5 bg-accent/10 text-accent text-[10px] font-semibold rounded">
+                          {row.vendorCode}
+                        </span>
+                      ) : (
+                        <span className="text-text-muted">—</span>
+                      )}
+                    </td>
+                    <td
+                      className="sticky left-[48px] z-10 bg-bg-card px-2 py-1.5 font-mono text-[11px] font-semibold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ boxShadow: 'inset -2px 0 0 var(--color-border-light)' }}
+                    >
+                      {row.productCode}
+                    </td>
+                    {row.cells.map((rule, pi) => (
+                      <Fragment key={`cell-${row.productId}-${pi}`}>
+                        {subColKeys.map((k, si) => {
+                          const v = rule?.[k] as number | null | undefined
+                          return (
+                            <td
+                              key={`cell-${row.productId}-${pi}-${si}`}
+                              className={`px-2 py-1.5 text-right tabular-nums whitespace-nowrap ${
+                                v == null ? 'text-text-muted' : 'text-text-primary'
+                              } ${
+                                si === 5 && pi < params.length - 1
+                                  ? 'border-r-2 border-border-light'
+                                  : ''
+                              }`}
+                            >
+                              {fmt(v)}
+                            </td>
+                          )
+                        })}
+                      </Fragment>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-border-light text-xs text-text-muted shrink-0">
+          {t('rules.summary', {
+            products: rows.length,
+            rules: rows.reduce(
+              (s, r) => s + r.cells.filter((c) => c !== null).length,
+              0,
+            ),
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /* Main page                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -538,6 +808,7 @@ export default function RulesPage() {
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const [addingNewFor, setAddingNewFor] = useState<number | null>(null)
   const [importMode, setImportMode] = useState(false)
+  const [matrixMode, setMatrixMode] = useState(false)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
 
@@ -689,16 +960,28 @@ export default function RulesPage() {
         title={t('rules.title')}
         subtitle={t('rules.desc')}
         actions={
-          <button
-            onClick={() => setImportMode(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 cursor-pointer whitespace-nowrap"
-          >
-            <Upload size={16} /> {t('rules.importExcel')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMatrixMode(true)}
+              disabled={groups.length === 0}
+              className="flex items-center gap-2 px-4 py-2 border border-border-light text-text-secondary text-sm font-medium hover:bg-bg-page cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Table2 size={16} /> {t('rules.matrixView')}
+            </button>
+            <button
+              onClick={() => setImportMode(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 cursor-pointer whitespace-nowrap"
+            >
+              <Upload size={16} /> {t('rules.importExcel')}
+            </button>
+          </div>
         }
       />
 
       {importMode && <ImportPanel onDone={handleImportDone} onImported={handleImported} />}
+      {matrixMode && (
+        <RulesMatrixModal groups={groups} onClose={() => setMatrixMode(false)} />
+      )}
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-4 bg-bg-card border border-border-light px-4 py-3">
