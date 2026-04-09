@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, FileText } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Loader2, FileText, FileWarning } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getHistory, type HistoryRow } from '@/services/history'
 import LotSearchSelect from '@/components/ui/LotSearchSelect'
@@ -146,6 +147,18 @@ export default function ComparePage() {
         <div className="flex justify-center py-16">
           <Loader2 size={32} className="animate-spin text-accent" />
         </div>
+      ) : result && result.rows.length === 0 ? (
+        <div className="mt-5 bg-bg-card p-8 flex flex-col items-center gap-3 text-center">
+          <FileWarning size={36} className="text-text-muted" />
+          <h3 className="font-heading text-[15px] font-bold text-text-primary">{t('noSpecsTitle')}</h3>
+          <p className="text-[13px] text-text-secondary max-w-md">{t('noSpecsHint')}</p>
+          <Link
+            to="/settings/specs"
+            className="mt-2 bg-accent text-white px-5 py-2 text-sm font-semibold hover:opacity-90"
+          >
+            {t('configureSpecsBtn')}
+          </Link>
+        </div>
       ) : result ? (
         <div className="bg-bg-card p-6 mt-5">
           <div className="flex items-center justify-between">
@@ -192,7 +205,7 @@ export default function ComparePage() {
               </tr>
             </thead>
             <tbody>
-              {result.rows.length > 0 ? result.rows.map((row, i) => {
+              {result.rows.map((row, i) => {
                 const isMatch = row.result === 'Match'
                 const isTighter = row.result === 'Tighter'
                 const isOutOfRange = row.result === 'Out of Range'
@@ -229,13 +242,7 @@ export default function ComparePage() {
                     </td>
                   </tr>
                 )
-              }) : (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-text-muted">
-                    {t('noFtSpecs')}
-                  </td>
-                </tr>
-              )}
+              })}
             </tbody>
           </table>
         </div>

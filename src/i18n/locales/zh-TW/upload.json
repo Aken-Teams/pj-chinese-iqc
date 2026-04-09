@@ -14,7 +14,10 @@
     "vendor": "廠商",
     "formatId": "格式 ID",
     "autoDetected": "自動識別",
-    "description": "系統將自動識別檔案格式並匹配相應的解析範本"
+    "description": "系統將自動識別檔案格式並匹配相應的解析範本",
+    "step1": "1. 選擇廠商",
+    "step2": "2. 上傳檔案",
+    "retrying": "正以新廠商重新解析..."
   },
   "preview": {
     "title": "上傳預覽",

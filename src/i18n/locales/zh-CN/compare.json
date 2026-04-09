@@ -18,6 +18,9 @@
   "outOfRange": "超出范围",
   "noFtSpecs": "该产品尚无封装测试规格，请先上传 FT 规格。",
   "emptyHint": "选择批次并点击比较，查看 CP 与 FT 规格对比。",
+  "noSpecsTitle": "此产品尚未建立封装规格",
+  "noSpecsHint": "规格比对需要先在「设定 \u003e 封装规格」建立数据",
+  "configureSpecsBtn": "前往封装规格设定 \u2192",
   "table": {
     "parameter": "参数",
     "cpLower": "CP 下限",

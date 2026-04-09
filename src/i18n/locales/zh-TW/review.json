@@ -28,6 +28,8 @@
   "selectLot": "-- 選擇批次 --",
   "selectLotPrompt": "請選擇批次以查看審核結果，或先上傳資料。",
   "running": "執行中...",
+  "autoRunning": "正在自動執行審核...",
+  "q2NotConfigured": "若已設定 Q2 規則，請點擊上方「執行審核」重新計算；若仍為 N/A，代表此產品尚未設定 Q2 規則",
   "detail": {
     "title": "審核詳情",
     "backToList": "返回列表",

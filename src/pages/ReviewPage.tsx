@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ChevronRight, Loader2, FileText } from 'lucide-react'
@@ -42,6 +42,9 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true)
   const [reviewing, setReviewing] = useState(false)
   const [error, setError] = useState('')
+  // Tracks lots we've already auto-triggered so selecting the same lot a second
+  // time doesn't re-run the review.
+  const autoTriggeredRef = useRef<Set<number>>(new Set())
 
   useEffect(() => {
     const restoredLotId: number | undefined = location.state?.lotId
@@ -49,20 +52,43 @@ export default function ReviewPage() {
       .then(res => {
         setLots(res.items)
         if (restoredLotId && res.items.find(l => l.id === restoredLotId)) {
-          loadResults(restoredLotId)
+          loadResults(restoredLotId, res.items)
         } else {
           setLoading(false)
         }
       })
       .catch(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const loadResults = async (lotDbId: number) => {
-    setLoading(true)
+  const loadResults = async (lotDbId: number, lotsSource?: HistoryRow[]) => {
+    setSelectedLotId(lotDbId)
+    setError('')
+    const source = lotsSource ?? lots
+    const lotRow = source.find(l => l.id === lotDbId)
+
+    // Auto-run review for lots that are still pending and haven't been
+    // auto-triggered yet in this session.
+    if (lotRow?.status === 'pending' && !autoTriggeredRef.current.has(lotDbId)) {
+      autoTriggeredRef.current.add(lotDbId)
+      setSummary(null)
+      setReviewing(true)
+      setLoading(true)
+      try {
+        await executeReview(lotDbId)
+        setLots(prev => prev.map(l => l.id === lotDbId ? { ...l, status: 'reviewed' } : l))
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Auto review failed')
+      } finally {
+        setReviewing(false)
+      }
+    } else {
+      setLoading(true)
+    }
+
     try {
       const data = await getLotResults(lotDbId)
       setSummary(data)
-      setSelectedLotId(lotDbId)
     } catch {
       setSummary(null)
     } finally {
@@ -175,8 +201,11 @@ export default function ReviewPage() {
       />
 
       {loading ? (
-        <div className="mt-10 flex justify-center">
+        <div className="mt-10 flex flex-col items-center gap-3">
           <Loader2 size={32} className="animate-spin text-accent" />
+          {reviewing && (
+            <span className="text-[13px] text-text-secondary">{t('autoRunning')}</span>
+          )}
         </div>
       ) : summary ? (
         <>
@@ -204,6 +233,11 @@ export default function ReviewPage() {
                 summary.q2Compliance === 'N/A' ? 'text-text-muted' : 'text-error'
               }`}>{summary.q2Compliance}</div>
               <StatusBadge status={summary.q2Compliance} />
+              {summary.q2Compliance === 'N/A' && (
+                <div className="mt-2 text-[11px] text-text-muted leading-tight">
+                  {t('q2NotConfigured')}
+                </div>
+              )}
             </div>
           </div>
 

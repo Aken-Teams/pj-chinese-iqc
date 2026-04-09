@@ -28,6 +28,8 @@
   "selectLot": "-- Select a lot --",
   "selectLotPrompt": "Select a lot to view review results, or upload data first.",
   "running": "Running...",
+  "autoRunning": "Running review automatically...",
+  "q2NotConfigured": "If Q2 rules are configured, click 'Run Review' above to recalculate. If it still shows N/A, no Q2 rules exist for this product.",
   "detail": {
     "title": "Review Details",
     "backToList": "Back to List",

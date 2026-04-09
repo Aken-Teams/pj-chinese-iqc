@@ -18,6 +18,9 @@
   "outOfRange": "Out of Range",
   "noFtSpecs": "No packaging test specs found for this lot's product. Upload FT specs first.",
   "emptyHint": "Select a lot and click Compare to see CP vs FT spec comparison.",
+  "noSpecsTitle": "No packaging specs for this product",
+  "noSpecsHint": "Spec comparison requires packaging specs. Configure them in Settings \u003e Packaging Specs.",
+  "configureSpecsBtn": "Configure Packaging Specs \u2192",
   "table": {
     "parameter": "Parameter",
     "cpLower": "CP Lower",

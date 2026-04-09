@@ -14,7 +14,10 @@
     "vendor": "厂商",
     "formatId": "格式 ID",
     "autoDetected": "自动识别",
-    "description": "系统将自动识别文件格式并匹配相应的解析模板"
+    "description": "系统将自动识别文件格式并匹配相应的解析模板",
+    "step1": "1. 选择厂商",
+    "step2": "2. 上传文件",
+    "retrying": "正以新厂商重新解析..."
   },
   "preview": {
     "title": "上传预览",

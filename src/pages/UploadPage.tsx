@@ -17,28 +17,41 @@ function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { sele
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [cachedFile, setCachedFile] = useState<File | null>(null)
 
-  const handleFileUpload = async (file: File) => {
+  const runPreview = async (file: File) => {
+    setCachedFile(file)
     setError(''); setSuccess(''); setUploading(true)
     try {
       const result = await uploadCpData(file, selectedVendor, i18n.language)
       setPreview(result)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('error.uploadFailed'))
+      setPreview(null)
     } finally { setUploading(false) }
   }
+
+  // Re-run preview automatically when vendor changes while a file is cached.
+  // This lets users correct a wrong vendor choice without needing a page refresh.
+  useEffect(() => {
+    if (cachedFile && selectedVendor) {
+      runPreview(cachedFile)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVendor])
 
   const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true) }, [])
   const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragOver(false) }, [])
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setIsDragOver(false)
     const file = e.dataTransfer.files[0]
-    if (file) handleFileUpload(file)
+    if (file) runPreview(file)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVendor])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) handleFileUpload(file)
+    if (file) runPreview(file)
   }
 
   const handleConfirm = async () => {
@@ -48,6 +61,7 @@ function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { sele
       const result = await confirmUpload(preview.fileName, preview.format)
       setSuccess(t('preview.success', { lot: result.lotCode, wafers: result.waferCount, rows: result.totalRows }))
       setPreview(null)
+      setCachedFile(null)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('error.confirmFailed'))
     } finally { setConfirming(false) }
@@ -55,83 +69,83 @@ function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { sele
 
   return (
     <>
+      {/* Step 1: vendor + format ID bar */}
+      <div className="mt-6 bg-bg-card p-6">
+        <div className="flex items-end gap-6">
+          <div className="flex-1 flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.step1')}</label>
+            <SearchSelect
+              items={vendorCodes}
+              value={selectedVendor}
+              onChange={setSelectedVendor}
+            />
+          </div>
+          <div className="w-[280px] flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.formatId')}</label>
+            <div className="border border-border-light bg-bg-page px-3 py-2 text-[13px] text-text-muted">
+              {preview ? preview.format : t('formatConfig.autoDetected')}
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-[13px] text-text-secondary">{t('formatConfig.description')}</p>
+      </div>
+
       {error && <div className="mt-4 bg-badge-fail text-error text-sm px-4 py-2.5 font-medium">{error}</div>}
       {success && <div className="mt-4 bg-badge-pass text-success text-sm px-4 py-2.5 font-medium">{success}</div>}
 
-      <div
-        className={`mt-7 flex h-[220px] w-full flex-col items-center justify-center border-2 border-dashed transition-colors ${isDragOver ? 'border-accent bg-accent/5' : 'border-border-light'}`}
-        onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
-      >
-        {uploading ? <Loader2 size={48} className="text-accent animate-spin" /> : <CloudUpload size={48} className="text-text-muted" />}
-        <span className="mt-3 font-heading text-[18px] font-semibold text-text-primary">
-          {uploading ? t('dropzone.uploading') : t('dropzone.title')}
-        </span>
-        <span className="mt-1 text-[14px] text-text-secondary">{t('dropzone.subtitle')}</span>
-        <button
-          type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
-          className="mt-4 bg-accent px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-white hover:bg-accent/90 disabled:opacity-50"
+      {/* Step 2: drop zone + preview side-by-side when preview available */}
+      <label className="mt-6 block text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.step2')}</label>
+      <div className="mt-2 flex items-stretch gap-6">
+        <div
+          className={`flex min-h-[220px] flex-[2] flex-col items-center justify-center border-2 border-dashed transition-colors ${isDragOver ? 'border-accent bg-accent/5' : 'border-border-light'}`}
+          onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
         >
-          {t('dropzone.browse')}
-        </button>
-        <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} className="hidden" />
-      </div>
+          {uploading ? <Loader2 size={48} className="text-accent animate-spin" /> : <CloudUpload size={48} className="text-text-muted" />}
+          <span className="mt-3 font-heading text-[18px] font-semibold text-text-primary">
+            {uploading
+              ? (cachedFile ? t('formatConfig.retrying') : t('dropzone.uploading'))
+              : t('dropzone.title')}
+          </span>
+          <span className="mt-1 text-[14px] text-text-secondary">{t('dropzone.subtitle')}</span>
+          <button
+            type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
+            className="mt-4 bg-accent px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-white hover:bg-accent/90 disabled:opacity-50"
+          >
+            {t('dropzone.browse')}
+          </button>
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} className="hidden" />
+        </div>
 
-      <div className="mt-6 flex gap-6">
-        <div className="flex-1 bg-bg-card p-6">
-          <h3 className="mb-4 font-heading font-bold">{t('formatConfig.title')}</h3>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.vendor')}</label>
-              <SearchSelect
-                items={vendorCodes}
-                value={selectedVendor}
-                onChange={setSelectedVendor}
-              />
+        {preview && (
+          <div className="flex flex-1 flex-col bg-bg-card p-6">
+            <h3 className="mb-4 font-heading font-bold">{t('preview.title')}</h3>
+            <div className="flex items-center gap-3 border-b border-border-light pb-4">
+              <FileSpreadsheet size={20} className="text-success" />
+              <span className="text-[13px] font-semibold text-text-primary truncate">{preview.fileName}</span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.formatId')}</label>
-              <div className="border border-border-light bg-bg-page px-3 py-2 text-[13px] text-text-muted">
-                {preview ? preview.format : t('formatConfig.autoDetected')}
-              </div>
+            <div className="mt-4 grid grid-cols-1 gap-y-2.5">
+              {[
+                { label: t('preview.wafersDetected'), value: preview.wafersDetected },
+                { label: t('preview.diePerWafer'), value: preview.diePerWafer ?? t('preview.variable') },
+                { label: t('preview.rows'), value: preview.dataRows.toLocaleString() },
+                { label: t('preview.formatMapped'), value: preview.format },
+                ...(preview.productId ? [{ label: t('preview.product'), value: preview.productId }] : []),
+                ...(preview.lotId ? [{ label: t('preview.lot'), value: preview.lotId }] : []),
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-[13px] text-text-secondary">{label}</span>
+                  <span className="text-[13px] font-semibold text-text-primary">{value}</span>
+                </div>
+              ))}
             </div>
-            <p className="text-[13px] text-text-secondary">{t('formatConfig.description')}</p>
+            <button
+              type="button" onClick={handleConfirm} disabled={confirming}
+              className="mt-5 w-full bg-accent px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-white hover:bg-accent/90 disabled:opacity-50"
+            >
+              {confirming ? t('preview.processing') : t('preview.confirm')}
+            </button>
           </div>
-        </div>
-
-        <div className="w-[380px] bg-bg-card p-6">
-          <h3 className="mb-4 font-heading font-bold">{t('preview.title')}</h3>
-          {preview ? (
-            <>
-              <div className="flex items-center gap-3 border-b border-border-light pb-4">
-                <FileSpreadsheet size={20} className="text-success" />
-                <span className="text-[13px] font-semibold text-text-primary">{preview.fileName}</span>
-              </div>
-              <div className="mt-4 flex flex-col gap-3">
-                {[
-                  { label: t('preview.wafersDetected'), value: preview.wafersDetected },
-                  { label: t('preview.diePerWafer'), value: preview.diePerWafer ?? t('preview.variable') },
-                  { label: t('preview.rows'), value: preview.dataRows.toLocaleString() },
-                  { label: t('preview.formatMapped'), value: preview.format },
-                  ...(preview.productId ? [{ label: t('preview.product'), value: preview.productId }] : []),
-                  ...(preview.lotId ? [{ label: t('preview.lot'), value: preview.lotId }] : []),
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex items-center justify-between">
-                    <span className="text-[13px] text-text-secondary">{label}</span>
-                    <span className="text-[13px] font-semibold text-text-primary">{value}</span>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button" onClick={handleConfirm} disabled={confirming}
-                className="mt-4 w-full bg-accent px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-white hover:bg-accent/90 disabled:opacity-50"
-              >
-                {confirming ? t('preview.processing') : t('preview.confirm')}
-              </button>
-            </>
-          ) : (
-            <p className="text-[13px] text-text-muted mt-4">{t('preview.noFile')}</p>
-          )}
-        </div>
+        )}
       </div>
     </>
   )

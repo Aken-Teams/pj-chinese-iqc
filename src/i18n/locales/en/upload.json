@@ -14,7 +14,10 @@
     "vendor": "Vendor",
     "formatId": "Format ID",
     "autoDetected": "Auto Detected",
-    "description": "The system will auto-detect the file format and match the parsing template"
+    "description": "The system will auto-detect the file format and match the parsing template",
+    "step1": "1. Select vendor",
+    "step2": "2. Upload file",
+    "retrying": "Re-parsing with new vendor..."
   },
   "preview": {
     "title": "Upload Preview",
