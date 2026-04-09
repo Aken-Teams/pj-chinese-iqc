@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/layout/PageHeader'
@@ -7,6 +7,15 @@ import { getDashboard, type DashboardData, type TrendPeriod } from '@/services/d
 
 const PERIODS: TrendPeriod[] = ['14d', '30d', '6m']
 
+interface HoveredBar {
+  vendorName: string
+  color: string
+  label: string
+  value: number
+  left: number
+  top: number
+}
+
 export default function DashboardPage() {
   const { t, i18n } = useTranslation('dashboard')
   const navigate = useNavigate()
@@ -14,23 +23,30 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState<TrendPeriod>('14d')
   const [hiddenVendors, setHiddenVendors] = useState<Set<string>>(new Set())
+  const [hovered, setHovered] = useState<HoveredBar | null>(null)
+  const plotRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     const load = async () => {
-      setLoading(true)
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const res = await getDashboard(i18n.language, period)
+          if (cancelled) return
           setData(res)
           setLoading(false)
           return
         } catch {
+          if (cancelled) return
           if (attempt < 2) await new Promise(r => setTimeout(r, 2000))
         }
       }
-      setLoading(false)
+      if (!cancelled) setLoading(false)
     }
     load()
+    return () => {
+      cancelled = true
+    }
   }, [period, i18n.language])
 
   const toggleVendor = (name: string) => {
@@ -122,37 +138,16 @@ export default function DashboardPage() {
             const yMax = 100
             const yMid = Math.round((yMin + yMax) / 2)
 
-            // Percent-based coordinate mapping (0–100 in both axes)
-            const xPct = (i: number) =>
-              months.length === 1 ? 50 : 3 + (i / (months.length - 1)) * 94
+            // Percent-based Y mapping (for target line + grid)
             const yPct = (v: number) =>
               (1 - (v - yMin) / (yMax - yMin)) * 100
+            const barHeightPct = (v: number) =>
+              Math.max(0, ((v - yMin) / (yMax - yMin)) * 100)
 
             const hasTarget = 99 >= yMin && 99 < yMax
 
             // X-axis label step: show ~6-7 labels max
             const labelStep = Math.max(1, Math.ceil(months.length / 7))
-
-            // Build SVG path with gaps for null values
-            const buildPath = (data: (number | null)[]): string => {
-              let path = ''
-              let penUp = true
-              data.forEach((val, i) => {
-                if (val === null) {
-                  penUp = true
-                  return
-                }
-                const x = xPct(i).toFixed(2)
-                const y = yPct(val).toFixed(2)
-                if (penUp) {
-                  path += `M${x},${y}`
-                  penUp = false
-                } else {
-                  path += `L${x},${y}`
-                }
-              })
-              return path
-            }
 
             return (
             <>
@@ -165,13 +160,13 @@ export default function DashboardPage() {
                 </div>
                 {/* Plot + X labels */}
                 <div className="flex-1 flex flex-col min-w-0">
-                  <div className="relative flex-1 min-h-0">
+                  <div ref={plotRef} className="relative flex-1 min-h-0">
+                    {/* Grid (below bars) */}
                     <svg
                       viewBox="0 0 100 100"
                       preserveAspectRatio="none"
-                      className="absolute inset-0 w-full h-full"
+                      className="absolute inset-0 w-full h-full pointer-events-none"
                     >
-                      {/* Horizontal grid */}
                       {[0, 50, 100].map((y) => (
                         <line
                           key={`grid-${y}`}
@@ -185,84 +180,136 @@ export default function DashboardPage() {
                           vectorEffect="non-scaling-stroke"
                         />
                       ))}
-                      {/* Target reference at 99% */}
-                      {hasTarget && (
+                    </svg>
+                    {/* Grouped bars */}
+                    <div className="absolute inset-0 flex items-end gap-[2px] px-[2px]">
+                      {months.map((m, i) => (
+                        <div
+                          key={`col-${i}`}
+                          className="flex-1 flex items-end justify-center gap-[1px] h-full min-w-0"
+                        >
+                          {visibleVendors.length === 0 ? (
+                            <div className="flex-1 h-0" />
+                          ) : (
+                            visibleVendors.map((v) => {
+                              const val = v.data[i]
+                              if (val === null || val === undefined) {
+                                return <div key={v.name} className="flex-1 h-0" />
+                              }
+                              const h = barHeightPct(val)
+                              const isHot =
+                                hovered?.vendorName === v.name && hovered?.label === m
+                              return (
+                                <div
+                                  key={v.name}
+                                  className="flex-1 cursor-pointer transition-opacity"
+                                  style={{
+                                    height: `${h}%`,
+                                    background: v.color,
+                                    opacity: hovered && !isHot ? 0.55 : 1,
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    const plotRect = plotRef.current?.getBoundingClientRect()
+                                    if (!plotRect) return
+                                    const r = e.currentTarget.getBoundingClientRect()
+                                    setHovered({
+                                      vendorName: v.name,
+                                      color: v.color,
+                                      label: m,
+                                      value: val,
+                                      left:
+                                        ((r.left + r.width / 2 - plotRect.left) /
+                                          plotRect.width) *
+                                        100,
+                                      top:
+                                        ((r.top - plotRect.top) / plotRect.height) * 100,
+                                    })
+                                  }}
+                                  onMouseLeave={() => setHovered(null)}
+                                />
+                              )
+                            })
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Target line (above bars) */}
+                    {hasTarget && (
+                      <svg
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                        className="absolute inset-0 w-full h-full pointer-events-none z-10"
+                      >
                         <line
                           x1="0"
                           y1={yPct(99)}
                           x2="100"
                           y2={yPct(99)}
-                          stroke="#B58A3C"
-                          strokeWidth="1"
-                          strokeDasharray="4 4"
-                          strokeOpacity="0.55"
+                          stroke="#C05A3C"
+                          strokeWidth="2"
+                          strokeDasharray="8 4"
+                          strokeOpacity="1"
                           vectorEffect="non-scaling-stroke"
                         />
-                      )}
-                      {/* Vendor paths with gap support */}
-                      {visibleVendors.map((v, vi) => {
-                        const d = buildPath(v.data)
-                        if (!d) return null
-                        return (
-                          <path
-                            key={`line-${vi}`}
-                            d={d}
-                            fill="none"
-                            stroke={v.color}
-                            strokeWidth="2"
-                            strokeLinejoin="round"
-                            strokeLinecap="round"
-                            vectorEffect="non-scaling-stroke"
-                          />
-                        )
-                      })}
-                    </svg>
-                    {/* Dots as HTML overlay (skip nulls) */}
-                    {visibleVendors.map((v) =>
-                      v.data.map((val, i) =>
-                        val === null ? null : (
+                      </svg>
+                    )}
+                    {/* Tooltip */}
+                    {hovered && (
+                      <div
+                        className="absolute z-20 pointer-events-none bg-bg-card border border-border-light shadow-lg px-2.5 py-1.5 -translate-x-1/2 whitespace-nowrap"
+                        style={{
+                          left: `${Math.max(6, Math.min(94, hovered.left))}%`,
+                          top: `${hovered.top}%`,
+                          transform: 'translate(-50%, calc(-100% - 6px))',
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
                           <div
-                            key={`dot-${v.name}-${i}`}
-                            className="absolute w-[7px] h-[7px] -translate-x-1/2 -translate-y-1/2 cursor-default hover:scale-[1.6] transition-transform"
-                            style={{
-                              left: `${xPct(i)}%`,
-                              top: `${yPct(val)}%`,
-                              background: v.color,
-                              boxShadow: '0 0 0 1.5px var(--color-bg-card, #F5F1E8)',
-                            }}
-                            title={`${v.name} · ${months[i]}: ${val.toFixed(1)}%`}
+                            className="w-2 h-2 shrink-0"
+                            style={{ background: hovered.color }}
                           />
-                        ),
-                      ),
+                          <span className="text-[10px] font-semibold text-text-primary">
+                            {hovered.vendorName}
+                          </span>
+                        </div>
+                        <div className="text-[9px] text-text-muted leading-tight">
+                          {hovered.label}
+                        </div>
+                        <div
+                          className="font-heading text-[13px] font-bold tabular-nums leading-tight"
+                          style={{
+                            color: hovered.value >= 99 ? '#4A7C59' : '#C05A3C',
+                          }}
+                        >
+                          {hovered.value.toFixed(2)}%
+                        </div>
+                      </div>
                     )}
                     {/* Target label */}
                     {hasTarget && (
                       <span
-                        className="absolute text-[9px] font-semibold text-warning pointer-events-none pr-0.5"
+                        className="absolute z-10 text-[10px] font-bold text-white pointer-events-none px-1.5 py-0.5 leading-none tabular-nums"
                         style={{
                           top: `${yPct(99)}%`,
                           right: 0,
-                          transform: 'translateY(-110%)',
+                          transform: 'translateY(-50%)',
+                          background: '#C05A3C',
                         }}
                       >
-                        ≥99%
+                        {t('target')} ≥99%
                       </span>
                     )}
                   </div>
                   {/* X-axis labels (auto-thinned) */}
-                  <div className="relative h-4 mt-1 shrink-0">
-                    {months.map((m, i) => {
-                      if (i % labelStep !== 0 && i !== months.length - 1) return null
-                      return (
-                        <span
-                          key={`x-${i}`}
-                          className="absolute text-[10px] text-text-muted -translate-x-1/2 whitespace-nowrap"
-                          style={{ left: `${xPct(i)}%` }}
-                        >
-                          {m}
-                        </span>
-                      )
-                    })}
+                  <div className="flex mt-1 shrink-0 px-[2px] gap-[2px]">
+                    {months.map((m, i) => (
+                      <div
+                        key={`x-${i}`}
+                        className="flex-1 text-center text-[10px] text-text-muted whitespace-nowrap overflow-hidden min-w-0"
+                      >
+                        {i % labelStep === 0 || i === months.length - 1 ? m : ''}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
