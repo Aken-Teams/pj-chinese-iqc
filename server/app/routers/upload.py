@@ -70,6 +70,8 @@ def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, 
     """Return (parser_instance, actual_path_to_use), handling .xls conversion.
 
     All vendors use DynamicParser driven by VendorFormat config from DB.
+    When a vendor has multiple format templates, each is tried and the first
+    that produces non-zero data rows wins (auto-detection).
     """
     name_lower = original_name.lower()
     actual_path = file_path
@@ -89,11 +91,33 @@ def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, 
     if not vendor_obj:
         raise HTTPException(400, err["no_format_config"].format(vendor=vendor))
 
-    fmt = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).first()
-    if not fmt:
+    fmts = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).all()
+    if not fmts:
         raise HTTPException(400, err["no_format_config"].format(vendor=vendor))
 
-    return DynamicParser.from_vendor_format(vendor, fmt), actual_path
+    # Single template — use directly (no probing needed)
+    if len(fmts) == 1:
+        return DynamicParser.from_vendor_format(vendor, fmts[0]), actual_path
+
+    # Multiple templates — try each, pick the first with non-zero data rows
+    best_parser = None
+    best_rows = 0
+    for fmt in fmts:
+        parser = DynamicParser.from_vendor_format(vendor, fmt)
+        try:
+            preview = parser.preview(actual_path)
+            rows = preview.get("dataRows", 0)
+            if rows > best_rows:
+                best_rows = rows
+                best_parser = parser
+        except Exception:
+            continue
+
+    if best_parser:
+        return best_parser, actual_path
+
+    # Fallback to first template
+    return DynamicParser.from_vendor_format(vendor, fmts[0]), actual_path
 
 
 def _persist_result(result, db: Session, err: dict | None = None) -> dict:
@@ -260,11 +284,27 @@ def confirm_upload(
     if not vendor_obj:
         raise HTTPException(400, f"Vendor {vendor_code} not found in database")
 
-    fmt = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).first()
-    if not fmt:
+    fmts = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).all()
+    if not fmts:
         raise HTTPException(400, f"Vendor {vendor_code} has no format configured")
 
-    parser = DynamicParser.from_vendor_format(vendor_code, fmt)
+    # Auto-detect best template when multiple exist
+    if len(fmts) == 1:
+        parser = DynamicParser.from_vendor_format(vendor_code, fmts[0])
+    else:
+        best_parser = None
+        best_rows = 0
+        for fmt in fmts:
+            p = DynamicParser.from_vendor_format(vendor_code, fmt)
+            try:
+                preview = p.preview(file_path)
+                rows = preview.get("dataRows", 0)
+                if rows > best_rows:
+                    best_rows = rows
+                    best_parser = p
+            except Exception:
+                continue
+        parser = best_parser or DynamicParser.from_vendor_format(vendor_code, fmts[0])
 
     result = parser.parse(file_path)
     return _persist_result(result, db, err)

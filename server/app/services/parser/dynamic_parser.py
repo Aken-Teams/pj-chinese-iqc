@@ -17,7 +17,9 @@ class DynamicParser(BaseParser):
                  electrical_start_col: int, wafer_id_col: int, bin_col: int,
                  x_coord_col: int | None = None, y_coord_col: int | None = None,
                  product_id_col: int | None = None, lot_id_col: int | None = None,
-                 fixed_die_count: int | None = None):
+                 fixed_die_count: int | None = None,
+                 product_id_cell: str | None = None,
+                 lot_id_cell: str | None = None):
         self.vendor_code = vendor_code
         self.HEADER_ROW = header_row
         self.DATA_START_ROW = data_start_row
@@ -31,6 +33,21 @@ class DynamicParser(BaseParser):
         self.PRODUCT_ID_COL = product_id_col
         self.LOT_ID_COL = lot_id_col
         self.FIXED_DIE_COUNT = fixed_die_count
+        self.PRODUCT_ID_CELL = self._parse_cell_ref(product_id_cell)
+        self.LOT_ID_CELL = self._parse_cell_ref(lot_id_cell)
+
+    @staticmethod
+    def _parse_cell_ref(cell_str: str | None) -> tuple[int, int] | None:
+        """Parse a "row,col" string (1-indexed) into a (row, col) tuple."""
+        if not cell_str:
+            return None
+        parts = cell_str.split(",")
+        if len(parts) != 2:
+            return None
+        try:
+            return int(parts[0].strip()), int(parts[1].strip())
+        except (ValueError, TypeError):
+            return None
 
     @classmethod
     def from_vendor_format(cls, vendor_code: str, fmt) -> "DynamicParser":
@@ -49,6 +66,8 @@ class DynamicParser(BaseParser):
             product_id_col=fmt.product_id_col,
             lot_id_col=fmt.lot_id_col,
             fixed_die_count=fmt.fixed_die_count,
+            product_id_cell=getattr(fmt, 'product_id_cell', None),
+            lot_id_cell=getattr(fmt, 'lot_id_cell', None),
         )
 
     @staticmethod
@@ -94,9 +113,14 @@ class DynamicParser(BaseParser):
 
         product_id = None
         lot_id = None
-        if self.PRODUCT_ID_COL:
+        # Prefer metadata cell over data-row column
+        if self.PRODUCT_ID_CELL:
+            product_id = ws.cell(row=self.PRODUCT_ID_CELL[0], column=self.PRODUCT_ID_CELL[1]).value
+        elif self.PRODUCT_ID_COL:
             product_id = ws.cell(row=self.DATA_START_ROW, column=self.PRODUCT_ID_COL).value
-        if self.LOT_ID_COL:
+        if self.LOT_ID_CELL:
+            lot_id = ws.cell(row=self.LOT_ID_CELL[0], column=self.LOT_ID_CELL[1]).value
+        elif self.LOT_ID_COL:
             lot_id = ws.cell(row=self.DATA_START_ROW, column=self.LOT_ID_COL).value
 
         wb.close()
@@ -105,8 +129,8 @@ class DynamicParser(BaseParser):
             "diePerWafer": self.FIXED_DIE_COUNT,
             "dataRows": row_count,
             "format": self.vendor_code,
-            "productId": str(product_id) if product_id else None,
-            "lotId": str(lot_id) if lot_id else None,
+            "productId": str(product_id).strip() if product_id else None,
+            "lotId": str(lot_id).strip() if lot_id else None,
             "paramNames": param_names,
         }
 
@@ -136,10 +160,18 @@ class DynamicParser(BaseParser):
                 upper_limit=self._safe_float(upper),
             ))
 
-        # 3. Read die data, group by wafer
-        wafers_dict: dict[str, list[ParsedDie]] = {}
+        # 3. Read product/lot from metadata cells if configured
         product_id = None
         lot_id = None
+        if self.PRODUCT_ID_CELL:
+            v = ws.cell(row=self.PRODUCT_ID_CELL[0], column=self.PRODUCT_ID_CELL[1]).value
+            product_id = str(v).strip() if v else ""
+        if self.LOT_ID_CELL:
+            v = ws.cell(row=self.LOT_ID_CELL[0], column=self.LOT_ID_CELL[1]).value
+            lot_id = str(v).strip() if v else ""
+
+        # 4. Read die data, group by wafer
+        wafers_dict: dict[str, list[ParsedDie]] = {}
         mark_lot_id = None
         test_program = None
         total_rows = 0
@@ -157,10 +189,12 @@ class DynamicParser(BaseParser):
                     product_id = str(row[self.PRODUCT_ID_COL - 1].value or "")
                 else:
                     product_id = ""
+            if lot_id is None:
                 if self.LOT_ID_COL and self.LOT_ID_COL - 1 < len(row):
                     lot_id = str(row[self.LOT_ID_COL - 1].value or "")
                 else:
                     lot_id = ""
+            if mark_lot_id is None:
                 mark_lot_id = str(row[2].value or "") if len(row) > 2 else None
                 test_program = str(row[4].value or "") if len(row) > 4 else None
 

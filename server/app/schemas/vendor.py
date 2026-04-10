@@ -29,6 +29,8 @@ class VendorFormatCreate(BaseModel):
     product_id_col: int | None = None
     lot_id_col: int | None = None
     fixed_die_count: int | None = None
+    product_id_cell: str | None = None
+    lot_id_cell: str | None = None
 
 
 class VendorFormatUpdate(BaseModel):
@@ -45,6 +47,8 @@ class VendorFormatUpdate(BaseModel):
     product_id_col: int | None = None
     lot_id_col: int | None = None
     fixed_die_count: int | None = None
+    product_id_cell: str | None = None
+    lot_id_cell: str | None = None
 
 
 class VendorFormatResponse(BaseModel):
@@ -62,6 +66,8 @@ class VendorFormatResponse(BaseModel):
     product_id_col: int | None
     lot_id_col: int | None
     fixed_die_count: int | None
+    product_id_cell: str | None
+    lot_id_cell: str | None
 
     class Config:
         from_attributes = True

@@ -21,6 +21,8 @@ export interface VendorFormat {
   product_id_col: number | null
   lot_id_col: number | null
   fixed_die_count: number | null
+  product_id_cell: string | null
+  lot_id_cell: string | null
 }
 
 export interface Product {

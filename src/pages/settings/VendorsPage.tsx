@@ -27,6 +27,8 @@ const DEFAULT_FORMAT: Omit<VendorFormat, 'id'> = {
   product_id_col: null,
   lot_id_col: null,
   fixed_die_count: null,
+  product_id_cell: null,
+  lot_id_cell: null,
 }
 
 type FormatDraft = Omit<VendorFormat, 'id'>
@@ -207,6 +209,11 @@ function FormatRow({
     { key: 'fixed_die_count', labelKey: 'fixedDieCount', helpKey: 'helpFixedDieCount', nullable: true },
   ]
 
+  const textFields: { key: keyof FormatDraft; labelKey: string; helpKey: string }[] = [
+    { key: 'product_id_cell', labelKey: 'productIdCell', helpKey: 'helpProductIdCell' },
+    { key: 'lot_id_cell', labelKey: 'lotIdCell', helpKey: 'helpLotIdCell' },
+  ]
+
   async function save() {
     setSaving(true)
     try {
@@ -296,6 +303,26 @@ function FormatRow({
                 }))
               }
               placeholder={nullable ? '—' : undefined}
+            />
+          </div>
+        ))}
+        {textFields.map(({ key, labelKey, helpKey }) => (
+          <div key={key} className="flex gap-2 items-center">
+            <label className="text-xs font-semibold text-text-muted uppercase tracking-[1px] w-36 shrink-0 flex items-center gap-1.5">
+              {tv(labelKey)}
+              <FieldTip tip={tv(helpKey)} />
+            </label>
+            <input
+              type="text"
+              className="w-24 bg-bg-card border border-border-light px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent"
+              value={(draft[key] as string) ?? ''}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  [key]: e.target.value === '' ? null : e.target.value,
+                }))
+              }
+              placeholder="—"
             />
           </div>
         ))}
