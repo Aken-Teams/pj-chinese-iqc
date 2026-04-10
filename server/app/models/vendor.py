@@ -34,6 +34,10 @@ class VendorFormat(Base):
     product_id_col = Column(Integer)
     lot_id_col = Column(Integer)
     fixed_die_count = Column(Integer, nullable=True)
+    # Read product/lot from a fixed metadata cell instead of data rows.
+    # Format: "row,col" (1-indexed), e.g. "2,2" = row 2 col B.
+    product_id_cell = Column(String(20), nullable=True)
+    lot_id_cell = Column(String(20), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
