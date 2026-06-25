@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   Cpu, LayoutGrid, Upload, FileSearch, GitCompare,
   History, ChartNoAxesColumn, BookOpen, Settings, LogOut,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, Coins,
 } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
 import { useAppStore } from '@/store/appStore'
@@ -17,6 +17,7 @@ const navItems = [
   { icon: History, labelKey: 'nav.history', to: ROUTES.HISTORY },
   { icon: ChartNoAxesColumn, labelKey: 'nav.analytics', to: ROUTES.ANALYTICS },
   { icon: BookOpen, labelKey: 'nav.manual', to: ROUTES.MANUAL },
+  { icon: Coins, labelKey: 'nav.aiUsage', to: ROUTES.ADMIN_AI_USAGE, adminOnly: true },
   { icon: Settings, labelKey: 'nav.settings', to: ROUTES.SETTINGS },
 ]
 
@@ -69,7 +70,9 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex flex-col gap-1 px-4 flex-1">
-        {navItems.map(({ icon: Icon, labelKey, to }) => {
+        {navItems
+          .filter((item) => !item.adminOnly || user?.role === 'admin')
+          .map(({ icon: Icon, labelKey, to }) => {
           const isActive = location.pathname === to ||
             (to === ROUTES.REVIEW && location.pathname.startsWith('/review/')) ||
             (to === ROUTES.SETTINGS && location.pathname.startsWith('/settings'))

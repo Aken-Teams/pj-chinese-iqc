@@ -12,6 +12,7 @@ import zhCNHistory from './locales/zh-CN/history.json'
 import zhCNAnalytics from './locales/zh-CN/analytics.json'
 import zhCNSettings from './locales/zh-CN/settings.json'
 import zhCNManual from './locales/zh-CN/manual.json'
+import zhCNAdmin from './locales/zh-CN/admin.json'
 
 import zhTWCommon from './locales/zh-TW/common.json'
 import zhTWLogin from './locales/zh-TW/login.json'
@@ -23,6 +24,7 @@ import zhTWHistory from './locales/zh-TW/history.json'
 import zhTWAnalytics from './locales/zh-TW/analytics.json'
 import zhTWSettings from './locales/zh-TW/settings.json'
 import zhTWManual from './locales/zh-TW/manual.json'
+import zhTWAdmin from './locales/zh-TW/admin.json'
 
 import enCommon from './locales/en/common.json'
 import enLogin from './locales/en/login.json'
@@ -34,6 +36,7 @@ import enHistory from './locales/en/history.json'
 import enAnalytics from './locales/en/analytics.json'
 import enSettings from './locales/en/settings.json'
 import enManual from './locales/en/manual.json'
+import enAdmin from './locales/en/admin.json'
 
 i18n
   .use(LanguageDetector)
@@ -44,19 +47,19 @@ i18n
         common: zhCNCommon, login: zhCNLogin, dashboard: zhCNDashboard,
         upload: zhCNUpload, review: zhCNReview, compare: zhCNCompare,
         history: zhCNHistory, analytics: zhCNAnalytics, settings: zhCNSettings,
-        manual: zhCNManual,
+        manual: zhCNManual, admin: zhCNAdmin,
       },
       'zh-TW': {
         common: zhTWCommon, login: zhTWLogin, dashboard: zhTWDashboard,
         upload: zhTWUpload, review: zhTWReview, compare: zhTWCompare,
         history: zhTWHistory, analytics: zhTWAnalytics, settings: zhTWSettings,
-        manual: zhTWManual,
+        manual: zhTWManual, admin: zhTWAdmin,
       },
       en: {
         common: enCommon, login: enLogin, dashboard: enDashboard,
         upload: enUpload, review: enReview, compare: enCompare,
         history: enHistory, analytics: enAnalytics, settings: enSettings,
-        manual: enManual,
+        manual: enManual, admin: enAdmin,
       },
     },
     fallbackLng: 'zh-CN',

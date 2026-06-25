@@ -2,8 +2,9 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db
+from app.dependencies import get_db, get_optional_user
 from app.models.ai import AiAnomaly, AiReviewSummary
+from app.models.user import User
 from app.models.wafer import Wafer
 from app.models.lot import Lot
 from app.models.review import ReviewResult
@@ -19,7 +20,11 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 
 @router.post("/review-summary", response_model=ReviewSummaryResponse)
-def generate_summary(req: ReviewSummaryRequest, db: Session = Depends(get_db)):
+def generate_summary(
+    req: ReviewSummaryRequest,
+    db: Session = Depends(get_db),
+    current: User | None = Depends(get_optional_user),
+):
     lot = db.query(Lot).filter(Lot.id == req.lot_id).first()
     if not lot:
         raise HTTPException(404, "Lot not found")
@@ -52,6 +57,9 @@ def generate_summary(req: ReviewSummaryRequest, db: Session = Depends(get_db)):
         electrical_params=e_params,
         bin_distribution=bins,
         lang=req.lang,
+        user_id=current.id if current else None,
+        lot_db_id=lot.id,
+        wafer_db_id=wafer.id,
     )
 
     # Save to DB — one record per (lot, wafer, lang)
@@ -136,7 +144,11 @@ def list_anomalies(
 
 
 @router.post("/detect-anomalies")
-def detect_anomalies(req: AnomalyDetectRequest, db: Session = Depends(get_db)):
+def detect_anomalies(
+    req: AnomalyDetectRequest,
+    db: Session = Depends(get_db),
+    current: User | None = Depends(get_optional_user),
+):
     lot = db.query(Lot).filter(Lot.id == req.lot_id).first()
     if not lot:
         raise HTTPException(404, "Lot not found")
@@ -178,6 +190,8 @@ def detect_anomalies(req: AnomalyDetectRequest, db: Session = Depends(get_db)):
         params_stats=params_stats,
         wafer_count=wafer_count,
         lang=req.lang,
+        user_id=current.id if current else None,
+        lot_db_id=lot.id,
     )
 
     now = datetime.now()

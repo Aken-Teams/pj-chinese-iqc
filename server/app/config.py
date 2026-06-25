@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: str = ""
     OPENAI_KEY: str = ""
 
+    # AI token pricing (per 1,000,000 tokens) for the admin usage console's
+    # cost estimate. Defaults follow DeepSeek deepseek-chat list pricing (USD);
+    # override in .env if rates change.
+    AI_PRICE_INPUT_PER_1M: float = 0.27
+    AI_PRICE_OUTPUT_PER_1M: float = 1.10
+    AI_PRICE_CURRENCY: str = "USD"
+
     # AD / LDAP (PANJIT group SSO gateway)
     AD_URL: str = ""
     AD_API: str = ""

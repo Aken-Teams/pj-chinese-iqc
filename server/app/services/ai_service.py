@@ -3,12 +3,83 @@ from openai import OpenAI
 from app.config import settings
 
 
+def record_token_usage(
+    *,
+    feature: str,
+    model: str,
+    usage,
+    lang: str | None = None,
+    user_id: int | None = None,
+    lot_id: int | None = None,
+    wafer_id: int | None = None,
+) -> None:
+    """Persist one AI call's token usage to the metering ledger.
+
+    Uses its own DB session so billing never interferes with (or is rolled back
+    by) the request's transaction. Failures here must never break the AI feature.
+    """
+    if usage is None:
+        return
+    from app.database import SessionLocal
+    from app.models.ai import AiTokenUsage
+
+    db = SessionLocal()
+    try:
+        db.add(AiTokenUsage(
+            feature=feature,
+            model=model,
+            prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+            completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
+            total_tokens=getattr(usage, "total_tokens", 0) or 0,
+            lang=lang,
+            user_id=user_id,
+            lot_id=lot_id,
+            wafer_id=wafer_id,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+
 class AIService:
     def __init__(self):
         self.client = OpenAI(
             api_key=settings.DEEPSEEK_API_KEY,
             base_url="https://api.deepseek.com",
         )
+
+    def _chat_completion(
+        self,
+        *,
+        feature: str,
+        messages: list[dict],
+        max_tokens: int,
+        temperature: float,
+        model: str = "deepseek-chat",
+        response_format: dict | None = None,
+        lang: str | None = None,
+        user_id: int | None = None,
+        lot_id: int | None = None,
+        wafer_id: int | None = None,
+    ):
+        """Single choke point for all LLM calls — every AI feature goes through
+        here, so token usage is always metered (see record_token_usage)."""
+        kwargs = dict(model=model, messages=messages, max_tokens=max_tokens, temperature=temperature)
+        if response_format:
+            kwargs["response_format"] = response_format
+        response = self.client.chat.completions.create(**kwargs)
+        record_token_usage(
+            feature=feature,
+            model=model,
+            usage=getattr(response, "usage", None),
+            lang=lang,
+            user_id=user_id,
+            lot_id=lot_id,
+            wafer_id=wafer_id,
+        )
+        return response
 
     _SYSTEM_PROMPT = {
         "zh-TW": (
@@ -57,19 +128,26 @@ class AIService:
         electrical_params: list[dict],
         bin_distribution: list[dict],
         lang: str = "zh-TW",
+        user_id: int | None = None,
+        lot_db_id: int | None = None,
+        wafer_db_id: int | None = None,
     ) -> str:
         system_prompt = self._SYSTEM_PROMPT.get(lang, self._SYSTEM_PROMPT["zh-TW"])
         labels = self._USER_PROMPT_HEADER.get(lang, self._USER_PROMPT_HEADER["zh-TW"])
         prompt = self._build_prompt(wafer_id, lot_id, stats, electrical_params, bin_distribution, labels)
         try:
-            response = self.client.chat.completions.create(
-                model="deepseek-chat",
+            response = self._chat_completion(
+                feature="review_summary",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
                 max_tokens=600,
                 temperature=0.3,
+                lang=lang,
+                user_id=user_id,
+                lot_id=lot_db_id,
+                wafer_id=wafer_db_id,
             )
             return response.choices[0].message.content or ""
         except Exception as e:
@@ -162,6 +240,8 @@ class AIService:
         params_stats: dict,
         wafer_count: int,
         lang: str = "zh-TW",
+        user_id: int | None = None,
+        lot_db_id: int | None = None,
     ) -> list[dict]:
         system_prompt = self._ANOMALY_SYSTEM_PROMPT.get(lang, self._ANOMALY_SYSTEM_PROMPT["zh-TW"])
 
@@ -182,8 +262,8 @@ class AIService:
         )
 
         try:
-            response = self.client.chat.completions.create(
-                model="deepseek-chat",
+            response = self._chat_completion(
+                feature="anomaly_detect",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
@@ -191,6 +271,9 @@ class AIService:
                 response_format={"type": "json_object"},
                 max_tokens=1200,
                 temperature=0.2,
+                lang=lang,
+                user_id=user_id,
+                lot_id=lot_db_id,
             )
             content = response.choices[0].message.content or "[]"
             data = json.loads(content)

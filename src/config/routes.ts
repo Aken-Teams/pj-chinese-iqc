@@ -8,6 +8,7 @@ export const ROUTES = {
   HISTORY: '/history',
   ANALYTICS: '/analytics',
   MANUAL: '/manual',
+  ADMIN_AI_USAGE: '/admin/ai-usage',
   SETTINGS: '/settings',
   SETTINGS_VENDORS: '/settings/vendors',
   SETTINGS_RULES: '/settings/rules',

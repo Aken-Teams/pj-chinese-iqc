@@ -7,7 +7,7 @@ from app.models.die_data import DieData, ElectricalValue
 from app.models.review import ReviewRule, ReviewResult
 from app.models.spec import CpSpec, PackagingSpec, SpecComparison
 from app.models.analytics import SpcDataPoint, CpkResult, ParamCorrelation
-from app.models.ai import AiAnomaly, AiReviewSummary
+from app.models.ai import AiAnomaly, AiReviewSummary, AiTokenUsage
 from app.models.vendor_score import VendorScore
 
 __all__ = [
@@ -20,6 +20,6 @@ __all__ = [
     "ReviewRule", "ReviewResult",
     "CpSpec", "PackagingSpec", "SpecComparison",
     "SpcDataPoint", "CpkResult", "ParamCorrelation",
-    "AiAnomaly", "AiReviewSummary",
+    "AiAnomaly", "AiReviewSummary", "AiTokenUsage",
     "VendorScore",
 ]

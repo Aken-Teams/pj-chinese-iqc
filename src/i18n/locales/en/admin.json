@@ -1,0 +1,33 @@
+{
+  "title": "AI Usage & Billing",
+  "subtitle": "Token consumption and estimated cost across all AI features (admin only)",
+  "costNote": "Cost is estimated from the configured rates and is indicative only; the AI provider's invoice is authoritative.",
+  "cards": {
+    "calls": "AI Calls",
+    "totalTokens": "Total Tokens",
+    "inputTokens": "Input Tokens",
+    "outputTokens": "Output Tokens",
+    "estCost": "Est. Cost"
+  },
+  "byFeature": "By Feature",
+  "byModel": "By Model",
+  "daily": "Last 30 Days",
+  "recent": "Recent Calls",
+  "empty": "No AI usage data yet",
+  "features": {
+    "review_summary": "AI Review Summary",
+    "anomaly_detect": "AI Anomaly Detection"
+  },
+  "cols": {
+    "name": "Item",
+    "calls": "Calls",
+    "input": "Input",
+    "output": "Output",
+    "total": "Total",
+    "cost": "Est. Cost",
+    "time": "Time",
+    "feature": "Feature",
+    "model": "Model",
+    "user": "User"
+  }
+}

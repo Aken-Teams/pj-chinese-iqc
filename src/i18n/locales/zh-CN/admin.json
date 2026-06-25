@@ -1,0 +1,33 @@
+{
+  "title": "AI 用量与计费",
+  "subtitle": "统计系统各项 AI 功能消耗的 Token 与估算成本（仅管理员可见）",
+  "costNote": "成本为依设定费率估算，仅供参考；实际以 AI 供应商账单为准。",
+  "cards": {
+    "calls": "AI 调用次数",
+    "totalTokens": "总 Token",
+    "inputTokens": "输入 Token",
+    "outputTokens": "输出 Token",
+    "estCost": "估算成本"
+  },
+  "byFeature": "按功能统计",
+  "byModel": "按模型统计",
+  "daily": "近 30 天用量",
+  "recent": "最近调用记录",
+  "empty": "暂无 AI 用量数据",
+  "features": {
+    "review_summary": "AI 审查摘要",
+    "anomaly_detect": "AI 异常检测"
+  },
+  "cols": {
+    "name": "项目",
+    "calls": "次数",
+    "input": "输入",
+    "output": "输出",
+    "total": "总计",
+    "cost": "估算成本",
+    "time": "时间",
+    "feature": "功能",
+    "model": "模型",
+    "user": "用户"
+  }
+}
