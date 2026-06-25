@@ -1,9 +1,26 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Cpu, User, EyeOff, Eye, Shield } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { login as apiLogin } from '@/services/auth'
+import DomainSelect from '@/components/ui/DomainSelect'
+import {
+  login as apiLogin,
+  adLogin,
+  getDomains,
+  type DomainOption,
+} from '@/services/auth'
+
+// Fallback used only if the /auth/domains call fails; keep in sync with backend.
+const FALLBACK_DOMAINS: DomainOption[] = [
+  { code: 'PANJIT', name: '台灣 PANJIT' },
+  { code: 'PYNMAX', name: '環茂' },
+  { code: 'WXPJ', name: '無錫強茂' },
+  { code: 'PJWS', name: '強茂深圳' },
+  { code: 'GDPJ', name: '蘇州群鑫' },
+  { code: 'PJXZ', name: '強茂徐州' },
+  { code: 'PJSD', name: '山東強茂' },
+]
 
 export default function LoginPage() {
   const { t } = useTranslation('login')
@@ -11,28 +28,52 @@ export default function LoginPage() {
   const { isAuthenticated, login } = useAuthStore()
   const [employeeId, setEmployeeId] = useState('')
   const [password, setPassword] = useState('')
+  const [domain, setDomain] = useState('PANJIT')
+  const [domains, setDomains] = useState<DomainOption[]>(FALLBACK_DOMAINS)
+  const [adminMode, setAdminMode] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    getDomains()
+      .then((list) => {
+        if (list.length) setDomains(list)
+      })
+      .catch(() => {
+        /* keep fallback list */
+      })
+  }, [])
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />
   }
 
-  const doLogin = async (id: string, pwd: string) => {
-    setError('')
-    setLoading(true)
-    try {
-      const res = await apiLogin(id, pwd)
-      login({
+  const applyLogin = (res: Awaited<ReturnType<typeof apiLogin>>) => {
+    login(
+      {
         id: res.user.id,
         name: res.user.name,
         role: res.user.role,
         department: res.user.department || '',
         email: res.user.email || '',
         employeeId: res.user.employeeId,
-      }, res.token)
-      navigate('/dashboard')
+        domain: res.user.domain || undefined,
+      },
+      res.token,
+    )
+    navigate('/dashboard')
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const res = adminMode
+        ? await apiLogin(employeeId, password)
+        : await adLogin(employeeId, password, domain)
+      applyLogin(res)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('loginFailed'))
     } finally {
@@ -40,15 +81,11 @@ export default function LoginPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    doLogin(employeeId, password)
-  }
-
-  const handleQuickLogin = () => {
-    setEmployeeId('admin')
-    setPassword('admin123')
-    doLogin('admin', 'admin123')
+  const toggleAdminMode = () => {
+    setError('')
+    setEmployeeId('')
+    setPassword('')
+    setAdminMode((v) => !v)
   }
 
   return (
@@ -94,17 +131,29 @@ export default function LoginPage() {
 
       {/* Right panel - Form */}
       <div className="flex-1 bg-bg-page flex items-center justify-center px-20">
-        <form onSubmit={handleSubmit} className="w-[400px] bg-bg-card p-12 flex flex-col gap-7">
+        <form onSubmit={handleSubmit} className="w-[480px] bg-bg-card px-14 py-12 flex flex-col gap-7">
           <div className="flex flex-col gap-2">
             <h2 className="font-heading text-[28px] font-bold text-text-primary">
-              {t('signIn')}
+              {adminMode ? t('adminLogin') : t('signIn')}
             </h2>
-            <p className="text-sm text-text-secondary">{t('signInSubtitle')}</p>
+            <p className="text-sm text-text-secondary">
+              {adminMode ? t('adminSubtitle') : t('signInSubtitle')}
+            </p>
           </div>
 
           {error && (
             <div className="bg-badge-fail text-error text-sm px-4 py-2.5 font-medium">
               {error}
+            </div>
+          )}
+
+          {/* Company / Domain (AD login only) */}
+          {!adminMode && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold text-text-tertiary tracking-[1px] uppercase">
+                {t('company')}
+              </label>
+              <DomainSelect items={domains} value={domain} onChange={setDomain} disabled={loading} />
             </div>
           )}
 
@@ -165,14 +214,14 @@ export default function LoginPage() {
             <div className="flex-1 h-px bg-border-light" />
           </div>
 
-          {/* Quick Login */}
+          {/* Switch between AD login and local admin login */}
           <button
             type="button"
-            onClick={handleQuickLogin}
+            onClick={toggleAdminMode}
             className="w-full bg-bg-page border border-border-light text-text-secondary font-heading text-[13px] font-semibold tracking-[1px] py-3 flex items-center justify-center gap-2 hover:bg-border-light transition-colors cursor-pointer"
           >
             <Shield size={16} />
-            {t('quickLogin')}
+            {adminMode ? t('adLoginButton') : t('adminLogin')}
           </button>
         </form>
       </div>

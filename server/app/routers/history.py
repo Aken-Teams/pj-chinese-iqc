@@ -72,6 +72,7 @@ def list_lots(
             wafers=wafer_count,
             avgYield=f"{avg_yield_pct:.2f}%",
             status=lot_status,
+            reviewed=(lot.status == "reviewed"),
         ))
 
     return HistoryResponse(

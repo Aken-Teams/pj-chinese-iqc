@@ -11,6 +11,9 @@ class HistoryRow(BaseModel):
     wafers: int
     avgYield: str
     status: str
+    # True once 執行審核 has been run for this lot (Lot.status == "reviewed").
+    # Distinct from `status`, which is the yield-based PASS/WARN/FAIL display.
+    reviewed: bool
 
 
 class HistoryResponse(BaseModel):

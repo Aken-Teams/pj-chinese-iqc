@@ -13,4 +13,5 @@ class User(Base):
     role = Column(String(20), nullable=False, default="user")
     department = Column(String(100))
     email = Column(String(100))
+    domain = Column(String(20))  # AD/LDAP domain code for SSO users; null for local accounts
     created_at = Column(DateTime, server_default=func.now())

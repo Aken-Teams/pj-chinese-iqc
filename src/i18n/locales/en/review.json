@@ -30,6 +30,8 @@
   "running": "Running...",
   "autoRunning": "Running review automatically...",
   "q2NotConfigured": "If Q2 rules are configured, click 'Run Review' above to recalculate. If it still shows N/A, no Q2 rules exist for this product.",
+  "notReviewedBadge": "Not reviewed",
+  "notReviewedHint": "This lot hasn't been reviewed yet, so Q1 / Q2 / Q3 yields are not shown. Click \"Run Review\" at the top right to calculate them.",
   "detail": {
     "title": "Review Details",
     "backToList": "Back to List",

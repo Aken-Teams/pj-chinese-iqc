@@ -21,6 +21,9 @@ scipy==1.15.0
 openpyxl==3.1.5
 xlrd==2.0.1
 
+# HTTP client (AD/LDAP gateway)
+httpx==0.28.1
+
 # AI
 openai==1.58.1
 

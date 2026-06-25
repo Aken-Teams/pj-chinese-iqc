@@ -7,6 +7,7 @@ export interface User {
   department: string
   email: string
   employeeId: string
+  domain?: string
 }
 
 interface AuthState {

@@ -20,6 +20,8 @@ interface LotSearchSelectProps {
   className?: string
   /** 'left' (default) aligns dropdown to left edge; 'right' aligns to right edge (for top-right placements) */
   align?: 'left' | 'right'
+  /** Label shown for lots that haven't had 執行審核 run yet. */
+  notReviewedLabel?: string
 }
 
 export default function LotSearchSelect({
@@ -29,6 +31,7 @@ export default function LotSearchSelect({
   onSelect,
   className = '',
   align = 'left',
+  notReviewedLabel = '未審核',
 }: LotSearchSelectProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -69,10 +72,23 @@ export default function LotSearchSelect({
         onClick={handleOpen}
         className="w-full flex items-center justify-between border border-border-light bg-bg-card px-3 py-2 text-[13px] text-text-primary hover:border-accent/60"
       >
-        <span className={selected ? 'text-text-primary' : 'text-text-muted'}>
-          {selected
-            ? `${lotLabel(selected)} (${selected.status})`
-            : placeholder}
+        <span className={`flex items-center gap-2 min-w-0 ${selected ? 'text-text-primary' : 'text-text-muted'}`}>
+          {selected ? (
+            <>
+              <span className="truncate">{lotLabel(selected)}</span>
+              {selected.reviewed === false ? (
+                <span className="flex-shrink-0 bg-badge-warn px-1.5 py-0.5 text-[10px] font-bold text-warning">
+                  {notReviewedLabel}
+                </span>
+              ) : (
+                <span className={`flex-shrink-0 text-[11px] font-bold ${STATUS_COLOR[selected.status] ?? 'text-text-muted'}`}>
+                  {selected.status}
+                </span>
+              )}
+            </>
+          ) : (
+            placeholder
+          )}
         </span>
         <ChevronDown size={14} className="text-text-muted flex-shrink-0 ml-2" />
       </button>
@@ -104,10 +120,16 @@ export default function LotSearchSelect({
                   onClick={() => handleSelect(lot)}
                   className={`px-3 py-2 text-[13px] cursor-pointer flex items-center justify-between hover:bg-bg-page ${lot.id === selectedLotId ? 'bg-bg-page font-semibold' : ''}`}
                 >
-                  <span>{lotLabel(lot)}</span>
-                  <span className={`text-[11px] font-bold ml-3 flex-shrink-0 ${STATUS_COLOR[lot.status] ?? 'text-text-muted'}`}>
-                    {lot.status}
-                  </span>
+                  <span className="truncate">{lotLabel(lot)}</span>
+                  {lot.reviewed === false ? (
+                    <span className="ml-3 flex-shrink-0 bg-badge-warn px-1.5 py-0.5 text-[10px] font-bold text-warning">
+                      {notReviewedLabel}
+                    </span>
+                  ) : (
+                    <span className={`text-[11px] font-bold ml-3 flex-shrink-0 ${STATUS_COLOR[lot.status] ?? 'text-text-muted'}`}>
+                      {lot.status}
+                    </span>
+                  )}
                 </li>
               ))
             )}

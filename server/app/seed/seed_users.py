@@ -10,11 +10,11 @@ def seed_users(db: Session) -> None:
         db.add(
             User(
                 employee_id="admin",
-                name="Zhang Wei",
-                password_hash=bcrypt.hash("admin123"),
+                name="System Admin",
+                password_hash=bcrypt.hash("IqcAdmin@2026"),
                 role="admin",
                 department="IQC Department",
-                email="zhang.wei@panjit.com",
+                email="admin@panjit.com",
             )
         )
         db.commit()

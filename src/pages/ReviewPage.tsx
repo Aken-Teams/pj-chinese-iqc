@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ChevronRight, Loader2, FileText } from 'lucide-react'
+import { ChevronRight, Loader2, FileText, AlertTriangle } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getLotResults, executeReview, type LotReviewSummary } from '@/services/review'
 import { getHistory, type HistoryRow } from '@/services/history'
@@ -47,9 +47,6 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true)
   const [reviewing, setReviewing] = useState(false)
   const [error, setError] = useState('')
-  // Tracks lots we've already auto-triggered so selecting the same lot a second
-  // time doesn't re-run the review.
-  const autoTriggeredRef = useRef<Set<number>>(new Set())
 
   useEffect(() => {
     const restoredLotId: number | undefined = location.state?.lotId
@@ -57,7 +54,7 @@ export default function ReviewPage() {
       .then(res => {
         setLots(res.items)
         if (restoredLotId && res.items.find(l => l.id === restoredLotId)) {
-          loadResults(restoredLotId, res.items)
+          loadResults(restoredLotId)
         } else {
           setLoading(false)
         }
@@ -66,31 +63,13 @@ export default function ReviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const loadResults = async (lotDbId: number, lotsSource?: HistoryRow[]) => {
+  // Review is run manually via the "執行審核" button — selecting a lot only
+  // loads whatever results already exist. Un-reviewed lots show N/A yields and
+  // a banner prompting the user to run the review.
+  const loadResults = async (lotDbId: number) => {
     setSelectedLotId(lotDbId)
     setError('')
-    const source = lotsSource ?? lots
-    const lotRow = source.find(l => l.id === lotDbId)
-
-    // Auto-run review for lots that are still pending and haven't been
-    // auto-triggered yet in this session.
-    if (lotRow?.status === 'pending' && !autoTriggeredRef.current.has(lotDbId)) {
-      autoTriggeredRef.current.add(lotDbId)
-      setSummary(null)
-      setReviewing(true)
-      setLoading(true)
-      try {
-        await executeReview(lotDbId)
-        setLots(prev => prev.map(l => l.id === lotDbId ? { ...l, status: 'reviewed' } : l))
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Auto review failed')
-      } finally {
-        setReviewing(false)
-      }
-    } else {
-      setLoading(true)
-    }
-
+    setLoading(true)
     try {
       const data = await getLotResults(lotDbId)
       setSummary(data)
@@ -107,6 +86,7 @@ export default function ReviewPage() {
     setError('')
     try {
       await executeReview(selectedLotId)
+      setLots(prev => prev.map(l => l.id === selectedLotId ? { ...l, reviewed: true } : l))
       await loadResults(selectedLotId)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Review failed')
@@ -122,6 +102,8 @@ export default function ReviewPage() {
   }
 
   const wafers = summary?.wafers || []
+  const selectedLot = lots.find(l => l.id === selectedLotId)
+  const notReviewed = selectedLot?.reviewed === false
 
   const handleExportCsv = () => {
     if (!summary) return
@@ -202,8 +184,17 @@ export default function ReviewPage() {
         selectedLotId={selectedLotId}
         placeholder={t('selectLot')}
         onSelect={(lot) => loadResults(lot.id)}
+        notReviewedLabel={t('notReviewedBadge')}
         className="mt-7 w-[440px]"
       />
+
+      {/* Not-reviewed warning — explains why Q yields are N/A */}
+      {notReviewed && (
+        <div className="mt-4 flex items-start gap-2.5 border border-warning/40 bg-badge-warn px-4 py-3 text-[13px] text-warning">
+          <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+          <span>{t('notReviewedHint')}</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="mt-10 flex flex-col items-center gap-3">

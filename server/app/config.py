@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: str = ""
     OPENAI_KEY: str = ""
 
+    # AD / LDAP (PANJIT group SSO gateway)
+    AD_URL: str = ""
+    AD_API: str = ""
+    # Gateway TLS cert is missing a Subject Key Identifier, which modern OpenSSL
+    # rejects; verification is off by default for this internal gateway.
+    AD_VERIFY_SSL: bool = False
+
     # App
     SECRET_KEY: str = "iqc-system-secret-key-change-in-production"
     UPLOAD_DIR: str = str(Path(__file__).resolve().parent.parent / "uploads")

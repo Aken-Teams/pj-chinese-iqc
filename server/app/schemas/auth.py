@@ -6,6 +6,17 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class AdLoginRequest(BaseModel):
+    employee_id: str
+    password: str
+    domain: str | None = None
+
+
+class DomainOption(BaseModel):
+    code: str
+    name: str
+
+
 class UserResponse(BaseModel):
     id: str
     name: str
@@ -13,6 +24,7 @@ class UserResponse(BaseModel):
     department: str | None
     email: str | None
     employeeId: str
+    domain: str | None = None
 
 
 class LoginResponse(BaseModel):

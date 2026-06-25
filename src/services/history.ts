@@ -10,6 +10,8 @@ export interface HistoryRow {
   wafers: number
   avgYield: string
   status: string
+  /** True once 執行審核 has been run for this lot. */
+  reviewed: boolean
 }
 
 export interface HistoryResponse {
