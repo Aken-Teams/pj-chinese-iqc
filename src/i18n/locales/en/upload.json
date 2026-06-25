@@ -14,10 +14,16 @@
     "vendor": "Vendor",
     "formatId": "Format ID",
     "autoDetected": "Auto Detected",
-    "description": "The system will auto-detect the file format and match the parsing template",
-    "step1": "1. Select vendor",
+    "autoDetectVendor": "Auto-detect (from file)",
+    "description": "Just drop a file — the system detects the vendor and format from its content. If the detection is wrong, pick the vendor manually.",
+    "step1": "1. Select vendor (leave blank to auto-detect)",
     "step2": "2. Upload file",
     "retrying": "Re-parsing with new vendor..."
+  },
+  "warning": {
+    "vendorMismatch": "This file looks more like \"{{detected}}\" format, but \"{{selected}}\" is currently selected.",
+    "switchTo": "Switch to {{vendor}}",
+    "noData": "No data rows could be parsed with the current settings. Please check the file, or select a different vendor."
   },
   "preview": {
     "title": "Upload Preview",

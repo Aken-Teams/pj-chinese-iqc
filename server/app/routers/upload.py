@@ -66,27 +66,20 @@ def _save_upload(file: UploadFile) -> str:
     return file_path
 
 
-def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, db: Session = None):
-    """Return (parser_instance, actual_path_to_use), handling .xls conversion.
-
-    All vendors use DynamicParser driven by VendorFormat config from DB.
-    When a vendor has multiple format templates, each is tried and the first
-    that produces non-zero data rows wins (auto-detection).
-    """
+def _ensure_xlsx(file_path: str, original_name: str, err: dict) -> str:
+    """Convert .xls → .xlsx if needed; reject other extensions. Returns the
+    path that openpyxl can read."""
     name_lower = original_name.lower()
-    actual_path = file_path
-
     if name_lower.endswith(".xls") and not name_lower.endswith(".xlsx"):
-        actual_path = _convert_xls_to_xlsx(file_path)
-    elif not name_lower.endswith(".xlsx"):
+        return _convert_xls_to_xlsx(file_path)
+    if not name_lower.endswith(".xlsx"):
         raise HTTPException(400, err.get("unsupported_format", "Unsupported format"))
+    return file_path
 
-    if not vendor:
-        raise HTTPException(400, err["cannot_detect"])
 
-    if not db:
-        raise HTTPException(500, "Database session not available")
-
+def _build_vendor_parser(vendor: str, actual_path: str, err: dict, db: Session) -> DynamicParser:
+    """Build a parser for an explicitly chosen vendor. When the vendor has
+    multiple templates, probe each and keep the one with the most data rows."""
     vendor_obj = db.query(Vendor).filter(Vendor.code == vendor).first()
     if not vendor_obj:
         raise HTTPException(400, err["no_format_config"].format(vendor=vendor))
@@ -95,29 +88,58 @@ def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, 
     if not fmts:
         raise HTTPException(400, err["no_format_config"].format(vendor=vendor))
 
-    # Single template — use directly (no probing needed)
     if len(fmts) == 1:
-        return DynamicParser.from_vendor_format(vendor, fmts[0]), actual_path
+        return DynamicParser.from_vendor_format(vendor, fmts[0])
 
-    # Multiple templates — try each, pick the first with non-zero data rows
-    best_parser = None
-    best_rows = 0
+    best_parser, best_rows = None, 0
     for fmt in fmts:
         parser = DynamicParser.from_vendor_format(vendor, fmt)
         try:
-            preview = parser.preview(actual_path)
-            rows = preview.get("dataRows", 0)
-            if rows > best_rows:
-                best_rows = rows
-                best_parser = parser
+            rows = parser.preview(actual_path).get("dataRows", 0)
         except Exception:
             continue
+        if rows > best_rows:
+            best_rows, best_parser = rows, parser
 
-    if best_parser:
-        return best_parser, actual_path
+    return best_parser or DynamicParser.from_vendor_format(vendor, fmts[0])
 
-    # Fallback to first template
-    return DynamicParser.from_vendor_format(vendor, fmts[0]), actual_path
+
+def _detect_best_across_vendors(actual_path: str, db: Session) -> tuple[str | None, DynamicParser | None, int]:
+    """Probe every vendor's every format template against the file and return
+    the (vendor_code, parser, data_rows) that yields the most data rows. A wrong
+    template typically reads 0 rows, so the real vendor wins. This is what lets
+    us tell the user which vendor a file belongs to without them guessing."""
+    best_vendor, best_parser, best_rows = None, None, 0
+    for v in db.query(Vendor).all():
+        fmts = db.query(VendorFormat).filter(VendorFormat.vendor_id == v.id).all()
+        for fmt in fmts:
+            parser = DynamicParser.from_vendor_format(v.code, fmt)
+            try:
+                rows = parser.preview(actual_path).get("dataRows", 0)
+            except Exception:
+                continue
+            if rows > best_rows:
+                best_vendor, best_parser, best_rows = v.code, parser, rows
+    return best_vendor, best_parser, best_rows
+
+
+def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, db: Session = None):
+    """Return (parser_instance, actual_path_to_use), handling .xls conversion.
+
+    When a vendor is given it is used (probing its own templates); when it is
+    blank the file is auto-detected across all vendors.
+    """
+    actual_path = _ensure_xlsx(file_path, original_name, err)
+    if not db:
+        raise HTTPException(500, "Database session not available")
+
+    if vendor:
+        return _build_vendor_parser(vendor, actual_path, err, db), actual_path
+
+    _, parser, _ = _detect_best_across_vendors(actual_path, db)
+    if not parser:
+        raise HTTPException(400, err["cannot_detect"])
+    return parser, actual_path
 
 
 def _persist_result(result, db: Session, err: dict | None = None) -> dict:
@@ -230,16 +252,33 @@ async def upload_cp_data(
     lang: str = Form("zh-TW"),
     db: Session = Depends(get_db),
 ):
-    """Upload CP Excel file and return preview."""
+    """Upload CP Excel file and return a preview.
+
+    The file is always auto-detected across all vendors so the UI can tell the
+    user which vendor it belongs to. An explicitly chosen `vendor` still wins for
+    the parse (so users can override), and `detectedVendor` lets the UI warn when
+    the choice doesn't match the file.
+    """
     err = _ERR.get(lang, _ERR["zh-TW"])
     file_path = _save_upload(file)
 
     try:
-        parser, actual_path = _resolve_parser(file_path, file.filename, vendor, err, db)
+        actual_path = _ensure_xlsx(file_path, file.filename, err)
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(400, err["parse_failed"].format(detail=str(e)))
+
+    # Always detect the best-matching vendor from the file content.
+    det_vendor, det_parser, det_rows = _detect_best_across_vendors(actual_path, db)
+
+    # Selection wins for the actual parse; fall back to detection when blank.
+    if vendor:
+        parser = _build_vendor_parser(vendor, actual_path, err, db)
+    elif det_parser:
+        parser = det_parser
+    else:
+        raise HTTPException(400, err["cannot_detect"])
 
     try:
         preview = parser.preview(actual_path)
@@ -258,6 +297,8 @@ async def upload_cp_data(
         productId=preview.get("productId"),
         lotId=preview.get("lotId"),
         paramNames=preview.get("paramNames", []),
+        detectedVendor=det_vendor,
+        detectedRows=det_rows,
     )
 
 

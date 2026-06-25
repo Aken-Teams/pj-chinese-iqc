@@ -9,6 +9,9 @@ export interface UploadPreview {
   productId: string | null
   lotId: string | null
   paramNames: string[]
+  /** Vendor auto-detected from file content (independent of selection). */
+  detectedVendor?: string | null
+  detectedRows?: number
 }
 
 export interface UploadConfirmResult {

@@ -14,10 +14,16 @@
     "vendor": "廠商",
     "formatId": "格式 ID",
     "autoDetected": "自動識別",
-    "description": "系統將自動識別檔案格式並匹配相應的解析範本",
-    "step1": "1. 選擇廠商",
+    "autoDetectVendor": "自動偵測（依檔案內容）",
+    "description": "可直接拖曳檔案，系統會依內容自動辨識廠商與格式；若辨識有誤，再手動選擇廠商即可。",
+    "step1": "1. 選擇廠商（可留空自動偵測）",
     "step2": "2. 上傳檔案",
     "retrying": "正以新廠商重新解析..."
+  },
+  "warning": {
+    "vendorMismatch": "此檔案內容比較像「{{detected}}」格式，但目前選擇的是「{{selected}}」。",
+    "switchTo": "改用 {{vendor}}",
+    "noData": "目前設定解析不到任何資料列，請確認檔案內容是否正確，或改選其他廠商。"
   },
   "preview": {
     "title": "上傳預覽",

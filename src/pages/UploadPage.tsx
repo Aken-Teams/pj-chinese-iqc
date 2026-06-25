@@ -25,6 +25,10 @@ function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { sele
     try {
       const result = await uploadCpData(file, selectedVendor, i18n.language)
       setPreview(result)
+      // No vendor chosen → adopt the auto-detected one so the field reflects it.
+      if (!selectedVendor && result.detectedVendor) {
+        setSelectedVendor(result.detectedVendor)
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('error.uploadFailed'))
       setPreview(null)
@@ -67,6 +71,12 @@ function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { sele
     } finally { setConfirming(false) }
   }
 
+  const detected = preview?.detectedVendor
+  // File content points at a different vendor than the one selected.
+  const vendorMismatch = !!(preview && detected && selectedVendor && detected !== selectedVendor)
+  // Selected vendor parsed nothing and no other vendor matched either.
+  const noDataNoMatch = !!(preview && preview.dataRows === 0 && !vendorMismatch)
+
   return (
     <>
       {/* Step 1: vendor + format ID bar */}
@@ -78,6 +88,7 @@ function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { sele
               items={vendorCodes}
               value={selectedVendor}
               onChange={setSelectedVendor}
+              placeholder={t('formatConfig.autoDetectVendor')}
             />
           </div>
           <div className="w-[280px] flex flex-col gap-1.5">
@@ -92,6 +103,26 @@ function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { sele
 
       {error && <div className="mt-4 bg-badge-fail text-error text-sm px-4 py-2.5 font-medium">{error}</div>}
       {success && <div className="mt-4 bg-badge-pass text-success text-sm px-4 py-2.5 font-medium">{success}</div>}
+
+      {vendorMismatch && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 border border-warning/40 bg-badge-warn px-4 py-3 text-[13px] text-warning">
+          <span className="flex-1 min-w-[200px]">
+            {t('warning.vendorMismatch', { detected, selected: selectedVendor })}
+          </span>
+          <button
+            type="button"
+            onClick={() => detected && setSelectedVendor(detected)}
+            className="bg-warning/90 px-3 py-1.5 font-heading text-[11px] font-bold uppercase tracking-[0.5px] text-white hover:bg-warning"
+          >
+            {t('warning.switchTo', { vendor: detected })}
+          </button>
+        </div>
+      )}
+      {noDataNoMatch && (
+        <div className="mt-4 border border-error/30 bg-badge-fail px-4 py-3 text-[13px] text-error">
+          {t('warning.noData')}
+        </div>
+      )}
 
       {/* Step 2: drop zone + preview side-by-side when preview available */}
       <label className="mt-6 block text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('formatConfig.step2')}</label>
@@ -189,7 +220,8 @@ function BatchUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { selec
             items={vendorCodes}
             value={selectedVendor}
             onChange={setSelectedVendor}
-            className="min-w-[140px]"
+            placeholder={t('formatConfig.autoDetectVendor')}
+            className="min-w-[180px]"
           />
         </div>
 
@@ -277,9 +309,8 @@ export default function UploadPage() {
 
   useEffect(() => {
     getVendors().then((list) => {
-      const codes = list.map((v) => v.code)
-      setVendorCodes(codes)
-      if (codes.length > 0) setSelectedVendor(codes[0])
+      setVendorCodes(list.map((v) => v.code))
+      // Leave vendor blank so the server auto-detects it from the dropped file.
     }).catch(() => {})
   }, [])
 
