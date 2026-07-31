@@ -65,6 +65,18 @@ def scope_lots_by_domain(query, user: Optional[User]):
     return query.filter(Lot.domain == user.domain)
 
 
+def scope_formats_by_domain(query, user: Optional[User]):
+    """Restrict a query selecting `VendorFormat` to templates the user's site may
+    use: its own domain plus unassigned (null) templates. Admins see all. Used
+    both to list templates and to pick which templates upload detection tries,
+    so one site's template never parses/detects another site's file."""
+    from sqlalchemy import or_
+    from app.models.vendor import VendorFormat
+    if can_see_all_domains(user) or user is None:
+        return query
+    return query.filter(or_(VendorFormat.domain == user.domain, VendorFormat.domain.is_(None)))
+
+
 def scope_products_by_domain(query, user: Optional[User]):
     """Restrict a query selecting/joining `Product` to the user's site. Admins
     (and an unidentified caller) see all sites; a site user sees only their

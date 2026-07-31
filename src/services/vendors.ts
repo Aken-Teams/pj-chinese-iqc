@@ -25,6 +25,8 @@ export interface VendorFormat {
   fixed_die_count: number | null
   product_id_cell: string | null
   lot_id_cell: string | null
+  /** AD site (廠區) this template belongs to; null = unassigned (all sites). */
+  domain?: string | null
 }
 
 export interface Product {
@@ -53,12 +55,16 @@ export async function createVendor(data: { code: string; name: string }): Promis
   return apiFetch('/vendors', { method: 'POST', body: JSON.stringify(data) })
 }
 
-export async function getVendorFormats(vendorId: number): Promise<VendorFormat[]> {
-  return apiFetch(`/vendors/${vendorId}/formats`)
+export async function getVendorFormats(vendorId: number, site?: string): Promise<VendorFormat[]> {
+  const qs = site ? `?site=${encodeURIComponent(site)}` : ''
+  return apiFetch(`/vendors/${vendorId}/formats${qs}`)
 }
 
-export async function createVendorFormat(vendorId: number, data: Omit<VendorFormat, 'id'>): Promise<VendorFormat> {
-  return apiFetch(`/vendors/${vendorId}/formats`, { method: 'POST', body: JSON.stringify(data) })
+// `site` (admins only) tags a newly created template with a target 廠區; a site
+// user's template is always tagged with their own site server-side.
+export async function createVendorFormat(vendorId: number, data: Omit<VendorFormat, 'id'>, site?: string): Promise<VendorFormat> {
+  const qs = site ? `?site=${encodeURIComponent(site)}` : ''
+  return apiFetch(`/vendors/${vendorId}/formats${qs}`, { method: 'POST', body: JSON.stringify(data) })
 }
 
 export async function updateVendorFormat(vendorId: number, fmtId: number, data: Partial<VendorFormat>): Promise<VendorFormat> {

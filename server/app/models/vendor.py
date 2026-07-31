@@ -57,6 +57,11 @@ class VendorFormat(Base):
     # Format: "row,col" (1-indexed), e.g. "2,2" = row 2 col B.
     product_id_cell = Column(String(20), nullable=True)
     lot_id_cell = Column(String(20), nullable=True)
+    # AD site (廠區) this template belongs to. The SAME supplier can ship a
+    # different CP file format to different sites, so templates are per-site;
+    # upload detection only tries the uploader's own templates (no cross-site
+    # pollution). Null = unassigned (usable by everyone).
+    domain = Column(String(20), index=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

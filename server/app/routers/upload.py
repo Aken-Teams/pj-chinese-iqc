@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.dependencies import get_db, get_current_user
+from app.dependencies import get_db, get_current_user, get_optional_user, scope_formats_by_domain
 from app.models.user import User
 from app.models.vendor import Vendor, VendorFormat
 from app.models.product import Product
@@ -124,14 +124,17 @@ def _ensure_xlsx(file_path: str, original_name: str, err: dict) -> str:
     return file_path
 
 
-def _build_vendor_parser(vendor: str, actual_path: str, err: dict, db: Session) -> DynamicParser:
+def _build_vendor_parser(vendor: str, actual_path: str, err: dict, db: Session, user=None) -> DynamicParser:
     """Build a parser for an explicitly chosen vendor. When the vendor has
-    multiple templates, probe each and keep the one with the most data rows."""
+    multiple templates, probe each and keep the one with the most data rows.
+    Only the uploader's own site templates are considered (no cross-site mix)."""
     vendor_obj = db.query(Vendor).filter(Vendor.code == vendor).first()
     if not vendor_obj:
         raise HTTPException(400, err["no_format_config"].format(vendor=vendor))
 
-    fmts = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).all()
+    fmts = scope_formats_by_domain(
+        db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id), user
+    ).all()
     if not fmts:
         raise HTTPException(400, err["no_format_config"].format(vendor=vendor))
 
@@ -151,14 +154,17 @@ def _build_vendor_parser(vendor: str, actual_path: str, err: dict, db: Session) 
     return best_parser or DynamicParser.from_vendor_format(vendor, fmts[0])
 
 
-def _detect_best_across_vendors(actual_path: str, db: Session) -> tuple[str | None, DynamicParser | None, int]:
+def _detect_best_across_vendors(actual_path: str, db: Session, user=None) -> tuple[str | None, DynamicParser | None, int]:
     """Probe every vendor's every format template against the file and return
     the (vendor_code, parser, data_rows) that yields the most data rows. A wrong
-    template typically reads 0 rows, so the real vendor wins. This is what lets
-    us tell the user which vendor a file belongs to without them guessing."""
+    template typically reads 0 rows, so the real vendor wins. Only the uploader's
+    own site templates are tried, so one site's template never detects another
+    site's file."""
     best_vendor, best_parser, best_rows = None, None, 0
     for v in db.query(Vendor).all():
-        fmts = db.query(VendorFormat).filter(VendorFormat.vendor_id == v.id).all()
+        fmts = scope_formats_by_domain(
+            db.query(VendorFormat).filter(VendorFormat.vendor_id == v.id), user
+        ).all()
         for fmt in fmts:
             parser = DynamicParser.from_vendor_format(v.code, fmt)
             try:
@@ -170,20 +176,20 @@ def _detect_best_across_vendors(actual_path: str, db: Session) -> tuple[str | No
     return best_vendor, best_parser, best_rows
 
 
-def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, db: Session = None):
+def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, db: Session = None, user=None):
     """Return (parser_instance, actual_path_to_use), handling .xls conversion.
 
     When a vendor is given it is used (probing its own templates); when it is
-    blank the file is auto-detected across all vendors.
+    blank the file is auto-detected across the uploader's site templates.
     """
     actual_path = _ensure_xlsx(file_path, original_name, err)
     if not db:
         raise HTTPException(500, "Database session not available")
 
     if vendor:
-        return _build_vendor_parser(vendor, actual_path, err, db), actual_path
+        return _build_vendor_parser(vendor, actual_path, err, db, user), actual_path
 
-    _, parser, _ = _detect_best_across_vendors(actual_path, db)
+    _, parser, _ = _detect_best_across_vendors(actual_path, db, user)
     if not parser:
         raise HTTPException(400, err["cannot_detect"])
     return parser, actual_path
@@ -307,6 +313,7 @@ async def upload_cp_data(
     vendor: str = Form(""),
     lang: str = Form("zh-TW"),
     db: Session = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ):
     """Upload CP Excel file and return a preview.
 
@@ -325,12 +332,12 @@ async def upload_cp_data(
     except Exception as e:
         raise HTTPException(400, err["parse_failed"].format(detail=str(e)))
 
-    # Always detect the best-matching vendor from the file content.
-    det_vendor, det_parser, det_rows = _detect_best_across_vendors(actual_path, db)
+    # Always detect the best-matching vendor from the uploader's site templates.
+    det_vendor, det_parser, det_rows = _detect_best_across_vendors(actual_path, db, user)
 
     # Selection wins for the actual parse; fall back to detection when blank.
     if vendor:
-        parser = _build_vendor_parser(vendor, actual_path, err, db)
+        parser = _build_vendor_parser(vendor, actual_path, err, db, user)
     elif det_parser:
         parser = det_parser
     else:
@@ -384,7 +391,10 @@ def confirm_upload(
     if not vendor_obj:
         raise HTTPException(400, f"Vendor {vendor_code} not found in database")
 
-    fmts = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id).all()
+    # Only the uploader's own site templates (matches the preview step).
+    fmts = scope_formats_by_domain(
+        db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_obj.id), user
+    ).all()
     if not fmts:
         raise HTTPException(400, f"Vendor {vendor_code} has no format configured")
 
@@ -426,7 +436,7 @@ async def batch_upload(
         entry: dict = {"fileName": file.filename, "success": False, "error": None}
         try:
             file_path = _save_upload(file)
-            parser, actual_path = _resolve_parser(file_path, file.filename, vendor, err, db)
+            parser, actual_path = _resolve_parser(file_path, file.filename, vendor, err, db, user)
             parsed = parser.parse(actual_path)
             summary = _persist_result(parsed, db, err, domain=user.domain)
             entry.update(summary)

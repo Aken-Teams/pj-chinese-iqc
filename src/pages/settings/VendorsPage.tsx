@@ -180,11 +180,13 @@ function FormatHelpDiagram({ t: tv }: { t: (k: string) => string }) {
 function FormatRow({
   fmt,
   vendorId,
+  siteFilter,
   onSaved,
   onDeleted,
 }: {
   fmt: VendorFormat | null
   vendorId: number
+  siteFilter: string
   onSaved: (f: VendorFormat) => void
   onDeleted?: () => void
 }) {
@@ -221,7 +223,7 @@ function FormatRow({
     try {
       const saved = fmt
         ? await updateVendorFormat(vendorId, fmt.id, draft)
-        : await createVendorFormat(vendorId, draft)
+        : await createVendorFormat(vendorId, draft, siteFilter)
       onSaved(saved)
       setEditing(false)
     } finally {
@@ -248,6 +250,11 @@ function FormatRow({
     return (
       <div className="flex items-center gap-3 px-4 py-3 bg-bg-page border border-border-light">
         <span className="flex-1 text-sm text-text-primary font-medium">{fmt?.format_name || '—'}</span>
+        {fmt?.domain && (
+          <span className="px-1.5 py-0.5 bg-bg-card text-text-secondary text-[10px] font-semibold rounded">
+            {siteLabel(fmt.domain)}
+          </span>
+        )}
         <button onClick={() => setEditing(true)} className="p-1 text-text-muted hover:text-accent cursor-pointer">
           <Pencil size={15} />
         </button>
@@ -343,7 +350,7 @@ function FormatRow({
   )
 }
 
-function VendorCard({ vendor }: { vendor: Vendor }) {
+function VendorCard({ vendor, siteFilter }: { vendor: Vendor; siteFilter: string }) {
   const { t } = useTranslation('settings')
   const [expanded, setExpanded] = useState(false)
   const [formats, setFormats] = useState<VendorFormat[]>([])
@@ -352,7 +359,7 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
 
   async function loadFormats() {
     if (loaded) return
-    const data = await getVendorFormats(vendor.id)
+    const data = await getVendorFormats(vendor.id, siteFilter)
     setFormats(data)
     setLoaded(true)
   }
@@ -408,6 +415,7 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
                 key={fmt.id}
                 fmt={fmt}
                 vendorId={vendor.id}
+                siteFilter={siteFilter}
                 onSaved={(saved) => setFormats((prev) => prev.map((f) => (f.id === saved.id ? saved : f)))}
                 onDeleted={() => setFormats((prev) => prev.filter((f) => f.id !== fmt.id))}
               />
@@ -417,6 +425,7 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
               <FormatRow
                 fmt={null}
                 vendorId={vendor.id}
+                siteFilter={siteFilter}
                 onSaved={(saved) => {
                   setFormats((prev) => [...prev, saved])
                   setAddingNew(false)
@@ -528,7 +537,7 @@ export default function VendorsPage() {
 
       <div className="flex flex-col gap-2">
         {vendors.map((v) => (
-          <VendorCard key={v.id} vendor={v} />
+          <VendorCard key={v.id} vendor={v} siteFilter={filterSite} />
         ))}
       </div>
     </div>

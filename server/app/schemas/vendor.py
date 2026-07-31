@@ -70,6 +70,8 @@ class VendorFormatResponse(BaseModel):
     fixed_die_count: int | None
     product_id_cell: str | None
     lot_id_cell: str | None
+    # AD site (廠區) this template belongs to; null = unassigned (all sites).
+    domain: str | None = None
 
     class Config:
         from_attributes = True

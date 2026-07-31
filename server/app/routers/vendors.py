@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, get_current_user, can_see_all_domains, scope_products_by_domain
+from app.dependencies import get_db, get_current_user, can_see_all_domains, scope_products_by_domain, scope_formats_by_domain
 from app.models.user import User
 from app.models.vendor import Vendor, VendorFormat, VendorDomain
 from app.models.product import Product
@@ -90,19 +90,28 @@ def list_products(site: str = "", db: Session = Depends(get_db),
 
 
 @router.get("/{vendor_id}/formats", response_model=list[VendorFormatResponse])
-def list_formats(vendor_id: int, db: Session = Depends(get_db)):
+def list_formats(vendor_id: int, site: str = "", db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(404, "Vendor not found")
-    return db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_id).all()
+    q = db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_id)
+    q = scope_formats_by_domain(q, user)  # site user -> own + unassigned; admin -> all
+    if site and can_see_all_domains(user):  # admin narrowing to one site
+        q = q.filter(VendorFormat.domain == site)
+    return q.all()
 
 
 @router.post("/{vendor_id}/formats", response_model=VendorFormatResponse)
-def create_format(vendor_id: int, req: VendorFormatCreate, db: Session = Depends(get_db)):
+def create_format(vendor_id: int, req: VendorFormatCreate, site: str = "",
+                  db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(404, "Vendor not found")
     fmt = VendorFormat(vendor_id=vendor_id, **req.model_dump())
+    # Tag with the owning site: a site user's template is theirs; an admin sets
+    # the target site via `site` (from the page's site filter), else unassigned.
+    fmt.domain = (site or None) if can_see_all_domains(user) else user.domain
     db.add(fmt)
     db.commit()
     db.refresh(fmt)
