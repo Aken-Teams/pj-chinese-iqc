@@ -4,32 +4,44 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Coins, Cpu, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { useAuthStore } from '@/store/authStore'
+import { SITE_LABELS, siteLabel } from '@/config/sites'
 import {
   getAiUsageSummary,
   getRecentAiUsage,
   type AiUsageSummary,
-  type AiUsageRecord,
+  type AiUsageRecentResponse,
 } from '@/services/admin'
 
 function n(v: number): string {
   return v.toLocaleString()
 }
 
+const RECENT_PAGE_SIZE = 10
+
 export default function AdminAiUsagePage() {
   const { t } = useTranslation('admin')
   const { user } = useAuthStore()
   const [summary, setSummary] = useState<AiUsageSummary | null>(null)
-  const [recent, setRecent] = useState<AiUsageRecord[]>([])
+  const [recent, setRecent] = useState<AiUsageRecentResponse | null>(null)
+  const [site, setSite] = useState('')
+  const [recentPage, setRecentPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Summary reloads when the site scope changes.
   useEffect(() => {
     if (user?.role !== 'admin') return
-    Promise.all([getAiUsageSummary(30), getRecentAiUsage(50)])
-      .then(([s, r]) => { setSummary(s); setRecent(r) })
+    getAiUsageSummary(30, site)
+      .then(setSummary)
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false))
-  }, [user])
+  }, [user, site])
+
+  // Recent-calls table is paginated (10/page) and site-scoped.
+  useEffect(() => {
+    if (user?.role !== 'admin') return
+    getRecentAiUsage(recentPage, RECENT_PAGE_SIZE, site).then(setRecent).catch(() => {})
+  }, [user, site, recentPage])
 
   // Defense in depth — backend also enforces admin (403).
   if (user && user.role !== 'admin') {
@@ -49,7 +61,19 @@ export default function AdminAiUsagePage() {
 
   return (
     <div className="p-12">
-      <PageHeader title={t('title')} subtitle={t('subtitle')} />
+      <div className="flex items-start justify-between">
+        <PageHeader title={t('title')} subtitle={t('subtitle')} />
+        <select
+          value={site}
+          onChange={(e) => { setSite(e.target.value); setRecentPage(1) }}
+          className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
+        >
+          <option value="">{t('allSites')}</option>
+          {Object.keys(SITE_LABELS).map((code) => (
+            <option key={code} value={code}>{siteLabel(code)}</option>
+          ))}
+        </select>
+      </div>
 
       {error && <div className="mt-4 bg-badge-fail text-error text-sm px-4 py-2.5 font-medium">{error}</div>}
 
@@ -105,36 +129,61 @@ export default function AdminAiUsagePage() {
             )}
           </div>
 
-          {/* Recent calls */}
+          {/* Recent calls — paginated (10/page), site-labelled */}
           <div className="mt-6 bg-bg-card p-6">
-            <h3 className="mb-4 font-heading font-bold">{t('recent')}</h3>
-            {recent.length === 0 ? (
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-heading font-bold">{t('recent')}</h3>
+              {recent && recent.total > 0 && (
+                <span className="text-[12px] text-text-muted">
+                  {(recent.page - 1) * recent.pageSize + 1}–{Math.min(recent.page * recent.pageSize, recent.total)} / {recent.total}
+                </span>
+              )}
+            </div>
+            {!recent || recent.items.length === 0 ? (
               <div className="text-[13px] text-text-muted">{t('empty')}</div>
             ) : (
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    {['time', 'feature', 'model', 'user', 'input', 'output', 'total'].map((h) => (
-                      <th key={h} className="pb-3 text-left text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">
-                        {t(`cols.${h}`)}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {recent.map((r) => (
-                    <tr key={r.id} className="border-t border-border-light">
-                      <td className="py-2.5 text-[13px] text-text-secondary">{r.timestamp}</td>
-                      <td className="py-2.5 text-[13px] text-text-primary">{featureLabel(r.feature)}</td>
-                      <td className="py-2.5 text-[13px] text-text-secondary">{r.model}</td>
-                      <td className="py-2.5 text-[13px] text-text-secondary">{r.userName ?? '—'}</td>
-                      <td className="py-2.5 text-[13px] text-text-primary">{n(r.promptTokens)}</td>
-                      <td className="py-2.5 text-[13px] text-text-primary">{n(r.completionTokens)}</td>
-                      <td className="py-2.5 text-[13px] font-semibold text-text-primary">{n(r.totalTokens)}</td>
+              <>
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      {['time', 'site', 'feature', 'model', 'user', 'input', 'output', 'total'].map((h) => (
+                        <th key={h} className="pb-3 text-left text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">
+                          {t(`cols.${h}`)}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {recent.items.map((r) => (
+                      <tr key={r.id} className="border-t border-border-light">
+                        <td className="py-2.5 text-[13px] text-text-secondary">{r.timestamp}</td>
+                        <td className="py-2.5 text-[13px] text-text-secondary">{r.domain ? siteLabel(r.domain) : '—'}</td>
+                        <td className="py-2.5 text-[13px] text-text-primary">{featureLabel(r.feature)}</td>
+                        <td className="py-2.5 text-[13px] text-text-secondary">{r.model}</td>
+                        <td className="py-2.5 text-[13px] text-text-secondary">{r.userName ?? '—'}</td>
+                        <td className="py-2.5 text-[13px] text-text-primary">{n(r.promptTokens)}</td>
+                        <td className="py-2.5 text-[13px] text-text-primary">{n(r.completionTokens)}</td>
+                        <td className="py-2.5 text-[13px] font-semibold text-text-primary">{n(r.totalTokens)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {recent.totalPages > 1 && (
+                  <div className="mt-4 flex justify-end gap-1">
+                    <button
+                      onClick={() => setRecentPage((p) => Math.max(1, p - 1))}
+                      disabled={recentPage <= 1}
+                      className="border border-border-light bg-bg-card px-3 py-1.5 text-[12px] text-text-secondary hover:bg-bg-page disabled:opacity-30"
+                    >{t('prev')}</button>
+                    <span className="px-3 py-1.5 text-[12px] font-semibold text-text-primary">{recent.page} / {recent.totalPages}</span>
+                    <button
+                      onClick={() => setRecentPage((p) => Math.min(recent.totalPages, p + 1))}
+                      disabled={recentPage >= recent.totalPages}
+                      className="border border-border-light bg-bg-card px-3 py-1.5 text-[12px] text-text-secondary hover:bg-bg-page disabled:opacity-30"
+                    >{t('next')}</button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </>

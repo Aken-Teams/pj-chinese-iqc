@@ -14,6 +14,9 @@
   "daily": "Last 30 Days",
   "recent": "Recent Calls",
   "empty": "No AI usage data yet",
+  "allSites": "All Sites",
+  "prev": "Prev",
+  "next": "Next",
   "features": {
     "review_summary": "AI Review Summary",
     "anomaly_detect": "AI Anomaly Detection"
@@ -26,6 +29,7 @@
     "total": "Total",
     "cost": "Est. Cost",
     "time": "Time",
+    "site": "Site",
     "feature": "Feature",
     "model": "Model",
     "user": "User"

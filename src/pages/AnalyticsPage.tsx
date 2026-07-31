@@ -228,6 +228,7 @@ export default function AnalyticsPage() {
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [lots, setLots] = useState<HistoryRow[]>([])
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
+  const [selectedLot, setSelectedLot] = useState<HistoryRow | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
   // Site of the selected lot — SPC/correlation (product-wide aggregates) are
   // scoped to it for admins so they reflect the site being viewed.
@@ -251,6 +252,11 @@ export default function AnalyticsPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+  }, [])
+
+  // Server-side lot search so the picker reaches every lot, not just the first page.
+  const handleLotSearch = useCallback((query: string) => {
+    getHistory({ search: query, pageSize: 50 }).then(res => setLots(res.items)).catch(() => {})
   }, [])
 
   const loadAnomalies = useCallback(async (lotId: number, lang: string) => {
@@ -328,7 +334,9 @@ export default function AnalyticsPage() {
               lots={lots}
               selectedLotId={selectedLotId}
               placeholder={t('selectLot')}
-              onSelect={(lot) => handleLotChange(lot.id, lot.productId, lot.domain ?? '')}
+              onSelect={(lot) => { setSelectedLot(lot); handleLotChange(lot.id, lot.productId, lot.domain ?? '') }}
+              onSearch={handleLotSearch}
+              selectedLot={selectedLot}
               showSite={isAdmin}
               className="w-[280px]"
               align="right"

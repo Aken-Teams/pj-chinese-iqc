@@ -29,6 +29,16 @@
     "title": "逐电性项目良率",
     "hint": "每片 Wafer × 每个电性项目的 Q1/Q2/Q3 良率，可横向滚动。红色代表该项目良率偏低，可直接指出偏移的电性项目。"
   },
+  "batch": {
+    "button": "批量审核",
+    "title": "批量审核",
+    "selectUnreviewed": "全选未审核",
+    "selectedCount": "已选 {{count}} 批",
+    "noLots": "无批次",
+    "run": "执行审核（{{count}}）",
+    "running": "审核中…",
+    "result": "完成：{{reviewed}} 成功、{{failed}} 失败"
+  },
   "selectLot": "-- 选择批次 --",
   "selectLotPrompt": "请选择批次以查看审核结果，或先上传数据。",
   "running": "执行中...",

@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '@/components/layout/PageHeader'
 import { Download, Search, Loader2, FileText } from 'lucide-react'
 import SearchSelect from '@/components/ui/SearchSelect'
 import { getHistory, type HistoryRow, type HistoryResponse } from '@/services/history'
-import { getVendors } from '@/services/vendors'
+import { getVendors, getProducts, type Product } from '@/services/vendors'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
 import { useAuthStore } from '@/store/authStore'
-import { siteLabel } from '@/config/sites'
+import { siteLabel, SITE_LABELS } from '@/config/sites'
 
 // SVG line chart for yield trend with hover tooltip
 function YieldTrendChart({ items }: { items: HistoryRow[] }) {
@@ -104,6 +104,7 @@ export default function HistoryPage() {
   const [data, setData] = useState<HistoryResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [vendor, setVendor] = useState('')
+  const [filterSite, setFilterSite] = useState('')
   const [product, setProduct] = useState('')
   const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
@@ -111,40 +112,59 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1)
   const [allItems, setAllItems] = useState<HistoryRow[]>([])
   const [vendorCodes, setVendorCodes] = useState<string[]>([])
+  const [products, setProducts] = useState<Product[]>([])
 
   useEffect(() => {
-    getVendors().then((list) => setVendorCodes(list.map((v) => v.code))).catch(() => {})
-  }, [])
+    getVendors(isAdmin ? filterSite : undefined).then((list) => setVendorCodes(list.map((v) => v.code))).catch(() => {})
+    getProducts(isAdmin ? filterSite : undefined).then(setProducts).catch(() => {})
+  }, [filterSite, isAdmin])
 
-  const buildParams = () => ({ vendor, product, status, fromDate: fromDate || undefined, toDate: toDate || undefined })
+  // Product-model dropdown options, scoped by the selected site and vendor.
+  const productOptions = (() => {
+    const codes = products
+      .filter((p) => !vendor || p.vendor_code === vendor)
+      .map((p) => p.product_code)
+    return Array.from(new Set(codes)).sort()
+  })()
+
+  const buildParams = () => ({
+    vendor, product, status,
+    site: isAdmin ? (filterSite || undefined) : undefined,
+    fromDate: fromDate || undefined, toDate: toDate || undefined,
+  })
+
+  // "Latest wins": rapid filter changes fire overlapping requests; ignore any
+  // response that isn't from the most recent call so a slow earlier request
+  // (e.g. the unfiltered set) can't overwrite the current filtered result.
+  const reqIdRef = useRef(0)
 
   const loadData = async (pg = page) => {
+    const myId = ++reqIdRef.current
     setLoading(true)
     const params = buildParams()
     // Paginated table data
     try {
       const res = await getHistory({ ...params, page: pg, pageSize: 10 })
-      setData(res)
+      if (myId === reqIdRef.current) setData(res)
     } catch {
-      setData(null)
+      if (myId === reqIdRef.current) setData(null)
     } finally {
-      setLoading(false)
+      if (myId === reqIdRef.current) setLoading(false)
     }
     // All items for trend chart (independent — failure doesn't affect table)
     try {
       const res = await getHistory({ ...params, page: 1, pageSize: 500 })
-      setAllItems(res.items)
+      if (myId === reqIdRef.current) setAllItems(res.items)
     } catch {
       // keep previous allItems
     }
   }
 
-  useEffect(() => { loadData(page) }, [page])
+  // Live filtering: reload whenever any filter (or page) changes — no need to
+  // click 搜尋. Filter changes reset the page to 1 in their onChange handlers.
+  useEffect(() => { loadData(page) }, [page, vendor, filterSite, product, status, fromDate, toDate])
 
-  const handleSearch = () => {
-    setPage(1)
-    loadData(1)
-  }
+  const handleSearch = () => { setPage(1); loadData(1) }
 
   const items = data?.items || []
 
@@ -203,35 +223,54 @@ export default function HistoryPage() {
         }
       />
 
-      {/* Filter Row */}
+      {/* Filter Row — live filtering (no need to click 搜尋) */}
       <div className="flex flex-wrap gap-4 items-end mt-7">
+        {isAdmin && (
+          <div className="w-[140px] flex flex-col gap-1.5">
+            <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('table.site')}</label>
+            <select
+              value={filterSite}
+              onChange={(e) => { setFilterSite(e.target.value); setVendor(''); setProduct(''); setPage(1) }}
+              className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60 cursor-pointer"
+            >
+              <option value="">{t('allSites')}</option>
+              {Object.keys(SITE_LABELS).map((code) => (
+                <option key={code} value={code}>{siteLabel(code)}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="w-[160px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('vendor')}</label>
           <SearchSelect
             items={[t('allVendors'), ...vendorCodes]}
             value={vendor || t('allVendors')}
-            onChange={(v) => setVendor(v === t('allVendors') ? '' : v)}
+            onChange={(v) => { setVendor(v === t('allVendors') ? '' : v); setProduct(''); setPage(1) }}
           />
         </div>
-        <div className="w-[160px] flex flex-col gap-1.5">
+        <div className="w-[180px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('product')}</label>
-          <input type="text" value={product} onChange={(e) => setProduct(e.target.value)} placeholder={t('allProducts')} className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary w-full outline-none focus:border-accent/60" />
+          <SearchSelect
+            items={[t('allProducts'), ...productOptions]}
+            value={product || t('allProducts')}
+            onChange={(v) => { setProduct(v === t('allProducts') ? '' : v); setPage(1) }}
+          />
         </div>
         <div className="w-[140px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('status')}</label>
           <SearchSelect
             items={[t('allStatus'), t('reviewed'), t('pending')]}
             value={status === 'reviewed' ? t('reviewed') : status === 'pending' ? t('pending') : t('allStatus')}
-            onChange={(v) => setStatus(v === t('reviewed') ? 'reviewed' : v === t('pending') ? 'pending' : '')}
+            onChange={(v) => { setStatus(v === t('reviewed') ? 'reviewed' : v === t('pending') ? 'pending' : ''); setPage(1) }}
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('fromDate')}</label>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60" />
+          <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1) }} className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60" />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('toDate')}</label>
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60" />
+          <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1) }} className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60" />
         </div>
         <button onClick={handleSearch} className="bg-accent text-white px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-2">
           <Search size={16} />
@@ -242,7 +281,9 @@ export default function HistoryPage() {
       {/* Yield Trend Chart */}
       <div className="bg-bg-card p-6 mt-5">
         <h3 className="font-heading font-bold mb-4">{t('trendTitle')}</h3>
-        <YieldTrendChart items={allItems} />
+        {/* Skip lots with no wafers — they have no real yield and would plunge
+            the trend to 0% (failed/empty uploads). */}
+        <YieldTrendChart items={allItems.filter((r) => r.wafers > 0)} />
       </div>
 
       {/* History Table */}

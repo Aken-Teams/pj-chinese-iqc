@@ -44,4 +44,14 @@ class AiUsageRecord(BaseModel):
     userName: str | None
     lotId: int | None
     waferId: int | None
+    # AD site (廠區) of the lot this AI call analyzed; null if not lot-bound.
+    domain: str | None = None
     timestamp: str
+
+
+class AiUsageRecentResponse(BaseModel):
+    items: list[AiUsageRecord]
+    total: int
+    page: int
+    pageSize: int
+    totalPages: int

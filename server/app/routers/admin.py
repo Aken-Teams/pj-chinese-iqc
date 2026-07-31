@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
@@ -7,11 +8,13 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.dependencies import get_db, require_admin
 from app.models.ai import AiTokenUsage
+from app.models.lot import Lot
 from app.models.user import User
 from app.schemas.admin import (
     AiUsageBreakdownRow,
     AiUsageDailyRow,
     AiUsageRecord,
+    AiUsageRecentResponse,
     AiUsageSummary,
     AiUsageTotals,
 )
@@ -33,18 +36,26 @@ def _est_cost(prompt_tokens: int, completion_tokens: int) -> float:
     return round(cost, 4)
 
 
+def _apply_site(query, site: str):
+    """Scope AI usage to one AD site (廠區) via the analyzed lot's domain."""
+    if site:
+        query = query.join(Lot, AiTokenUsage.lot_id == Lot.id).filter(Lot.domain == site)
+    return query
+
+
 @router.get("/summary", response_model=AiUsageSummary)
 def usage_summary(
     days: int = Query(30, ge=1, le=365, description="Days of daily trend"),
+    site: str = Query("", description="AD site (廠區) filter"),
     db: Session = Depends(get_db),
 ):
     # All-time totals
-    t = db.query(
+    t = _apply_site(db.query(
         func.count(AiTokenUsage.id),
         func.coalesce(func.sum(AiTokenUsage.prompt_tokens), 0),
         func.coalesce(func.sum(AiTokenUsage.completion_tokens), 0),
         func.coalesce(func.sum(AiTokenUsage.total_tokens), 0),
-    ).one()
+    ), site).one()
     totals = AiUsageTotals(
         calls=int(t[0] or 0),
         promptTokens=int(t[1] or 0),
@@ -56,13 +67,13 @@ def usage_summary(
 
     def _breakdown(col) -> list[AiUsageBreakdownRow]:
         rows = (
-            db.query(
+            _apply_site(db.query(
                 col,
                 func.count(AiTokenUsage.id),
                 func.coalesce(func.sum(AiTokenUsage.prompt_tokens), 0),
                 func.coalesce(func.sum(AiTokenUsage.completion_tokens), 0),
                 func.coalesce(func.sum(AiTokenUsage.total_tokens), 0),
-            )
+            ), site)
             .group_by(col)
             .order_by(func.sum(AiTokenUsage.total_tokens).desc())
             .all()
@@ -83,12 +94,11 @@ def usage_summary(
     since = datetime.now() - timedelta(days=days - 1)
     day_col = func.date(AiTokenUsage.created_at)
     daily_rows = (
-        db.query(
+        _apply_site(db.query(
             day_col,
             func.count(AiTokenUsage.id),
             func.coalesce(func.sum(AiTokenUsage.total_tokens), 0),
-        )
-        .filter(AiTokenUsage.created_at >= since)
+        ).filter(AiTokenUsage.created_at >= since), site)
         .group_by(day_col)
         .order_by(day_col)
         .all()
@@ -111,19 +121,28 @@ def usage_summary(
     )
 
 
-@router.get("/recent", response_model=list[AiUsageRecord])
+@router.get("/recent", response_model=AiUsageRecentResponse)
 def usage_recent(
-    limit: int = Query(50, ge=1, le=500),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    site: str = Query("", description="AD site (廠區) filter"),
     db: Session = Depends(get_db),
 ):
-    rows = (
-        db.query(AiTokenUsage, User.name)
+    q = (
+        db.query(AiTokenUsage, User.name, Lot.domain)
         .outerjoin(User, AiTokenUsage.user_id == User.id)
-        .order_by(AiTokenUsage.created_at.desc())
-        .limit(limit)
+        .outerjoin(Lot, AiTokenUsage.lot_id == Lot.id)
+    )
+    if site:
+        q = q.filter(Lot.domain == site)
+    total = q.count()
+    rows = (
+        q.order_by(AiTokenUsage.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
         .all()
     )
-    return [
+    items = [
         AiUsageRecord(
             id=u.id,
             feature=u.feature,
@@ -135,7 +154,12 @@ def usage_recent(
             userName=name,
             lotId=u.lot_id,
             waferId=u.wafer_id,
+            domain=domain,
             timestamp=u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "",
         )
-        for u, name in rows
+        for u, name, domain in rows
     ]
+    return AiUsageRecentResponse(
+        items=items, total=total, page=page, pageSize=page_size,
+        totalPages=math.ceil(total / page_size) if total > 0 else 0,
+    )

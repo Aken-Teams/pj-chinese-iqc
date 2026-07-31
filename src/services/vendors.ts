@@ -75,8 +75,9 @@ export async function deleteVendorFormat(vendorId: number, fmtId: number): Promi
   return apiFetch(`/vendors/${vendorId}/formats/${fmtId}`, { method: 'DELETE' })
 }
 
-export async function getProducts(): Promise<Product[]> {
-  return apiFetch('/vendors/products')
+export async function getProducts(site?: string): Promise<Product[]> {
+  const qs = site ? `?site=${encodeURIComponent(site)}` : ''
+  return apiFetch(`/vendors/products${qs}`)
 }
 
 export async function getLots(vendorCode?: string): Promise<LotInfo[]> {

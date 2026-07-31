@@ -74,6 +74,19 @@ export async function executeReview(lotId: number, params?: string[]): Promise<{
   })
 }
 
+export interface BatchReviewResult {
+  reviewed: number
+  failed: number
+  results: { lotId: number; success: boolean; resultCount: number; error: string | null }[]
+}
+
+export async function executeBatchReview(lotIds: number[]): Promise<BatchReviewResult> {
+  return apiFetch('/review/execute-batch', {
+    method: 'POST',
+    body: JSON.stringify({ lot_ids: lotIds }),
+  })
+}
+
 export async function getLotResults(lotId: number): Promise<LotReviewSummary> {
   return apiFetch(`/review/results/${lotId}`)
 }

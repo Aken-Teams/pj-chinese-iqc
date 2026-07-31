@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ChevronRight, Loader2, FileText, AlertTriangle } from 'lucide-react'
+import { ChevronRight, Loader2, FileText, AlertTriangle, Layers, X, Check } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
-import { getLotResults, getReviewMatrix, executeReview, type LotReviewSummary, type ReviewMatrix } from '@/services/review'
+import { getLotResults, getReviewMatrix, executeReview, executeBatchReview, type LotReviewSummary, type ReviewMatrix } from '@/services/review'
 import { getHistory, type HistoryRow } from '@/services/history'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
@@ -61,6 +61,12 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true)
   const [reviewing, setReviewing] = useState(false)
   const [error, setError] = useState('')
+  // Batch review (批量審核)
+  const [batchOpen, setBatchOpen] = useState(false)
+  const [batchLots, setBatchLots] = useState<HistoryRow[]>([])
+  const [batchSelected, setBatchSelected] = useState<Set<number>>(new Set())
+  const [batchRunning, setBatchRunning] = useState(false)
+  const [batchDone, setBatchDone] = useState<{ reviewed: number; failed: number } | null>(null)
 
   useEffect(() => {
     const restoredLotId: number | undefined = location.state?.lotId
@@ -129,6 +135,51 @@ export default function ReviewPage() {
     }
   }
 
+  // --- Batch review (批量審核) ---
+  const openBatch = async () => {
+    setBatchOpen(true)
+    setBatchDone(null)
+    try {
+      const res = await getHistory({ pageSize: 500 })
+      setBatchLots(res.items)
+      // Pre-select every un-reviewed lot — the common "review everything" case.
+      setBatchSelected(new Set(res.items.filter(l => l.reviewed === false).map(l => l.id)))
+    } catch {
+      setBatchLots([])
+      setBatchSelected(new Set())
+    }
+  }
+
+  const toggleBatch = (id: number) => setBatchSelected(prev => {
+    const n = new Set(prev)
+    if (n.has(id)) n.delete(id); else n.add(id)
+    return n
+  })
+
+  const selectAllUnreviewed = () =>
+    setBatchSelected(new Set(batchLots.filter(l => l.reviewed === false).map(l => l.id)))
+
+  const runBatch = async () => {
+    const ids = [...batchSelected]
+    if (ids.length === 0) return
+    setBatchRunning(true)
+    setBatchDone(null)
+    try {
+      const res = await executeBatchReview(ids)
+      setBatchDone({ reviewed: res.reviewed, failed: res.failed })
+      const reviewedIds = new Set(res.results.filter(r => r.success).map(r => r.lotId))
+      const markReviewed = (l: HistoryRow) => reviewedIds.has(l.id) ? { ...l, reviewed: true } : l
+      setBatchLots(prev => prev.map(markReviewed))
+      setLots(prev => prev.map(markReviewed))
+      setSelectedLot(prev => prev && reviewedIds.has(prev.id) ? { ...prev, reviewed: true } : prev)
+      if (selectedLotId !== null && reviewedIds.has(selectedLotId)) await loadResults(selectedLotId)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Batch review failed')
+    } finally {
+      setBatchRunning(false)
+    }
+  }
+
   const wafers = summary?.wafers || []
   const notReviewed = selectedLot?.reviewed === false
   const hasMatrix = !!(matrix && matrix.params.length > 0)
@@ -194,6 +245,14 @@ export default function ReviewPage() {
             </button>
             <button
               type="button"
+              onClick={openBatch}
+              className="flex items-center gap-1.5 border border-border-light bg-bg-card px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-text-secondary hover:bg-bg-page"
+            >
+              <Layers size={14} />
+              {t('batch.button')}
+            </button>
+            <button
+              type="button"
               onClick={handleRunReview}
               disabled={reviewing || selectedLotId === null}
               className="bg-accent px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-white hover:bg-accent/90 disabled:opacity-50"
@@ -203,6 +262,54 @@ export default function ReviewPage() {
           </>
         }
       />
+
+      {/* Batch review modal (批量審核) */}
+      {batchOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !batchRunning && setBatchOpen(false)}>
+          <div className="w-[520px] max-h-[80vh] flex flex-col bg-bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-light">
+              <h3 className="font-heading font-bold">{t('batch.title')}</h3>
+              <button onClick={() => !batchRunning && setBatchOpen(false)} className="text-text-muted hover:text-text-primary"><X size={18} /></button>
+            </div>
+            <div className="flex items-center justify-between px-5 py-2.5 bg-bg-page text-[12px]">
+              <button onClick={selectAllUnreviewed} className="text-accent font-semibold hover:underline">{t('batch.selectUnreviewed')}</button>
+              <span className="text-text-muted">{t('batch.selectedCount', { count: batchSelected.size })}</span>
+            </div>
+            <ul className="flex-1 overflow-y-auto">
+              {batchLots.length === 0 ? (
+                <li className="px-5 py-6 text-center text-text-muted text-sm">{t('batch.noLots')}</li>
+              ) : batchLots.map(lot => (
+                <li
+                  key={lot.id}
+                  onClick={() => toggleBatch(lot.id)}
+                  className="flex items-center gap-3 px-5 py-2.5 border-t border-border-light cursor-pointer hover:bg-bg-page text-[13px]"
+                >
+                  <span className={`flex h-4 w-4 items-center justify-center border ${batchSelected.has(lot.id) ? 'bg-accent border-accent text-white' : 'border-border-light'}`}>
+                    {batchSelected.has(lot.id) && <Check size={12} />}
+                  </span>
+                  <span className="flex-1 truncate">{lot.vendor} / {lot.product} / {lot.lotId}</span>
+                  {lot.reviewed === false
+                    ? <span className="flex-shrink-0 bg-badge-warn px-1.5 py-0.5 text-[10px] font-bold text-warning">{t('notReviewedBadge')}</span>
+                    : <span className="flex-shrink-0 text-[11px] font-bold text-success">{lot.status}</span>}
+                </li>
+              ))}
+            </ul>
+            <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-t border-border-light">
+              <span className="text-[12px] text-text-secondary">
+                {batchDone && t('batch.result', { reviewed: batchDone.reviewed, failed: batchDone.failed })}
+              </span>
+              <button
+                onClick={runBatch}
+                disabled={batchRunning || batchSelected.size === 0}
+                className="flex items-center gap-1.5 bg-accent px-5 py-2 font-heading text-[11px] font-bold uppercase tracking-[1px] text-white hover:bg-accent/90 disabled:opacity-50"
+              >
+                {batchRunning ? <Loader2 size={14} className="animate-spin" /> : <Layers size={14} />}
+                {batchRunning ? t('batch.running') : t('batch.run', { count: batchSelected.size })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 bg-badge-fail text-error text-sm px-4 py-2.5 font-medium">{error}</div>

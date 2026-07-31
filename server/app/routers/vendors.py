@@ -164,39 +164,22 @@ def _filter_score_domain(query, domain: str | None):
 @router.get("/scores")
 def list_vendor_scores(period: str = "", site: str = "", db: Session = Depends(get_db),
                        user: User = Depends(get_current_user)):
-    """Get vendor scores for a given period (YYYY-MM). Returns cached if available.
+    """Get vendor scores for a period (YYYY-MM), always freshly computed.
 
     Scoped to a site: a site user always sees their own; an admin sees the
-    group-wide ranking by default, or a specific site via `site`.
+    group-wide ranking by default, or a specific site via `site`. We recompute
+    on every read (a cheap monthly aggregate) rather than serving a cache, so
+    scores can never go stale as new lots are reviewed — which previously made
+    the group-wide view show fewer vendors than a single site.
     """
     if not period:
         period = datetime.now().strftime("%Y-%m")
 
     domain = _score_domain(user, site)
-    # Return cached scores if they exist
-    cached = (
-        _filter_score_domain(db.query(VendorScore).filter(VendorScore.period == period), domain)
-        .order_by(VendorScore.rank)
-        .all()
-    )
-    if cached:
-        vendors = {v.id: v for v in db.query(Vendor).all()}
-        return [
-            {
-                "vendorId": s.vendor_id,
-                "vendorName": vendors.get(s.vendor_id, Vendor()).name if s.vendor_id in vendors else "",
-                "vendorCode": vendors.get(s.vendor_id, Vendor()).code if s.vendor_id in vendors else "",
-                "period": s.period,
-                "avgYield": float(s.avg_yield) if s.avg_yield is not None else None,
-                "lotCount": s.lot_count,
-                "anomalyCount": s.anomaly_count,
-                "cpkAvg": float(s.cpk_avg) if s.cpk_avg is not None else None,
-                "score": float(s.score) if s.score is not None else None,
-                "rank": s.rank,
-            }
-            for s in cached
-        ]
-
+    _filter_score_domain(
+        db.query(VendorScore).filter(VendorScore.period == period), domain
+    ).delete(synchronize_session=False)
+    db.commit()
     return _calculate_and_save_scores(period, db, domain)
 
 

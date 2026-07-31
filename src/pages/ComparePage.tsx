@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Loader2, FileText, FileWarning } from 'lucide-react'
@@ -16,10 +16,16 @@ export default function ComparePage() {
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [lots, setLots] = useState<HistoryRow[]>([])
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
+  const [selectedLot, setSelectedLot] = useState<HistoryRow | null>(null)
   const [rule, setRule] = useState('standard')
   const [result, setResult] = useState<SpecCompareResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [comparing, setComparing] = useState(false)
+
+  // Server-side lot search so the picker reaches every lot, not just the first page.
+  const handleLotSearch = useCallback((query: string) => {
+    getHistory({ search: query, pageSize: 50 }).then(res => setLots(res.items)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     getHistory({ pageSize: 50 })
@@ -120,7 +126,9 @@ export default function ComparePage() {
               lots={lots}
               selectedLotId={selectedLotId}
               placeholder={t('selectLot')}
-              onSelect={(lot) => setSelectedLotId(lot.id)}
+              onSelect={(lot) => { setSelectedLotId(lot.id); setSelectedLot(lot) }}
+              onSearch={handleLotSearch}
+              selectedLot={selectedLot}
               showSite={isAdmin}
               className="w-full"
             />

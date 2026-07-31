@@ -29,6 +29,7 @@ export async function getHistory(params?: {
   product?: string
   status?: string
   search?: string
+  site?: string
   fromDate?: string
   toDate?: string
   page?: number
@@ -39,6 +40,7 @@ export async function getHistory(params?: {
   if (params?.product) searchParams.set('product', params.product)
   if (params?.status) searchParams.set('status', params.status)
   if (params?.search) searchParams.set('search', params.search)
+  if (params?.site) searchParams.set('site', params.site)
   if (params?.fromDate) searchParams.set('from_date', params.fromDate)
   if (params?.toDate) searchParams.set('to_date', params.toDate)
   if (params?.page) searchParams.set('page', String(params.page))

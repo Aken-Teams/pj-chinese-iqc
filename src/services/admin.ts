@@ -43,13 +43,24 @@ export interface AiUsageRecord {
   userName: string | null
   lotId: number | null
   waferId: number | null
+  domain: string | null
   timestamp: string
 }
 
-export function getAiUsageSummary(days = 30): Promise<AiUsageSummary> {
-  return apiFetch<AiUsageSummary>(`/admin/ai-usage/summary?days=${days}`)
+export interface AiUsageRecentResponse {
+  items: AiUsageRecord[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
-export function getRecentAiUsage(limit = 50): Promise<AiUsageRecord[]> {
-  return apiFetch<AiUsageRecord[]>(`/admin/ai-usage/recent?limit=${limit}`)
+export function getAiUsageSummary(days = 30, site = ''): Promise<AiUsageSummary> {
+  const s = site ? `&site=${encodeURIComponent(site)}` : ''
+  return apiFetch<AiUsageSummary>(`/admin/ai-usage/summary?days=${days}${s}`)
+}
+
+export function getRecentAiUsage(page = 1, pageSize = 10, site = ''): Promise<AiUsageRecentResponse> {
+  const s = site ? `&site=${encodeURIComponent(site)}` : ''
+  return apiFetch<AiUsageRecentResponse>(`/admin/ai-usage/recent?page=${page}&page_size=${pageSize}${s}`)
 }

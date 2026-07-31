@@ -6,6 +6,23 @@ class ReviewExecuteRequest(BaseModel):
     params: list[str] | None = None
 
 
+class BatchReviewRequest(BaseModel):
+    lot_ids: list[int]
+
+
+class BatchReviewItem(BaseModel):
+    lotId: int
+    success: bool
+    resultCount: int = 0
+    error: str | None = None
+
+
+class BatchReviewResponse(BaseModel):
+    reviewed: int
+    failed: int
+    results: list[BatchReviewItem]
+
+
 class WaferReviewRow(BaseModel):
     dbId: int
     waferId: str

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.dependencies import get_db, get_current_user, assert_lot_visible
+from app.dependencies import get_db, get_current_user, assert_lot_visible, can_see_all_domains
 from app.models.user import User
 from app.models.lot import Lot
 from app.models.wafer import Wafer
@@ -13,6 +13,7 @@ from app.models.die_data import DieData, ElectricalValue
 from app.schemas.review import (
     ReviewExecuteRequest, LotReviewSummary, WaferReviewRow, WaferDetail, ElectricalParam,
     ReviewMatrix, MatrixWaferRow, MatrixCell,
+    BatchReviewRequest, BatchReviewResponse, BatchReviewItem,
 )
 from app.services.review_engine import execute_review
 
@@ -27,6 +28,29 @@ def run_review(req: ReviewExecuteRequest, db: Session = Depends(get_db), user: U
     assert_lot_visible(lot, user)
     results = execute_review(db, req.lot_id, req.params)
     return {"success": True, "resultCount": len(results)}
+
+
+@router.post("/execute-batch", response_model=BatchReviewResponse)
+def run_batch_review(req: BatchReviewRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Run 執行審核 on many lots in one call. Each lot is independent: a failure
+    (or a lot outside the caller's site) is recorded and skipped, not fatal."""
+    items: list[BatchReviewItem] = []
+    reviewed = failed = 0
+    for lot_id in req.lot_ids:
+        lot = db.query(Lot).filter(Lot.id == lot_id).first()
+        if not lot or (not can_see_all_domains(user) and lot.domain != user.domain):
+            items.append(BatchReviewItem(lotId=lot_id, success=False, error="not_found"))
+            failed += 1
+            continue
+        try:
+            results = execute_review(db, lot_id)
+            items.append(BatchReviewItem(lotId=lot_id, success=True, resultCount=len(results)))
+            reviewed += 1
+        except Exception as e:  # noqa: BLE001 — one bad lot must not abort the batch
+            db.rollback()
+            items.append(BatchReviewItem(lotId=lot_id, success=False, error=str(e)[:200]))
+            failed += 1
+    return BatchReviewResponse(reviewed=reviewed, failed=failed, results=items)
 
 
 @router.get("/results/{lot_id}", response_model=LotReviewSummary)
