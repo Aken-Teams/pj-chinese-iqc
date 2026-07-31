@@ -48,6 +48,23 @@ export interface WaferDetail {
   electricalParams: ElectricalParam[]
 }
 
+export interface MatrixCell {
+  q1: number | null
+  q2: number | null
+  q3: number | null
+}
+
+export interface MatrixWaferRow {
+  waferId: string
+  bin1Yield: number
+  cells: MatrixCell[] // aligned index-for-index with ReviewMatrix.params
+}
+
+export interface ReviewMatrix {
+  params: string[]
+  wafers: MatrixWaferRow[]
+}
+
 export async function executeReview(lotId: number, params?: string[]): Promise<{ success: boolean; resultCount: number }> {
   return apiFetch('/review/execute', {
     method: 'POST',
@@ -61,4 +78,8 @@ export async function getLotResults(lotId: number): Promise<LotReviewSummary> {
 
 export async function getWaferDetail(lotId: number, waferId: string): Promise<WaferDetail> {
   return apiFetch(`/review/results/${lotId}/wafer/${waferId}`)
+}
+
+export async function getReviewMatrix(lotId: number): Promise<ReviewMatrix> {
+  return apiFetch(`/review/matrix/${lotId}`)
 }

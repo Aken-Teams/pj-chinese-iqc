@@ -11,10 +11,10 @@ class WaferReviewRow(BaseModel):
     waferId: str
     dieCount: int
     bin1Yield: float
-    # Per-wafer Q yields = the WORST (min) electrical item at each Q level, not a
-    # cross-parameter average. The average mixed differing rule sets and could
-    # show a stricter Q2 higher than Q1 (徐州 bug); the worst-item value is the
-    # true bottleneck and stays monotonic (Q2 spec ⊂ Q1 ⇒ Q2 ≤ Q1 per item).
+    # Per-wafer Q yields = the true combined (die-intersection) yield: fraction
+    # of dies passing EVERY parameter's limit at that Q level. Not a
+    # cross-parameter average (which produced the impossible "Q2 > Q1"). Null
+    # until the lot has been (re-)reviewed.
     q1Yield: float | None = None
     q2Yield: float | None = None
     q3Yield: float | None = None
@@ -56,3 +56,23 @@ class WaferDetail(BaseModel):
     bin1Yield: float
     failCount: int
     electricalParams: list[ElectricalParam]
+
+
+class MatrixCell(BaseModel):
+    # One electrical item's yields for one wafer. None = no rule for that Q level.
+    q1: float | None = None
+    q2: float | None = None
+    q3: float | None = None
+
+
+class MatrixWaferRow(BaseModel):
+    waferId: str
+    bin1Yield: float
+    cells: list[MatrixCell]  # aligned index-for-index with ReviewMatrix.params
+
+
+class ReviewMatrix(BaseModel):
+    # Per-electrical-item yield matrix (每片 × 每參數 × Q1/Q2/Q3), no combined
+    # yield — the layout the 徐州 spec asks for, so a drifting item is pinpointed.
+    params: list[str]
+    wafers: list[MatrixWaferRow]

@@ -96,6 +96,45 @@ def calculate_wafer_param_review(
     }
 
 
+def combined_die_yield(
+    die_vectors: dict,
+    limits: dict[str, tuple[Optional[float], Optional[float]]],
+    total_die_count: int,
+) -> Optional[float]:
+    """True combined (die-intersection) yield for one Q level on one wafer.
+
+    A die counts only if EVERY parameter that has a limit at this Q level is
+    within spec (strict > lower and < upper, matching the per-param VBA rule).
+    Denominator is the wafer's total die count, consistent with bin1/per-param
+    yields. Returns None when no parameter has a limit at this level (→ N/A),
+    matching the per-param "no rule" convention.
+
+    `die_vectors` maps die_id -> {param_name: value} for Bin1 dies only.
+    """
+    if not limits:
+        return None
+    if total_die_count <= 0:
+        return 0.0
+    passing = 0
+    for vec in die_vectors.values():
+        ok = True
+        for pname, (lower, upper) in limits.items():
+            v = vec.get(pname)
+            # A missing value can't be shown to pass → the die fails this level.
+            if v is None:
+                ok = False
+                break
+            if lower is not None and not (v > lower):
+                ok = False
+                break
+            if upper is not None and not (v < upper):
+                ok = False
+                break
+        if ok:
+            passing += 1
+    return passing / total_die_count
+
+
 def execute_review(db: Session, lot_id: int, param_names: list[str] | None = None) -> list[WaferReviewResult]:
     """
     Execute review for all wafers in a lot.
@@ -134,18 +173,27 @@ def execute_review(db: Session, lot_id: int, param_names: list[str] | None = Non
     for wafer in wafers:
         total_die_count = wafer.gross_die or 0
 
-        # Load ALL Bin=1 electrical values for this wafer in ONE query
+        # Load ALL Bin=1 electrical values for this wafer in ONE query. Keep the
+        # die id so we can also compute the die-intersection combined yield.
         rows = db.execute(text("""
-            SELECT ev.param_name, ev.value
+            SELECT ev.die_id, ev.param_name, ev.value
             FROM electrical_values ev
             JOIN die_data dd ON ev.die_id = dd.id
             WHERE dd.wafer_id = :wafer_id AND dd.bin = 1 AND ev.value IS NOT NULL
         """), {"wafer_id": wafer.id}).fetchall()
 
-        # Group values by param
+        # Group values by param (per-param stats) and by die (combined yield).
         param_values: dict[str, list[float]] = defaultdict(list)
-        for pname, val in rows:
-            param_values[pname].append(float(val))
+        die_vectors: dict[int, dict[str, float]] = defaultdict(dict)
+        for die_id, pname, val in rows:
+            fv = float(val)
+            param_values[pname].append(fv)
+            die_vectors[die_id][pname] = fv
+
+        # Q-level limit maps for the combined yield, filled in the param loop.
+        q1_limits: dict[str, tuple] = {}
+        q2_limits: dict[str, tuple] = {}
+        q3_limits: dict[str, tuple] = {}
 
         # If no param_names specified, use all discovered params
         if param_names is None and not results:
@@ -164,16 +212,29 @@ def execute_review(db: Session, lot_id: int, param_names: list[str] | None = Non
             q1_hi = float(rule.q1_upper) if rule and rule.q1_upper is not None else (
                 float(spec.upper_limit) if spec and spec.upper_limit is not None else None
             )
+            # Q2/Q3 come only from ReviewRule (no cp_specs fallback).
+            q2_lo = float(rule.q2_lower) if rule and rule.q2_lower is not None else None
+            q2_hi = float(rule.q2_upper) if rule and rule.q2_upper is not None else None
+            q3_lo = float(rule.q3_lower) if rule and rule.q3_lower is not None else None
+            q3_hi = float(rule.q3_upper) if rule and rule.q3_upper is not None else None
+
+            # Collect limits for the wafer-level combined (die-intersection) yield.
+            if q1_lo is not None or q1_hi is not None:
+                q1_limits[pname] = (q1_lo, q1_hi)
+            if q2_lo is not None or q2_hi is not None:
+                q2_limits[pname] = (q2_lo, q2_hi)
+            if q3_lo is not None or q3_hi is not None:
+                q3_limits[pname] = (q3_lo, q3_hi)
 
             calc = calculate_wafer_param_review(
                 values=values,
                 total_die_count=total_die_count,
                 q1_lower=q1_lo,
                 q1_upper=q1_hi,
-                q2_lower=float(rule.q2_lower) if rule and rule.q2_lower is not None else None,
-                q2_upper=float(rule.q2_upper) if rule and rule.q2_upper is not None else None,
-                q3_lower=float(rule.q3_lower) if rule and rule.q3_lower is not None else None,
-                q3_upper=float(rule.q3_upper) if rule and rule.q3_upper is not None else None,
+                q2_lower=q2_lo,
+                q2_upper=q2_hi,
+                q3_lower=q3_lo,
+                q3_upper=q3_hi,
             )
 
             result_objects.append({
@@ -195,6 +256,11 @@ def execute_review(db: Session, lot_id: int, param_names: list[str] | None = Non
                 param_name=pname,
                 **calc,
             ))
+
+        # Store the wafer-level combined (die-intersection) yields.
+        wafer.q1_combined = combined_die_yield(die_vectors, q1_limits, total_die_count)
+        wafer.q2_combined = combined_die_yield(die_vectors, q2_limits, total_die_count)
+        wafer.q3_combined = combined_die_yield(die_vectors, q3_limits, total_die_count)
 
     # Bulk insert review results
     if result_objects:

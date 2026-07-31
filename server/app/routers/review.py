@@ -11,6 +11,7 @@ from app.models.review import ReviewResult, ReviewRule
 from app.models.die_data import DieData, ElectricalValue
 from app.schemas.review import (
     ReviewExecuteRequest, LotReviewSummary, WaferReviewRow, WaferDetail, ElectricalParam,
+    ReviewMatrix, MatrixWaferRow, MatrixCell,
 )
 from app.services.review_engine import execute_review
 
@@ -58,24 +59,19 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db)):
     total_dies = 0
     yield_sum = 0.0
 
-    def min_or_none(vals: list[float | None]) -> float | None:
-        nums = [v for v in vals if v is not None]
-        return min(nums) if nums else None
-
     for w in wafers:
         total_dies += w.gross_die or 0
         bin1_yield_pct = float(w.bin1_yield or 0) * 100
 
-        # Get review results for ALL params. The per-wafer Q figure is the WORST
-        # (minimum) electrical item, not the average across params. Averaging
-        # mixed rule sets let a stricter Q2 read *higher* than Q1 (see 徐州 bug);
-        # the worst-item value is the true compliance bottleneck and stays
-        # monotonic (Q2 spec ⊂ Q1 spec ⇒ Q2 ≤ Q1 per item). Per-item yields for
-        # pinpointing the drifting parameter are exposed in get_wafer_detail.
-        rr_list = db.query(ReviewResult).filter(ReviewResult.wafer_id == w.id).all()
-        q1 = min_or_none([float(rr.q1_yield) * 100 if rr.q1_yield is not None else None for rr in rr_list])
-        q2 = min_or_none([float(rr.q2_yield) * 100 if rr.q2_yield is not None else None for rr in rr_list])
-        q3 = min_or_none([float(rr.q3_yield) * 100 if rr.q3_yield is not None else None for rr in rr_list])
+        # Per-wafer Q yields = the true combined (die-intersection) yield computed
+        # and stored by execute_review: the fraction of dies passing EVERY
+        # parameter's limit at that Q level. This is the real wafer Q-level yield,
+        # not a cross-parameter average (which produced the impossible "Q2 > Q1").
+        # Null until the lot has been (re-)reviewed. Per-parameter yields for
+        # pinpointing a drifting parameter are exposed in get_wafer_detail.
+        q1 = float(w.q1_combined) * 100 if w.q1_combined is not None else None
+        q2 = float(w.q2_combined) * 100 if w.q2_combined is not None else None
+        q3 = float(w.q3_combined) * 100 if w.q3_combined is not None else None
 
         status = "PASS"
         if bin1_yield_pct < 95:
@@ -168,3 +164,51 @@ def get_wafer_detail(lot_id: int, wafer_id: str, db: Session = Depends(get_db)):
         failCount=total - bin1,
         electricalParams=params,
     )
+
+
+@router.get("/matrix/{lot_id}", response_model=ReviewMatrix)
+def get_review_matrix(lot_id: int, db: Session = Depends(get_db)):
+    """Per-electrical-item yield matrix for a whole lot: one row per wafer, and
+    Q1/Q2/Q3 yields for every parameter. No combined yield — this is the 徐州
+    layout so a single drifting parameter is pinpointed instead of collapsing
+    the whole wafer to one misleading number."""
+    lot = db.query(Lot).filter(Lot.id == lot_id).first()
+    if not lot:
+        raise HTTPException(404, "Lot not found")
+
+    wafers = db.query(Wafer).filter(Wafer.lot_id == lot_id).order_by(Wafer.wafer_id).all()
+    wafer_ids = [w.id for w in wafers]
+
+    # One query for all per-(wafer, param) results in the lot, indexed for lookup.
+    results = (
+        db.query(ReviewResult).filter(ReviewResult.wafer_id.in_(wafer_ids)).all()
+        if wafer_ids else []
+    )
+    by_wafer: dict[int, dict[str, ReviewResult]] = {}
+    param_set: set[str] = set()
+    for rr in results:
+        by_wafer.setdefault(rr.wafer_id, {})[rr.param_name] = rr
+        param_set.add(rr.param_name)
+    params = sorted(param_set)
+
+    def pct(v):
+        return round(float(v) * 100, 2) if v is not None else None
+
+    rows = []
+    for w in wafers:
+        pmap = by_wafer.get(w.id, {})
+        cells = []
+        for p in params:
+            rr = pmap.get(p)
+            cells.append(MatrixCell(
+                q1=pct(rr.q1_yield) if rr else None,
+                q2=pct(rr.q2_yield) if rr else None,
+                q3=pct(rr.q3_yield) if rr else None,
+            ))
+        rows.append(MatrixWaferRow(
+            waferId=w.wafer_id,
+            bin1Yield=round(float(w.bin1_yield or 0) * 100, 2),
+            cells=cells,
+        ))
+
+    return ReviewMatrix(params=params, wafers=rows)

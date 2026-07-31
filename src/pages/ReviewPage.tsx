@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ChevronRight, Loader2, FileText, AlertTriangle } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
-import { getLotResults, executeReview, type LotReviewSummary } from '@/services/review'
+import { getLotResults, getReviewMatrix, executeReview, type LotReviewSummary, type ReviewMatrix } from '@/services/review'
 import { getHistory, type HistoryRow } from '@/services/history'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
@@ -20,6 +20,13 @@ function yieldColor(value: number | null): string {
 
 function formatYield(value: number | null): string {
   return value === null ? 'N/A' : `${value.toFixed(2)}%`
+}
+
+// Matrix cell styling: a cell WITH data is bold + colored so it stands out; an
+// N/A cell (no rule for that Q level) is dimmed so it clearly recedes.
+function matrixCellClass(value: number | null): string {
+  if (value === null) return 'text-text-muted opacity-40'
+  return `font-semibold ${yieldColor(value)}`
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -47,6 +54,8 @@ export default function ReviewPage() {
   // server-side search replaces the list with a subset that excludes it.
   const [selectedLot, setSelectedLot] = useState<HistoryRow | null>(null)
   const [summary, setSummary] = useState<LotReviewSummary | null>(null)
+  // Per-electrical-item yield matrix (每片 × 每參數 × Q1/Q2/Q3) — the 徐州 layout.
+  const [matrix, setMatrix] = useState<ReviewMatrix | null>(null)
   const [loading, setLoading] = useState(true)
   const [reviewing, setReviewing] = useState(false)
   const [error, setError] = useState('')
@@ -86,8 +95,11 @@ export default function ReviewPage() {
     try {
       const data = await getLotResults(lotDbId)
       setSummary(data)
+      const m = await getReviewMatrix(lotDbId).catch(() => null)
+      setMatrix(m)
     } catch {
       setSummary(null)
+      setMatrix(null)
     } finally {
       setLoading(false)
     }
@@ -117,39 +129,42 @@ export default function ReviewPage() {
 
   const wafers = summary?.wafers || []
   const notReviewed = selectedLot?.reviewed === false
+  const hasMatrix = !!(matrix && matrix.params.length > 0)
 
+  // Export the per-electrical-item matrix (每片 × 每參數 × Q1/Q2/Q3) — the data
+  // that lets a supplier see exactly which item drifted.
   const handleExportCsv = () => {
-    if (!summary) return
-    const headers = [
-      t('table.waferId'), t('table.dieCount'), t('table.bin1Yield'),
-      t('table.q1Yield'), t('table.q2Yield'), t('table.q3Yield'), t('table.status'),
-    ]
-    const rows = summary.wafers.map((w) => [
-      w.waferId, w.dieCount, `${w.bin1Yield.toFixed(2)}%`,
-      formatYield(w.q1Yield), formatYield(w.q2Yield),
-      formatYield(w.q3Yield), w.status,
-    ])
-    downloadCsv(`review_${summary.lotId}.csv`, [headers, ...rows])
+    if (!matrix) return
+    const headers = [t('table.waferId'), t('table.bin1Yield')]
+    matrix.params.forEach((p) => headers.push(`${p} Q1`, `${p} Q2`, `${p} Q3`))
+    const rows = matrix.wafers.map((w) => {
+      const row: (string | number)[] = [w.waferId, `${w.bin1Yield.toFixed(2)}%`]
+      w.cells.forEach((c) => row.push(formatYield(c.q1), formatYield(c.q2), formatYield(c.q3)))
+      return row
+    })
+    downloadCsv(`review_${summary?.lotId ?? 'lot'}.csv`, [headers, ...rows])
   }
 
   const handleExportPdf = () => {
-    if (!summary) return
-    const headers = [
-      t('table.waferId'), t('table.dieCount'), t('table.bin1Yield'),
-      t('table.q1Yield'), t('table.q2Yield'), t('table.q3Yield'), t('table.status'),
-    ]
-    const rows = summary.wafers.map((w) => `
-      <tr>
-        <td>${w.waferId}</td><td>${w.dieCount}</td>
-        <td>${w.bin1Yield.toFixed(2)}%</td><td>${formatYield(w.q1Yield)}</td>
-        <td>${formatYield(w.q2Yield)}</td><td>${formatYield(w.q3Yield)}</td>
-        <td><span class="badge badge-${w.status === 'PASS' ? 'pass' : w.status === 'WARN' ? 'warn' : 'fail'}">${w.status}</span></td>
-      </tr>`).join('')
+    if (!matrix) return
+    const topHeader = matrix.params
+      .map((p) => `<th colspan="3">${p}</th>`)
+      .join('')
+    const subHeader = matrix.params.map(() => `<th>Q1</th><th>Q2</th><th>Q3</th>`).join('')
+    const body = matrix.wafers.map((w) => {
+      const cells = w.cells
+        .map((c) => `<td>${formatYield(c.q1)}</td><td>${formatYield(c.q2)}</td><td>${formatYield(c.q3)}</td>`)
+        .join('')
+      return `<tr><td>${w.waferId}</td><td>${w.bin1Yield.toFixed(2)}%</td>${cells}</tr>`
+    }).join('')
     const html = `<table>
-      <thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
-      <tbody>${rows}</tbody>
+      <thead>
+        <tr><th rowspan="2">${t('table.waferId')}</th><th rowspan="2">${t('table.bin1Yield')}</th>${topHeader}</tr>
+        <tr>${subHeader}</tr>
+      </thead>
+      <tbody>${body}</tbody>
     </table>`
-    printToPdf(`${t('title')} - ${summary.lotId}`, html)
+    printToPdf(`${t('title')} - ${summary?.lotId ?? ''}`, html)
   }
 
   return (
@@ -161,7 +176,7 @@ export default function ReviewPage() {
             <button
               type="button"
               onClick={handleExportCsv}
-              disabled={!summary}
+              disabled={!hasMatrix}
               className="border border-border-light bg-bg-card px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-text-secondary hover:bg-bg-page disabled:opacity-40"
             >
               {t('exportCsv')}
@@ -169,7 +184,7 @@ export default function ReviewPage() {
             <button
               type="button"
               onClick={handleExportPdf}
-              disabled={!summary}
+              disabled={!hasMatrix}
               className="flex items-center gap-1.5 border border-border-light bg-bg-card px-5 py-2.5 font-heading text-[11px] font-bold uppercase tracking-[1px] text-text-secondary hover:bg-bg-page disabled:opacity-40"
             >
               <FileText size={14} />
@@ -252,7 +267,8 @@ export default function ReviewPage() {
             </div>
           </div>
 
-          {/* Review Table */}
+          {/* Overview Table — per-wafer BIN1 + status only. Per-item Q yields
+              live in the matrix below (no misleading combined yield here). */}
           <div className="mt-5 bg-bg-card p-6">
             <h3 className="mb-4 font-heading font-bold">{t('table.title')}</h3>
             <table className="w-full">
@@ -261,9 +277,6 @@ export default function ReviewPage() {
                   <th className="pb-3 text-left text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('table.waferId')}</th>
                   <th className="pb-3 text-left text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('table.dieCount')}</th>
                   <th className="pb-3 text-left text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('table.bin1Yield')}</th>
-                  <th className="pb-3 text-left text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('table.q1Yield')}</th>
-                  <th className="pb-3 text-left text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('table.q2Yield')}</th>
-                  <th className="pb-3 text-left text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('table.q3Yield')}</th>
                   <th className="pb-3 text-left text-[11px] font-bold uppercase tracking-[0.5px] text-text-tertiary">{t('table.status')}</th>
                   <th className="pb-3 w-8"></th>
                 </tr>
@@ -278,9 +291,6 @@ export default function ReviewPage() {
                     <td className="py-2.5 text-[13px] font-semibold text-text-primary">{wafer.waferId}</td>
                     <td className="py-2.5 text-[13px] text-text-primary">{wafer.dieCount}</td>
                     <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.bin1Yield)}`}>{wafer.bin1Yield.toFixed(2)}%</td>
-                    <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.q1Yield)}`}>{formatYield(wafer.q1Yield)}</td>
-                    <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.q2Yield)}`}>{formatYield(wafer.q2Yield)}</td>
-                    <td className={`py-2.5 text-[13px] font-semibold ${yieldColor(wafer.q3Yield)}`}>{formatYield(wafer.q3Yield)}</td>
                     <td className="py-2.5"><StatusBadge status={wafer.status as WaferStatus} /></td>
                     <td className="py-2.5 text-text-muted"><ChevronRight size={16} /></td>
                   </tr>
@@ -288,6 +298,53 @@ export default function ReviewPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Per-Electrical-Item Yield Matrix — one row per wafer, Q1/Q2/Q3 per
+              parameter. Mirrors the original CP-review spreadsheet: a drifting
+              item shows in its own cell instead of collapsing to a combined %. */}
+          {hasMatrix && (
+            <div className="mt-5 bg-bg-card p-6">
+              <h3 className="mb-1 font-heading font-bold">{t('matrix.title')}</h3>
+              <p className="mb-4 text-[12px] text-text-muted">{t('matrix.hint')}</p>
+              <div className="overflow-x-auto">
+                <table className="border-collapse text-[12px]">
+                  <thead>
+                    <tr>
+                      <th rowSpan={2} className="sticky left-0 z-10 bg-bg-card border-b border-border-light px-3 py-2 text-left font-bold text-text-tertiary">{t('table.waferId')}</th>
+                      <th rowSpan={2} className="border-b border-border-light px-3 py-2 text-right font-bold text-text-tertiary whitespace-nowrap">{t('table.bin1Yield')}</th>
+                      {matrix!.params.map((p) => (
+                        <th key={p} colSpan={3} className="border-b border-l border-border-light px-3 py-1.5 text-center font-bold text-text-secondary whitespace-nowrap">{p}</th>
+                      ))}
+                    </tr>
+                    <tr>
+                      {matrix!.params.map((p) => (
+                        <Fragment key={p}>
+                          <th className="border-b border-l border-border-light px-2 py-1 text-right font-medium text-text-muted">Q1</th>
+                          <th className="border-b border-border-light px-2 py-1 text-right font-medium text-text-muted">Q2</th>
+                          <th className="border-b border-border-light px-2 py-1 text-right font-medium text-text-muted">Q3</th>
+                        </Fragment>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matrix!.wafers.map((w) => (
+                      <tr key={w.waferId} className="border-t border-border-light hover:bg-bg-page">
+                        <td className="sticky left-0 z-10 bg-bg-card px-3 py-1.5 font-semibold text-text-primary">{w.waferId}</td>
+                        <td className={`px-3 py-1.5 text-right font-semibold ${yieldColor(w.bin1Yield)}`}>{w.bin1Yield.toFixed(2)}%</td>
+                        {w.cells.map((c, i) => (
+                          <Fragment key={matrix!.params[i]}>
+                            <td className={`border-l border-border-light px-2 py-1.5 text-right ${matrixCellClass(c.q1)}`}>{formatYield(c.q1)}</td>
+                            <td className={`px-2 py-1.5 text-right ${matrixCellClass(c.q2)}`}>{formatYield(c.q2)}</td>
+                            <td className={`px-2 py-1.5 text-right ${matrixCellClass(c.q3)}`}>{formatYield(c.q3)}</td>
+                          </Fragment>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div className="mt-10 text-center text-text-muted">

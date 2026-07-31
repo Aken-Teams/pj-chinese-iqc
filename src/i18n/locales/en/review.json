@@ -25,6 +25,10 @@
     "status": "Status",
     "viewDetail": "View Detail"
   },
+  "matrix": {
+    "title": "Per-Item Yield",
+    "hint": "Q1/Q2/Q3 yield for each wafer × electrical item; scroll horizontally. Red marks a low-yield item, so a drifting parameter is pinpointed."
+  },
   "selectLot": "-- Select a lot --",
   "selectLotPrompt": "Select a lot to view review results, or upload data first.",
   "running": "Running...",
