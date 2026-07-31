@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user, can_see_all_domains, scope_products_by_domain
+from app.models.user import User
 from app.models.lot import Lot
 from app.models.product import Product
 from app.models.review import ReviewRule
@@ -49,11 +50,13 @@ _IMPORT_ERR = {
 @router.get("", response_model=list[ReviewRuleResponse])
 def list_rules(
     product_id: int | None = Query(None),
+    site: str = "",
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    """List review rules.
+    """List review rules (scoped to the caller's site via the owning product).
 
-    - With `product_id`: returns rules for that product (legacy behaviour).
+    - With `product_id`: returns rules for that product.
     - Without: returns ALL rules joined with product/vendor info, ordered by
       vendor → product → param. Used by the master rules view.
     """
@@ -62,6 +65,9 @@ def list_rules(
         .join(Product, ReviewRule.product_id == Product.id)
         .outerjoin(Vendor, Product.vendor_id == Vendor.id)
     )
+    q = scope_products_by_domain(q, user)  # site user -> own site's rules
+    if site and can_see_all_domains(user):  # admin narrowing to one site
+        q = q.filter(Product.domain == site)
     if product_id is not None:
         q = q.filter(ReviewRule.product_id == product_id)
     q = q.order_by(Vendor.code, Product.product_code, ReviewRule.param_name)
@@ -80,6 +86,7 @@ def list_rules(
             q3_upper=rule.q3_upper,
             product_code=product.product_code if product else None,
             vendor_code=vendor.code if vendor else None,
+            domain=product.domain if product else None,
         ))
     return out
 
@@ -215,6 +222,7 @@ def import_confirm(
     req: RulesImportConfirmRequest,
     lang: str = Query("zh-TW"),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     if not req.rules:
         raise HTTPException(400, _err(lang, "no_rules_confirm"))
@@ -244,9 +252,14 @@ def import_confirm(
                 if not vendor_id:
                     skipped += 1
                     continue
+                # Look up / create within the importer's own site so a rules
+                # import never attaches to another site's product.
                 existing_product = (
                     db.query(Product)
-                    .filter(Product.product_code == item.product_code)
+                    .filter(
+                        Product.product_code == item.product_code,
+                        Product.domain == user.domain,
+                    )
                     .first()
                 )
                 if existing_product:
@@ -255,6 +268,7 @@ def import_confirm(
                     new_product = Product(
                         product_code=item.product_code,
                         vendor_id=vendor_id,
+                        domain=user.domain,
                     )
                     db.add(new_product)
                     db.flush()

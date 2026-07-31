@@ -13,6 +13,8 @@ export interface ReviewRule {
   // Enriched fields populated when listing across products
   product_code?: string | null
   vendor_code?: string | null
+  /** AD site (廠區) of the owning product; null for legacy/unassigned. */
+  domain?: string | null
 }
 
 export async function getRules(productId?: number): Promise<ReviewRule[]> {

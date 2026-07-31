@@ -12,6 +12,8 @@ import {
   type Vendor,
   type VendorFormat,
 } from '@/services/vendors'
+import { useAuthStore } from '@/store/authStore'
+import { SITE_LABELS, siteLabel } from '@/config/sites'
 
 const DEFAULT_FORMAT: Omit<VendorFormat, 'id'> = {
   format_name: '',
@@ -369,6 +371,15 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
         {expanded ? <ChevronDown size={17} className="text-text-muted" /> : <ChevronRight size={17} className="text-text-muted" />}
         <span className="font-heading text-sm font-bold uppercase tracking-[1px] text-accent">{vendor.code}</span>
         <span className="text-base text-text-primary">{vendor.name}</span>
+        {vendor.domains && vendor.domains.length > 0 && (
+          <span className="flex items-center gap-1">
+            {vendor.domains.map((d) => (
+              <span key={d} className="px-1.5 py-0.5 bg-bg-page text-text-secondary text-[10px] font-semibold rounded">
+                {siteLabel(d)}
+              </span>
+            ))}
+          </span>
+        )}
       </button>
 
       {expanded && (
@@ -422,15 +433,17 @@ function VendorCard({ vendor }: { vendor: Vendor }) {
 
 export default function VendorsPage() {
   const { t } = useTranslation('settings')
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [vendors, setVendors] = useState<Vendor[]>([])
+  const [filterSite, setFilterSite] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [newCode, setNewCode] = useState('')
   const [newName, setNewName] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    getVendors().then(setVendors)
-  }, [])
+    getVendors(filterSite).then(setVendors)
+  }, [filterSite])
 
   async function addVendor() {
     if (!newCode.trim() || !newName.trim()) return
@@ -450,12 +463,26 @@ export default function VendorsPage() {
     <div className="p-9 pl-11 flex flex-col gap-5">
       <div className="flex items-center justify-between">
         <PageHeader title={t('vendors.title')} subtitle={t('vendors.desc')} />
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 cursor-pointer"
-        >
-          <Plus size={16} /> {t('vendors.addVendor')}
-        </button>
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <select
+              className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
+              value={filterSite}
+              onChange={(e) => setFilterSite(e.target.value)}
+            >
+              <option value="">{t('scores.allSites')}</option>
+              {Object.keys(SITE_LABELS).map((code) => (
+                <option key={code} value={code}>{siteLabel(code)}</option>
+              ))}
+            </select>
+          )}
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 cursor-pointer"
+          >
+            <Plus size={16} /> {t('vendors.addVendor')}
+          </button>
+        </div>
       </div>
 
       {showAddForm && (

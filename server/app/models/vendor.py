@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -14,6 +14,25 @@ class Vendor(Base):
 
     formats = relationship("VendorFormat", back_populates="vendor")
     products = relationship("Product", back_populates="vendor")
+    site_links = relationship("VendorDomain", cascade="all, delete-orphan", back_populates="vendor")
+
+
+class VendorDomain(Base):
+    """Which AD sites (廠區) a vendor is visible to. A vendor is a shared
+    supplier (unique code) that can serve multiple sites — e.g. JJW serves both
+    徐州 and 無錫 — so this is a many-to-many. A vendor with NO rows is
+    unassigned and visible to everyone (backward-compatible default)."""
+    __tablename__ = "vendor_domains"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
+    domain = Column(String(20), nullable=False, index=True)
+
+    vendor = relationship("Vendor", back_populates="site_links")
+
+    __table_args__ = (
+        UniqueConstraint("vendor_id", "domain", name="uq_vendor_domain"),
+    )
 
 
 class VendorFormat(Base):

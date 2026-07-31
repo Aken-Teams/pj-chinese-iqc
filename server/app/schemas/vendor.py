@@ -10,6 +10,8 @@ class VendorResponse(BaseModel):
     id: int
     name: str
     code: str
+    # AD sites (廠區) this vendor is visible to; empty = unassigned (all sites).
+    domains: list[str] = []
 
     class Config:
         from_attributes = True
@@ -79,3 +81,5 @@ class ProductResponse(BaseModel):
     vendor_id: int
     vendor_code: str
     vendor_name: str
+    # AD site (廠區) the product belongs to; null for legacy/unassigned.
+    domain: str | None = None

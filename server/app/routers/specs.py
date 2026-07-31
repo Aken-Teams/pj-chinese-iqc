@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user, assert_lot_visible, scope_products_by_domain, can_see_all_domains
+from app.models.user import User
 from app.models.lot import Lot
 from app.models.product import Product
 from app.models.spec import CpSpec, PackagingSpec, SpecComparison
@@ -15,10 +16,12 @@ router = APIRouter(prefix="/api/specs", tags=["specs"])
 
 
 @router.post("/compare", response_model=SpecCompareResponse)
-def compare_specs(req: SpecCompareRequest, db: Session = Depends(get_db)):
+def compare_specs(req: SpecCompareRequest, db: Session = Depends(get_db),
+                  user: User = Depends(get_current_user)):
     lot = db.query(Lot).filter(Lot.id == req.lot_id).first()
     if not lot:
         raise HTTPException(404, "Lot not found")
+    assert_lot_visible(lot, user)
 
     cp_specs = db.query(CpSpec).filter(CpSpec.lot_id == lot.id).all()
     pkg_specs = db.query(PackagingSpec).filter(PackagingSpec.product_id == lot.product_id).all()
@@ -82,11 +85,13 @@ def compare_specs(req: SpecCompareRequest, db: Session = Depends(get_db)):
 @router.get("/packaging", response_model=list[PackagingSpecResponse])
 def list_packaging_specs(
     product_id: int | None = Query(None),
+    site: str = "",
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    """List packaging specs.
+    """List packaging specs (scoped to the caller's site via the owning product).
 
-    - With `product_id`: returns specs for that product (legacy behaviour).
+    - With `product_id`: returns specs for that product.
     - Without: returns ALL packaging specs joined with product/vendor info,
       ordered by vendor → product → param. Used by the master specs view.
     """
@@ -95,6 +100,9 @@ def list_packaging_specs(
         .join(Product, PackagingSpec.product_id == Product.id)
         .outerjoin(Vendor, Product.vendor_id == Vendor.id)
     )
+    q = scope_products_by_domain(q, user)  # site user -> own site's specs
+    if site and can_see_all_domains(user):  # admin narrowing to one site
+        q = q.filter(Product.domain == site)
     if product_id is not None:
         q = q.filter(PackagingSpec.product_id == product_id)
     q = q.order_by(Vendor.code, Product.product_code, PackagingSpec.param_name)

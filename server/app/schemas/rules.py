@@ -41,6 +41,8 @@ class ReviewRuleResponse(BaseModel):
     # Enriched fields (populated when listing across products)
     product_code: str | None = None
     vendor_code: str | None = None
+    # AD site (廠區) of the owning product; null for legacy/unassigned.
+    domain: str | None = None
 
     class Config:
         from_attributes = True

@@ -11,6 +11,8 @@ import {
   importRulesPreview, confirmRulesImport,
   type ReviewRule, type RulesImportPreview, type RulePreviewRow,
 } from '@/services/rules'
+import { useAuthStore } from '@/store/authStore'
+import { SITE_LABELS, siteLabel } from '@/config/sites'
 
 const LIMIT_KEYS: { key: keyof ReviewRule; labelKey: string }[] = [
   { key: 'q1_lower', labelKey: 'q1Lower' },
@@ -409,6 +411,7 @@ interface RuleGroup {
   productId: number
   productCode: string
   vendorCode: string | null
+  domain?: string | null
   rules: ReviewRule[]
 }
 
@@ -447,6 +450,11 @@ function RuleGroupCard({
         {group.vendorCode && (
           <span className="px-2 py-0.5 bg-accent/10 text-accent text-xs font-semibold rounded shrink-0">
             {group.vendorCode}
+          </span>
+        )}
+        {group.domain && (
+          <span className="px-2 py-0.5 bg-bg-page text-text-secondary text-[11px] font-semibold rounded shrink-0">
+            {siteLabel(group.domain)}
           </span>
         )}
         <span className="font-mono text-sm font-semibold text-text-primary">{group.productCode}</span>
@@ -800,9 +808,11 @@ const PAGE_SIZE = 10
 
 export default function RulesPage() {
   const { t } = useTranslation('settings')
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [rules, setRules] = useState<ReviewRule[]>([])
   const [, setProducts] = useState<Product[]>([])
   const [filterVendor, setFilterVendor] = useState('')
+  const [filterSite, setFilterSite] = useState('')
   const [filterProduct, setFilterProduct] = useState('')
   const [filterParam, setFilterParam] = useState('')
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
@@ -832,6 +842,7 @@ export default function RulesPage() {
           productId: r.product_id,
           productCode: r.product_code ?? `#${r.product_id}`,
           vendorCode: r.vendor_code ?? null,
+          domain: r.domain ?? null,
           rules: [],
         }
         map.set(r.product_id, g)
@@ -845,6 +856,7 @@ export default function RulesPage() {
       return a.productCode.localeCompare(b.productCode)
     })
     if (filterVendor) arr = arr.filter((g) => g.vendorCode === filterVendor)
+    if (filterSite) arr = arr.filter((g) => (g.domain ?? '') === filterSite)
     if (filterProduct) {
       const q = filterProduct.toLowerCase()
       arr = arr.filter((g) => g.productCode.toLowerCase().includes(q))
@@ -856,7 +868,7 @@ export default function RulesPage() {
         .filter((g) => g.rules.length > 0)
     }
     return arr
-  }, [rules, filterVendor, filterProduct, filterParam])
+  }, [rules, filterVendor, filterSite, filterProduct, filterParam])
 
   const totalRulesShown = useMemo(
     () => groups.reduce((s, g) => s + g.rules.length, 0),
@@ -870,7 +882,7 @@ export default function RulesPage() {
   // Reset to first page whenever filters change
   useEffect(() => {
     setPage(1)
-  }, [filterVendor, filterProduct, filterParam])
+  }, [filterVendor, filterSite, filterProduct, filterParam])
 
   const vendorOptions = useMemo(() => {
     const set = new Set<string>()
@@ -985,6 +997,23 @@ export default function RulesPage() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-4 bg-bg-card border border-border-light px-4 py-3">
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-text-muted uppercase tracking-[1px]">
+              {t('scores.site')}
+            </label>
+            <select
+              value={filterSite}
+              onChange={(e) => setFilterSite(e.target.value)}
+              className="bg-bg-card border border-border-light px-2 py-1 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
+            >
+              <option value="">{t('scores.allSites')}</option>
+              {Object.keys(SITE_LABELS).map((code) => (
+                <option key={code} value={code}>{siteLabel(code)}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <label className="text-xs font-semibold text-text-muted uppercase tracking-[1px]">
             {t('rules.filterVendor')}

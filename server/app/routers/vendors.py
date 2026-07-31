@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, get_current_user, can_see_all_domains
+from app.dependencies import get_db, get_current_user, can_see_all_domains, scope_products_by_domain
 from app.models.user import User
-from app.models.vendor import Vendor, VendorFormat
+from app.models.vendor import Vendor, VendorFormat, VendorDomain
 from app.models.product import Product
 from app.models.lot import Lot
 from app.models.wafer import Wafer
@@ -23,30 +23,59 @@ router = APIRouter(prefix="/api/vendors", tags=["vendors"])
 
 
 @router.get("", response_model=list[VendorResponse])
-def list_vendors(db: Session = Depends(get_db)):
-    return db.query(Vendor).order_by(Vendor.code).all()
+def list_vendors(site: str = "", db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
+    """List vendors visible to the caller's site. A vendor with NO site links is
+    unassigned and visible to everyone; otherwise a site user sees only vendors
+    linked to their domain. Admin sees all (optionally narrowed by `site`)."""
+    from collections import defaultdict
+    dmap: dict[int, list[str]] = defaultdict(list)
+    for vd in db.query(VendorDomain).all():
+        dmap[vd.vendor_id].append(vd.domain)
+
+    admin = can_see_all_domains(user)
+    out = []
+    for v in db.query(Vendor).order_by(Vendor.code).all():
+        vdomains = sorted(dmap.get(v.id, []))
+        if not admin and user is not None:
+            visible = (not vdomains) or (user.domain in vdomains)
+            if not visible:
+                continue
+        elif admin and site:  # admin narrowing to one site
+            if site not in vdomains:
+                continue
+        out.append(VendorResponse(id=v.id, name=v.name, code=v.code, domains=vdomains))
+    return out
 
 
 @router.post("", response_model=VendorResponse)
-def create_vendor(req: VendorCreate, db: Session = Depends(get_db)):
+def create_vendor(req: VendorCreate, db: Session = Depends(get_db),
+                  user: User = Depends(get_current_user)):
     existing = db.query(Vendor).filter(Vendor.code == req.code.upper()).first()
     if existing:
         raise HTTPException(400, f"Vendor code {req.code} already exists")
     vendor = Vendor(code=req.code.upper(), name=req.name)
     db.add(vendor)
+    db.flush()
+    # A site user's new vendor belongs to their site; an admin creates an
+    # unassigned vendor (visible to all until scoped).
+    domains: list[str] = []
+    if not can_see_all_domains(user) and user.domain:
+        db.add(VendorDomain(vendor_id=vendor.id, domain=user.domain))
+        domains = [user.domain]
     db.commit()
     db.refresh(vendor)
-    return vendor
+    return VendorResponse(id=vendor.id, name=vendor.name, code=vendor.code, domains=domains)
 
 
 @router.get("/products", response_model=list[ProductResponse])
-def list_products(db: Session = Depends(get_db)):
-    products = (
-        db.query(Product)
-        .join(Vendor, Product.vendor_id == Vendor.id)
-        .order_by(Product.product_code)
-        .all()
-    )
+def list_products(site: str = "", db: Session = Depends(get_db),
+                  user: User = Depends(get_current_user)):
+    q = db.query(Product).join(Vendor, Product.vendor_id == Vendor.id)
+    q = scope_products_by_domain(q, user)  # site user -> own; admin -> all
+    if site and can_see_all_domains(user):  # admin narrowing to one site
+        q = q.filter(Product.domain == site)
+    products = q.order_by(Product.product_code).all()
     return [
         ProductResponse(
             id=p.id,
@@ -54,6 +83,7 @@ def list_products(db: Session = Depends(get_db)):
             vendor_id=p.vendor_id,
             vendor_code=p.vendor.code if p.vendor else "",
             vendor_name=p.vendor.name if p.vendor else "",
+            domain=p.domain,
         )
         for p in products
     ]

@@ -204,9 +204,13 @@ def _persist_result(result, db: Session, err: dict | None = None, domain: str | 
     if not product_code:
         product_code = f"{result.vendor_code}_default"
 
-    # product_code is globally unique — look up by code alone to match the
-    # rules-import auto-create behaviour and avoid UNIQUE violations.
-    product = db.query(Product).filter(Product.product_code == product_code).first()
+    # product_code is unique PER SITE — look it up within the uploader's own
+    # domain so 無錫's upload uses 無錫's product/specs, never 徐州's.
+    product = (
+        db.query(Product)
+        .filter(Product.product_code == product_code, Product.domain == domain)
+        .first()
+    )
     if product:
         if product.vendor_id is None:
             # Orphaned product (rules-imported without a vendor) → claim it.
@@ -226,7 +230,7 @@ def _persist_result(result, db: Session, err: dict | None = None, domain: str | 
                 ),
             )
     else:
-        product = Product(product_code=product_code, vendor_id=vendor.id)
+        product = Product(product_code=product_code, vendor_id=vendor.id, domain=domain)
         db.add(product)
         db.flush()
 

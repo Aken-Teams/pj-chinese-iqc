@@ -4,6 +4,8 @@ export interface Vendor {
   id: number
   name: string
   code: string
+  /** AD sites (廠區) this vendor serves; empty = unassigned (all sites). */
+  domains?: string[]
 }
 
 export interface VendorFormat {
@@ -31,6 +33,8 @@ export interface Product {
   vendor_id: number
   vendor_code: string
   vendor_name: string
+  /** AD site (廠區) the product belongs to; null for legacy/unassigned. */
+  domain?: string | null
 }
 
 export interface LotInfo {
@@ -40,8 +44,9 @@ export interface LotInfo {
   status: string
 }
 
-export async function getVendors(): Promise<Vendor[]> {
-  return apiFetch('/vendors')
+export async function getVendors(site?: string): Promise<Vendor[]> {
+  const qs = site ? `?site=${encodeURIComponent(site)}` : ''
+  return apiFetch(`/vendors${qs}`)
 }
 
 export async function createVendor(data: { code: string; name: string }): Promise<Vendor> {

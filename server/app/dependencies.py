@@ -65,6 +65,16 @@ def scope_lots_by_domain(query, user: Optional[User]):
     return query.filter(Lot.domain == user.domain)
 
 
+def scope_products_by_domain(query, user: Optional[User]):
+    """Restrict a query selecting/joining `Product` to the user's site. Admins
+    (and an unidentified caller) see all sites; a site user sees only their
+    domain's products (and thus their own specs/rules, which hang off products)."""
+    from app.models.product import Product
+    if can_see_all_domains(user) or user is None:
+        return query
+    return query.filter(Product.domain == user.domain)
+
+
 def assert_lot_visible(lot, user: Optional[User]) -> None:
     """Raise 404 (not 403, to avoid leaking existence) when a site user asks for
     a lot outside their domain."""
