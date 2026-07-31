@@ -23,6 +23,7 @@
   "table": {
     "title": "Review History",
     "date": "Date",
+    "site": "Site",
     "vendor": "Vendor",
     "product": "Product",
     "lotId": "Lot ID",

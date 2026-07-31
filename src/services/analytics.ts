@@ -56,8 +56,9 @@ export async function getParamNames(lotId: number): Promise<string[]> {
   return apiFetch(`/analytics/params/${lotId}`)
 }
 
-export async function getSpc(productId: number, paramName: string): Promise<SpcResponse> {
-  return apiFetch(`/analytics/spc/${productId}/${encodeURIComponent(paramName)}`)
+export async function getSpc(productId: number, paramName: string, site?: string): Promise<SpcResponse> {
+  const qs = site ? `?site=${encodeURIComponent(site)}` : ''
+  return apiFetch(`/analytics/spc/${productId}/${encodeURIComponent(paramName)}${qs}`)
 }
 
 export async function getDistribution(lotId: number, paramName: string): Promise<DistributionResponse> {
@@ -68,8 +69,9 @@ export async function getCpk(lotId: number): Promise<CpkResult[]> {
   return apiFetch(`/analytics/cpk/${lotId}`)
 }
 
-export async function getCorrelation(productId: number): Promise<CorrelationResponse> {
-  return apiFetch(`/analytics/correlation/${productId}`)
+export async function getCorrelation(productId: number, site?: string): Promise<CorrelationResponse> {
+  const qs = site ? `?site=${encodeURIComponent(site)}` : ''
+  return apiFetch(`/analytics/correlation/${productId}${qs}`)
 }
 
 export async function getAnomalies(lotId?: number, lang?: string): Promise<AnomalyItem[]> {

@@ -116,6 +116,7 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db), user: User = Dep
         lotId=lot.lot_id,
         vendor=vendor.code if vendor else "",
         product=product.product_code if product else "",
+        domain=lot.domain,
         waferCount=len(wafers),
         avgYield=round(avg_yield, 2),
         totalDies=total_dies,

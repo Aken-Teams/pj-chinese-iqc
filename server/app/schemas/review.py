@@ -25,6 +25,8 @@ class LotReviewSummary(BaseModel):
     lotId: str
     vendor: str
     product: str
+    # AD site (廠區) the lot belongs to; null for legacy/unassigned lots.
+    domain: str | None = None
     waferCount: int
     avgYield: float
     totalDies: int

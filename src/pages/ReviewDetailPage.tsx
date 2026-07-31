@@ -6,6 +6,8 @@ import { getWaferDetail, type WaferDetail, type ElectricalParam } from '@/servic
 import { getWaferMap, getBinDistribution, type WaferMapData, type BinCount } from '@/services/waferMap'
 import { getLotResults } from '@/services/review'
 import { apiFetch } from '@/services/api'
+import { useAuthStore } from '@/store/authStore'
+import { siteLabel } from '@/config/sites'
 
 // Per-item yield: colour by level, N/A when no rule for that Q.
 function yieldCell(value: number | null): { text: string; cls: string } {
@@ -17,8 +19,10 @@ function yieldCell(value: number | null): { text: string; cls: string } {
 export default function ReviewDetailPage() {
   const { t, i18n } = useTranslation('review')
   const navigate = useNavigate()
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const { lotId, waferId } = useParams<{ lotId: string; waferId: string }>()
   const [detail, setDetail] = useState<WaferDetail | null>(null)
+  const [lotDomain, setLotDomain] = useState<string | null | undefined>(undefined)
   const [mapData, setMapData] = useState<WaferMapData | null>(null)
   const [binDist, setBinDist] = useState<BinCount[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,6 +44,7 @@ export default function ReviewDetailPage() {
     // Load wafer list for prev/next navigation, then load map data
     const loadWaferList = getLotResults(lotDbId).then(res => {
       setWaferIds(res.wafers.map(w => w.waferId))
+      setLotDomain(res.domain ?? null)
       const wafer = res.wafers.find(w => w.waferId === waferId)
       if (wafer) {
         setWaferDbId(wafer.dbId)
@@ -181,6 +186,11 @@ export default function ReviewDetailPage() {
           <h1 className="font-heading text-xl font-bold text-text-primary">
             {t('detail.title')} — {detail?.lotId || lotId} / {waferId}
           </h1>
+          {isAdmin && lotDomain !== undefined && (
+            <span className="bg-bg-page px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+              {siteLabel(lotDomain)}
+            </span>
+          )}
         </div>
         <div className="flex gap-2">
           <button

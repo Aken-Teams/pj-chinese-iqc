@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/layout/PageHeader'
 import { Sparkles, TrendingUp, TrendingDown, Loader2 } from 'lucide-react'
 import { getDashboard, type DashboardData, type TrendPeriod } from '@/services/dashboard'
+import { useAuthStore } from '@/store/authStore'
+import { SITE_LABELS, siteLabel } from '@/config/sites'
 
 const PERIODS: TrendPeriod[] = ['14d', '30d', '6m']
 
@@ -19,9 +21,13 @@ interface HoveredBar {
 export default function DashboardPage() {
   const { t, i18n } = useTranslation('dashboard')
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  const isAdmin = user?.role === 'admin'
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState<TrendPeriod>('14d')
+  // Admin can scope the whole dashboard to one site ('' = all sites).
+  const [site, setSite] = useState('')
   const [hiddenVendors, setHiddenVendors] = useState<Set<string>>(new Set())
   const [hovered, setHovered] = useState<HoveredBar | null>(null)
   const plotRef = useRef<HTMLDivElement | null>(null)
@@ -31,7 +37,7 @@ export default function DashboardPage() {
     const load = async () => {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const res = await getDashboard(i18n.language, period)
+          const res = await getDashboard(i18n.language, period, site)
           if (cancelled) return
           setData(res)
           setLoading(false)
@@ -47,7 +53,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [period, i18n.language])
+  }, [period, i18n.language, site])
 
   const toggleVendor = (name: string) => {
     setHiddenVendors(prev => {
@@ -79,7 +85,29 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 pl-8 flex flex-col gap-4">
-      <PageHeader title={t('title')} />
+      <PageHeader
+        title={t('title')}
+        actions={
+          isAdmin ? (
+            <select
+              className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
+              value={site}
+              onChange={(e) => setSite(e.target.value)}
+            >
+              <option value="">{t('allSites')}</option>
+              {Object.keys(SITE_LABELS).map((code) => (
+                <option key={code} value={code}>{siteLabel(code)}</option>
+              ))}
+            </select>
+          ) : (
+            user?.domain ? (
+              <span className="border border-border-light bg-bg-page px-3 py-2 text-sm font-semibold text-text-secondary">
+                {siteLabel(user.domain)}
+              </span>
+            ) : undefined
+          )
+        }
+      />
 
       {/* KPI Cards */}
       <div className="flex gap-3">

@@ -23,6 +23,7 @@
   "table": {
     "title": "审核历史",
     "date": "日期",
+    "site": "厂区",
     "vendor": "厂商",
     "product": "产品",
     "lotId": "批次号",

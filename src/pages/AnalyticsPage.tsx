@@ -16,6 +16,7 @@ import {
   type CorrelationResponse,
   type AnomalyItem,
 } from '@/services/analytics'
+import { useAuthStore } from '@/store/authStore'
 
 // OOC marker styles — size in px, clipPath for shape, filter for visibility over colored bands
 const OOC_STYLES: Record<string, {
@@ -224,9 +225,13 @@ function getCellColor(value: number, isDiagonal: boolean): string {
 
 export default function AnalyticsPage() {
   const { t, i18n } = useTranslation('analytics')
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [lots, setLots] = useState<HistoryRow[]>([])
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  // Site of the selected lot — SPC/correlation (product-wide aggregates) are
+  // scoped to it for admins so they reflect the site being viewed.
+  const [selectedSite, setSelectedSite] = useState<string>('')
   const [params, setParams] = useState<string[]>([])
   const [selectedParam, setSelectedParam] = useState('')
   const [loading, setLoading] = useState(true)
@@ -269,18 +274,19 @@ export default function AnalyticsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i18n.language])
 
-  const handleLotChange = async (lotId: number, productId: number) => {
+  const handleLotChange = async (lotId: number, productId: number, site: string) => {
     setSelectedLotId(lotId)
     setSelectedProductId(productId)
+    setSelectedSite(site)
     setDataLoading(true)
     try {
       const paramNames = await getParamNames(lotId)
       setParams(paramNames)
       if (paramNames.length > 0) {
         setSelectedParam(paramNames[0])
-        await loadParamData(lotId, productId, paramNames[0])
+        await loadParamData(lotId, productId, paramNames[0], site)
       }
-      const corrData = await getCorrelation(productId).catch(() => ({ params: [], matrix: [] }))
+      const corrData = await getCorrelation(productId, site).catch(() => ({ params: [], matrix: [] }))
       setCorr(corrData)
     } catch {
       // ignore
@@ -292,9 +298,9 @@ export default function AnalyticsPage() {
     loadAnomalies(lotId, i18n.language)
   }
 
-  const loadParamData = async (lotId: number, productId: number, paramName: string) => {
+  const loadParamData = async (lotId: number, productId: number, paramName: string, site: string) => {
     const [spcData, distData] = await Promise.all([
-      getSpc(productId, paramName).catch(() => null),
+      getSpc(productId, paramName, site).catch(() => null),
       getDistribution(lotId, paramName).catch(() => null),
     ])
     setSpc(spcData)
@@ -305,7 +311,7 @@ export default function AnalyticsPage() {
     setSelectedParam(paramName)
     if (selectedLotId && selectedProductId) {
       setDataLoading(true)
-      await loadParamData(selectedLotId, selectedProductId, paramName)
+      await loadParamData(selectedLotId, selectedProductId, paramName, selectedSite)
       setDataLoading(false)
     }
   }
@@ -322,7 +328,8 @@ export default function AnalyticsPage() {
               lots={lots}
               selectedLotId={selectedLotId}
               placeholder={t('selectLot')}
-              onSelect={(lot) => handleLotChange(lot.id, lot.productId)}
+              onSelect={(lot) => handleLotChange(lot.id, lot.productId, lot.domain ?? '')}
+              showSite={isAdmin}
               className="w-[280px]"
               align="right"
             />

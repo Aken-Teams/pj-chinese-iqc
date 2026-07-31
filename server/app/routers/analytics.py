@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, get_current_user, assert_lot_visible, scope_lots_by_domain
+from app.dependencies import get_db, get_current_user, assert_lot_visible, scope_lots_by_domain, can_see_all_domains
 from app.models.user import User
 from app.models.wafer import Wafer
 from app.models.lot import Lot
@@ -43,9 +43,12 @@ def get_param_names(lot_id: int, db: Session = Depends(get_db), user: User = Dep
 
 
 @router.get("/spc/{product_id}/{param_name}", response_model=SpcResponse)
-def get_spc_chart(product_id: int, param_name: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def get_spc_chart(product_id: int, param_name: str, site: str = "", db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """SPC X-bar control chart for a parameter across wafers."""
-    lot_ids = [l.id for l in scope_lots_by_domain(db.query(Lot.id).filter(Lot.product_id == product_id), user).all()]
+    lot_q = scope_lots_by_domain(db.query(Lot.id).filter(Lot.product_id == product_id), user)
+    if site and can_see_all_domains(user):  # admin narrowing to one site
+        lot_q = lot_q.filter(Lot.domain == site)
+    lot_ids = [l.id for l in lot_q.all()]
     if not lot_ids:
         return SpcResponse(param=param_name, dataPoints=[], grandMean=0, ucl=0, lcl=0, sigma2Upper=0, sigma2Lower=0)
 
@@ -238,11 +241,14 @@ def get_distribution(lot_id: int, param_name: str, db: Session = Depends(get_db)
 
 
 @router.get("/correlation/{product_id}", response_model=CorrelationResponse)
-def get_correlation(product_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def get_correlation(product_id: int, site: str = "", db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Parameter correlation matrix."""
     import numpy as np
 
-    lot_ids = [l.id for l in scope_lots_by_domain(db.query(Lot.id).filter(Lot.product_id == product_id), user).all()]
+    lot_q = scope_lots_by_domain(db.query(Lot.id).filter(Lot.product_id == product_id), user)
+    if site and can_see_all_domains(user):  # admin narrowing to one site
+        lot_q = lot_q.filter(Lot.domain == site)
+    lot_ids = [l.id for l in lot_q.all()]
     if not lot_ids:
         return CorrelationResponse(params=[], matrix=[])
 

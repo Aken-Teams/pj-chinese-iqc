@@ -7,6 +7,8 @@ import { getHistory, type HistoryRow, type HistoryResponse } from '@/services/hi
 import { getVendors } from '@/services/vendors'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
+import { useAuthStore } from '@/store/authStore'
+import { siteLabel } from '@/config/sites'
 
 // SVG line chart for yield trend with hover tooltip
 function YieldTrendChart({ items }: { items: HistoryRow[] }) {
@@ -98,6 +100,7 @@ function YieldTrendChart({ items }: { items: HistoryRow[] }) {
 
 export default function HistoryPage() {
   const { t } = useTranslation('history')
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [data, setData] = useState<HistoryResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [vendor, setVendor] = useState('')
@@ -147,21 +150,23 @@ export default function HistoryPage() {
 
   const handleExportCsv = () => {
     const headers = [
-      t('table.date'), t('table.vendor'), t('table.product'),
+      t('table.date'), ...(isAdmin ? [t('table.site')] : []), t('table.vendor'), t('table.product'),
       t('table.lotId'), t('table.wafers'), t('table.avgYield'), t('table.status'),
     ]
-    const rows = items.map((r) => [r.date, r.vendor, r.product, r.lotId, r.wafers, r.avgYield, r.status])
+    const rows = items.map((r) => [
+      r.date, ...(isAdmin ? [siteLabel(r.domain)] : []), r.vendor, r.product, r.lotId, r.wafers, r.avgYield, r.status,
+    ])
     downloadCsv('history.csv', [headers, ...rows])
   }
 
   const handleExportPdf = () => {
     const headers = [
-      t('table.date'), t('table.vendor'), t('table.product'),
+      t('table.date'), ...(isAdmin ? [t('table.site')] : []), t('table.vendor'), t('table.product'),
       t('table.lotId'), t('table.wafers'), t('table.avgYield'), t('table.status'),
     ]
     const rows = items.map((r) => `
       <tr>
-        <td>${r.date}</td><td>${r.vendor}</td><td>${r.product}</td>
+        <td>${r.date}</td>${isAdmin ? `<td>${siteLabel(r.domain)}</td>` : ''}<td>${r.vendor}</td><td>${r.product}</td>
         <td>${r.lotId}</td><td>${r.wafers}</td><td>${r.avgYield}</td>
         <td><span class="badge badge-${r.status === 'PASS' ? 'pass' : r.status === 'WARN' ? 'warn' : 'fail'}">${r.status}</span></td>
       </tr>`).join('')
@@ -263,6 +268,7 @@ export default function HistoryPage() {
               <thead>
                 <tr className="border-b border-border-light">
                   <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.date')}</th>
+                  {isAdmin && <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.site')}</th>}
                   <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.vendor')}</th>
                   <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.product')}</th>
                   <th className="text-left text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase py-2.5 pr-4">{t('table.lotId')}</th>
@@ -275,6 +281,7 @@ export default function HistoryPage() {
                 {items.length > 0 ? items.map((row, i) => (
                   <tr key={row.lotId} className={i > 0 ? 'border-t border-border-light' : ''}>
                     <td className="py-3 pr-4 text-[13px] text-text-secondary">{row.date}</td>
+                    {isAdmin && <td className="py-3 pr-4 text-[13px] text-text-secondary">{siteLabel(row.domain)}</td>}
                     <td className="py-3 pr-4 text-[13px] font-semibold text-text-primary">{row.vendor}</td>
                     <td className="py-3 pr-4 text-[13px] text-text-secondary">{row.product}</td>
                     <td className="py-3 pr-4 text-[13px] text-text-secondary font-mono">{row.lotId}</td>
@@ -289,7 +296,7 @@ export default function HistoryPage() {
                     </td>
                   </tr>
                 )) : (
-                  <tr><td colSpan={7} className="py-8 text-center text-text-muted">{t('noRecords')}</td></tr>
+                  <tr><td colSpan={isAdmin ? 8 : 7} className="py-8 text-center text-text-muted">{t('noRecords')}</td></tr>
                 )}
               </tbody>
             </table>

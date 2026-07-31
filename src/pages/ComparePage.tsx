@@ -9,9 +9,11 @@ import SearchSelect from '@/components/ui/SearchSelect'
 import { compareSpecs, type SpecCompareResponse } from '@/services/specs'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
+import { useAuthStore } from '@/store/authStore'
 
 export default function ComparePage() {
   const { t } = useTranslation('compare')
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [lots, setLots] = useState<HistoryRow[]>([])
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
   const [rule, setRule] = useState('standard')
@@ -119,6 +121,7 @@ export default function ComparePage() {
               selectedLotId={selectedLotId}
               placeholder={t('selectLot')}
               onSelect={(lot) => setSelectedLotId(lot.id)}
+              showSite={isAdmin}
               className="w-full"
             />
           )}

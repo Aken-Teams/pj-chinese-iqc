@@ -18,6 +18,8 @@ export interface DashboardData {
 export async function getDashboard(
   lang: string = 'zh-TW',
   period: TrendPeriod = '14d',
+  site: string = '',
 ): Promise<DashboardData> {
-  return apiFetch(`/dashboard/summary?lang=${lang}&period=${period}`)
+  const siteQs = site ? `&site=${encodeURIComponent(site)}` : ''
+  return apiFetch(`/dashboard/summary?lang=${lang}&period=${period}${siteQs}`)
 }

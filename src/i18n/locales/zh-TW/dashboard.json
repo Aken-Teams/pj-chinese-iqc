@@ -1,6 +1,7 @@
 {
   "title": "儀表板",
   "period": "近30天",
+  "allSites": "全集團",
   "kpi": {
     "lotsReviewed": "審核批次",
     "avgYield": "平均 Bin1 良率",

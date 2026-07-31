@@ -17,6 +17,8 @@ export interface LotReviewSummary {
   lotId: string
   vendor: string
   product: string
+  /** AD site (廠區) the lot belongs to; null for legacy/unassigned lots. */
+  domain?: string | null
   waferCount: number
   avgYield: number
   totalDies: number

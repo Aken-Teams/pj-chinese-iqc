@@ -1,6 +1,7 @@
 {
   "title": "Dashboard",
   "period": "Last 30 Days",
+  "allSites": "All Sites",
   "kpi": {
     "lotsReviewed": "Lots Reviewed",
     "avgYield": "Avg Bin1 Yield",
