@@ -11,6 +11,10 @@ class WaferReviewRow(BaseModel):
     waferId: str
     dieCount: int
     bin1Yield: float
+    # Per-wafer Q yields = the WORST (min) electrical item at each Q level, not a
+    # cross-parameter average. The average mixed differing rule sets and could
+    # show a stricter Q2 higher than Q1 (徐州 bug); the worst-item value is the
+    # true bottleneck and stays monotonic (Q2 spec ⊂ Q1 ⇒ Q2 ≤ Q1 per item).
     q1Yield: float | None = None
     q2Yield: float | None = None
     q3Yield: float | None = None
@@ -36,6 +40,12 @@ class ElectricalParam(BaseModel):
     min: str
     max: str
     maxWarning: bool = False
+    # Per-electrical-item yields (%). None when no rule is defined for that Q
+    # level. Shown per-item so a drifting parameter can be pinpointed instead of
+    # hidden inside a cross-parameter combined yield.
+    q1Yield: float | None = None
+    q2Yield: float | None = None
+    q3Yield: float | None = None
 
 
 class WaferDetail(BaseModel):

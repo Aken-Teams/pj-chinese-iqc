@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ChevronRight, Loader2, FileText, AlertTriangle } from 'lucide-react'
@@ -43,6 +43,9 @@ export default function ReviewPage() {
   const location = useLocation()
   const [lots, setLots] = useState<HistoryRow[]>([])
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
+  // Held separately from `lots` so the not-reviewed banner survives even after a
+  // server-side search replaces the list with a subset that excludes it.
+  const [selectedLot, setSelectedLot] = useState<HistoryRow | null>(null)
   const [summary, setSummary] = useState<LotReviewSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [reviewing, setReviewing] = useState(false)
@@ -53,14 +56,24 @@ export default function ReviewPage() {
     getHistory({ pageSize: 50 })
       .then(res => {
         setLots(res.items)
-        if (restoredLotId && res.items.find(l => l.id === restoredLotId)) {
-          loadResults(restoredLotId)
+        const restored = restoredLotId ? res.items.find(l => l.id === restoredLotId) : undefined
+        if (restored) {
+          setSelectedLot(restored)
+          loadResults(restored.id)
         } else {
           setLoading(false)
         }
       })
       .catch(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Server-side lot search: fetch from the API as the user types so the picker
+  // reaches every lot, not just the initial page. Debounced inside the select.
+  const handleLotSearch = useCallback((query: string) => {
+    getHistory({ search: query, pageSize: 50 })
+      .then(res => setLots(res.items))
+      .catch(() => { /* keep the current list on a failed search */ })
   }, [])
 
   // Review is run manually via the "執行審核" button — selecting a lot only
@@ -87,6 +100,7 @@ export default function ReviewPage() {
     try {
       await executeReview(selectedLotId)
       setLots(prev => prev.map(l => l.id === selectedLotId ? { ...l, reviewed: true } : l))
+      setSelectedLot(prev => prev && prev.id === selectedLotId ? { ...prev, reviewed: true } : prev)
       await loadResults(selectedLotId)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Review failed')
@@ -102,7 +116,6 @@ export default function ReviewPage() {
   }
 
   const wafers = summary?.wafers || []
-  const selectedLot = lots.find(l => l.id === selectedLotId)
   const notReviewed = selectedLot?.reviewed === false
 
   const handleExportCsv = () => {
@@ -182,8 +195,10 @@ export default function ReviewPage() {
       <LotSearchSelect
         lots={lots}
         selectedLotId={selectedLotId}
+        selectedLot={selectedLot}
         placeholder={t('selectLot')}
-        onSelect={(lot) => loadResults(lot.id)}
+        onSelect={(lot) => { setSelectedLot(lot); loadResults(lot.id) }}
+        onSearch={handleLotSearch}
         notReviewedLabel={t('notReviewedBadge')}
         className="mt-7 w-[440px]"
       />

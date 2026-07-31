@@ -15,6 +15,9 @@ const STATUS_COLOR: Record<string, string> = {
 interface LotSearchSelectProps {
   lots: HistoryRow[]
   selectedLotId: number | null
+  /** Fallback for the trigger label when the selected lot isn't in `lots`
+   * (e.g. after a server-side search replaced the list with a subset). */
+  selectedLot?: HistoryRow | null
   placeholder: string
   onSelect: (lot: HistoryRow) => void
   className?: string
@@ -22,27 +25,52 @@ interface LotSearchSelectProps {
   align?: 'left' | 'right'
   /** Label shown for lots that haven't had 執行審核 run yet. */
   notReviewedLabel?: string
+  /**
+   * When provided, searching is delegated to the parent (server-side) instead
+   * of filtering the local `lots` array — so the picker can reach every lot,
+   * not just the page already loaded. Called debounced as the user types.
+   */
+  onSearch?: (query: string) => void
 }
 
 export default function LotSearchSelect({
   lots,
   selectedLotId,
+  selectedLot,
   placeholder,
   onSelect,
   className = '',
   align = 'left',
   notReviewedLabel = '未審核',
+  onSearch,
 }: LotSearchSelectProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const filtered = query
-    ? lots.filter(l => lotLabel(l).toLowerCase().includes(query.toLowerCase()))
-    : lots
+  // Keep the latest onSearch in a ref so the debounce effect can depend only on
+  // `query`/`open` and never re-fire from the parent re-rendering (which would
+  // loop: fetch → setLots → re-render → fetch …).
+  const onSearchRef = useRef(onSearch)
+  onSearchRef.current = onSearch
+
+  useEffect(() => {
+    if (!onSearchRef.current || !open) return
+    const id = setTimeout(() => onSearchRef.current?.(query), 250)
+    return () => clearTimeout(id)
+  }, [query, open])
+
+  // Server-side search: parent already returns the filtered `lots`, so don't
+  // filter again locally. Local (client) mode keeps the substring filter.
+  const filtered = onSearch
+    ? lots
+    : query
+      ? lots.filter(l => lotLabel(l).toLowerCase().includes(query.toLowerCase()))
+      : lots
 
   const selected = lots.find(l => l.id === selectedLotId)
+    ?? (selectedLot && selectedLot.id === selectedLotId ? selectedLot : undefined)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

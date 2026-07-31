@@ -32,6 +32,10 @@ export interface ElectricalParam {
   min: string
   max: string
   maxWarning: boolean
+  // Per-electrical-item yields (%). null when no rule for that Q level.
+  q1Yield: number | null
+  q2Yield: number | null
+  q3Yield: number | null
 }
 
 export interface WaferDetail {

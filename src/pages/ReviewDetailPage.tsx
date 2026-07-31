@@ -7,6 +7,13 @@ import { getWaferMap, getBinDistribution, type WaferMapData, type BinCount } fro
 import { getLotResults } from '@/services/review'
 import { apiFetch } from '@/services/api'
 
+// Per-item yield: colour by level, N/A when no rule for that Q.
+function yieldCell(value: number | null): { text: string; cls: string } {
+  if (value === null || value === undefined) return { text: 'N/A', cls: 'text-text-muted' }
+  const cls = value >= 99 ? 'text-success' : value >= 97 ? 'text-warning' : 'text-error'
+  return { text: `${value.toFixed(2)}%`, cls }
+}
+
 export default function ReviewDetailPage() {
   const { t, i18n } = useTranslation('review')
   const navigate = useNavigate()
@@ -218,7 +225,7 @@ export default function ReviewDetailPage() {
         </div>
 
         {/* Wafer Statistics */}
-        <div className="w-[380px] bg-bg-card p-5 flex flex-col gap-4">
+        <div className="w-[560px] bg-bg-card p-5 flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col">
               <span className="text-[10px] text-text-muted uppercase tracking-wider">{t('detail.totalDies')}</span>
@@ -246,24 +253,35 @@ export default function ReviewDetailPage() {
               <thead>
                 <tr className="text-[10px] text-text-muted uppercase tracking-wider">
                   <th className="text-left py-1 font-medium">{t('detail.param')}</th>
-                  <th className="text-right py-1 pl-4 font-medium">{t('detail.avg')}</th>
-                  <th className="text-right py-1 pl-4 font-medium">{t('detail.stdev')}</th>
-                  <th className="text-right py-1 pl-4 font-medium">{t('detail.min')}</th>
-                  <th className="text-right py-1 pl-4 pr-2 font-medium">{t('detail.max')}</th>
+                  <th className="text-right py-1 pl-3 font-medium">{t('detail.avg')}</th>
+                  <th className="text-right py-1 pl-3 font-medium">{t('detail.stdev')}</th>
+                  <th className="text-right py-1 pl-3 font-medium">{t('detail.min')}</th>
+                  <th className="text-right py-1 pl-3 font-medium">{t('detail.max')}</th>
+                  <th className="text-right py-1 pl-3 font-medium">{t('table.q1Yield')}</th>
+                  <th className="text-right py-1 pl-3 font-medium">{t('table.q2Yield')}</th>
+                  <th className="text-right py-1 pl-3 pr-2 font-medium">{t('table.q3Yield')}</th>
                 </tr>
               </thead>
               <tbody>
-                {params.map((row) => (
+                {params.map((row) => {
+                  const q1 = yieldCell(row.q1Yield)
+                  const q2 = yieldCell(row.q2Yield)
+                  const q3 = yieldCell(row.q3Yield)
+                  return (
                   <tr key={row.param} className="border-t border-border-light">
                     <td className="text-[12px] font-semibold text-text-primary py-1.5">{row.param}</td>
-                    <td className="text-[12px] text-text-secondary text-right py-1.5 pl-4">{row.avg}</td>
-                    <td className="text-[12px] text-text-secondary text-right py-1.5 pl-4">{row.stdev}</td>
-                    <td className="text-[12px] text-text-secondary text-right py-1.5 pl-4">{row.min}</td>
-                    <td className={`text-[12px] text-right py-1.5 pl-4 pr-2 ${row.maxWarning ? 'text-warning font-semibold' : 'text-text-secondary'}`}>
+                    <td className="text-[12px] text-text-secondary text-right py-1.5 pl-3">{row.avg}</td>
+                    <td className="text-[12px] text-text-secondary text-right py-1.5 pl-3">{row.stdev}</td>
+                    <td className="text-[12px] text-text-secondary text-right py-1.5 pl-3">{row.min}</td>
+                    <td className={`text-[12px] text-right py-1.5 pl-3 ${row.maxWarning ? 'text-warning font-semibold' : 'text-text-secondary'}`}>
                       {row.max}
                     </td>
+                    <td className={`text-[12px] text-right py-1.5 pl-3 font-semibold ${q1.cls}`}>{q1.text}</td>
+                    <td className={`text-[12px] text-right py-1.5 pl-3 font-semibold ${q2.cls}`}>{q2.text}</td>
+                    <td className={`text-[12px] text-right py-1.5 pl-3 pr-2 font-semibold ${q3.cls}`}>{q3.text}</td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

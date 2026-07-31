@@ -25,7 +25,7 @@ _ERR = {
         "xls_not_supported": "不支援舊版 .xls 格式，請用 Excel 另存為 .xlsx 後再上傳",
         "parse_failed": "檔案解析失敗：{detail}",
         "no_format_config": "廠商 {vendor} 尚未設定格式模板，請先至「廠商管理」設定後再上傳",
-        "unsupported_format": "不支援此檔案格式，請上傳 .xlsx 或 .xls 格式",
+        "unsupported_format": "不支援此檔案格式，請上傳 .xlsx、.xls 或 .csv 格式",
         "product_vendor_mismatch": "產品 {code} 已屬於廠商 {existing}，無法以 {new} 匯入。請確認廠商選擇，或先在「審核規則」刪除衝突的產品規則。",
     },
     "zh-CN": {
@@ -33,7 +33,7 @@ _ERR = {
         "xls_not_supported": "不支持旧版 .xls 格式，请用 Excel 另存为 .xlsx 后再上传",
         "parse_failed": "文件解析失败：{detail}",
         "no_format_config": "厂商 {vendor} 尚未设定格式模板，请先至「厂商管理」设定后再上传",
-        "unsupported_format": "不支持此文件格式，请上传 .xlsx 或 .xls 格式",
+        "unsupported_format": "不支持此文件格式，请上传 .xlsx、.xls 或 .csv 格式",
         "product_vendor_mismatch": "产品 {code} 已属于厂商 {existing}，无法以 {new} 导入。请确认厂商选择，或先在\"审核规则\"删除冲突的产品规则。",
     },
     "en": {
@@ -41,7 +41,7 @@ _ERR = {
         "xls_not_supported": "Old .xls format is not supported. Please save as .xlsx and try again.",
         "parse_failed": "Failed to parse file: {detail}",
         "no_format_config": "Vendor {vendor} has no format configured. Please set it up in Vendor Management first.",
-        "unsupported_format": "Unsupported file format. Please upload .xlsx or .xls files.",
+        "unsupported_format": "Unsupported file format. Please upload .xlsx, .xls or .csv files.",
         "product_vendor_mismatch": "Product {code} already belongs to vendor {existing}, cannot import as {new}. Please verify the vendor selection, or remove the conflicting product rules first.",
     },
 }
@@ -58,6 +58,50 @@ def _convert_xls_to_xlsx(xls_path: str) -> str:
     return xlsx_path
 
 
+def _coerce_cell(val: str):
+    """Turn a raw CSV string into the value openpyxl would yield for the same
+    cell in a real .xlsx: numbers become int/float, blanks become None, so the
+    DynamicParser reads a CSV exactly like an Excel file."""
+    s = (val or "").strip()
+    if s == "":
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        pass
+    try:
+        return float(s)  # handles " +1.000E+00", "+.000E+00", etc.
+    except ValueError:
+        return s
+
+
+def _convert_csv_to_xlsx(csv_path: str) -> str:
+    """Convert a CSV CP dump to a temporary .xlsx so the openpyxl-based
+    DynamicParser reads it unchanged (無錫 NO1: CSV upload support).
+
+    The raw grid is preserved cell-for-cell — no header inference — because the
+    vendor format template addresses rows/cols by absolute position.
+    """
+    import csv as _csv
+    import openpyxl
+
+    xlsx_path = csv_path + ".xlsx"
+    # CP dumps are mostly ASCII but can carry a stray non-UTF8 byte (e.g. the Ω
+    # unit symbol); tolerate it instead of failing the whole import.
+    with open(csv_path, "r", encoding="utf-8-sig", errors="replace", newline="") as f:
+        rows = list(_csv.reader(f))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    for r_idx, row in enumerate(rows, start=1):
+        for c_idx, raw in enumerate(row, start=1):
+            value = _coerce_cell(raw)
+            if value is not None:
+                ws.cell(row=r_idx, column=c_idx, value=value)
+    wb.save(xlsx_path)
+    return xlsx_path
+
+
 def _save_upload(file: UploadFile) -> str:
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     file_path = os.path.join(settings.UPLOAD_DIR, file.filename)
@@ -70,6 +114,8 @@ def _ensure_xlsx(file_path: str, original_name: str, err: dict) -> str:
     """Convert .xls → .xlsx if needed; reject other extensions. Returns the
     path that openpyxl can read."""
     name_lower = original_name.lower()
+    if name_lower.endswith(".csv"):
+        return _convert_csv_to_xlsx(file_path)
     if name_lower.endswith(".xls") and not name_lower.endswith(".xlsx"):
         return _convert_xls_to_xlsx(file_path)
     if not name_lower.endswith(".xlsx"):
@@ -315,8 +361,10 @@ def confirm_upload(
     if not os.path.exists(file_path):
         raise HTTPException(400, "File not found")
 
-    # Handle .xls conversion for confirm step
-    if file_path.lower().endswith(".xls") and not file_path.lower().endswith(".xlsx"):
+    # Handle .csv / .xls conversion for confirm step
+    if file_path.lower().endswith(".csv"):
+        file_path = _convert_csv_to_xlsx(file_path)
+    elif file_path.lower().endswith(".xls") and not file_path.lower().endswith(".xlsx"):
         file_path = _convert_xls_to_xlsx(file_path)
 
     # Use VendorFormat from DB (configured in 廠商管理)

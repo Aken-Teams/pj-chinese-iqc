@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from app.dependencies import get_db
 from app.models.lot import Lot
@@ -20,6 +20,7 @@ def list_lots(
     vendor: str = Query("", description="Vendor code filter"),
     product: str = Query("", description="Product code filter"),
     status: str = Query("", description="Status filter"),
+    search: str = Query("", description="Free-text search over lot / product / vendor"),
     from_date: Optional[str] = Query(None, description="Start date YYYY-MM-DD"),
     to_date: Optional[str] = Query(None, description="End date YYYY-MM-DD"),
     page: int = Query(1, ge=1),
@@ -34,6 +35,17 @@ def list_lots(
         query = query.filter(Product.product_code == product)
     if status:
         query = query.filter(Lot.status == status.lower())
+    if search:
+        # Free-text search so the lot picker can find any lot, not just the
+        # first page the client happened to load.
+        like = f"%{search.strip()}%"
+        query = query.filter(or_(
+            Lot.lot_id.ilike(like),
+            Lot.mark_lot_id.ilike(like),
+            Product.product_code.ilike(like),
+            Vendor.code.ilike(like),
+            Vendor.name.ilike(like),
+        ))
     if from_date:
         try:
             query = query.filter(Lot.upload_time >= datetime.strptime(from_date, "%Y-%m-%d"))

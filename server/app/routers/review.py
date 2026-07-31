@@ -58,20 +58,24 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db)):
     total_dies = 0
     yield_sum = 0.0
 
-    def avg_or_none(vals: list[float | None]) -> float | None:
+    def min_or_none(vals: list[float | None]) -> float | None:
         nums = [v for v in vals if v is not None]
-        return sum(nums) / len(nums) if nums else None
+        return min(nums) if nums else None
 
     for w in wafers:
         total_dies += w.gross_die or 0
         bin1_yield_pct = float(w.bin1_yield or 0) * 100
 
-        # Get review results for ALL params — average Q yields across params,
-        # ignoring None (no-rule) entries so zero-out does not happen.
+        # Get review results for ALL params. The per-wafer Q figure is the WORST
+        # (minimum) electrical item, not the average across params. Averaging
+        # mixed rule sets let a stricter Q2 read *higher* than Q1 (see 徐州 bug);
+        # the worst-item value is the true compliance bottleneck and stays
+        # monotonic (Q2 spec ⊂ Q1 spec ⇒ Q2 ≤ Q1 per item). Per-item yields for
+        # pinpointing the drifting parameter are exposed in get_wafer_detail.
         rr_list = db.query(ReviewResult).filter(ReviewResult.wafer_id == w.id).all()
-        q1 = avg_or_none([float(rr.q1_yield) * 100 if rr.q1_yield is not None else None for rr in rr_list])
-        q2 = avg_or_none([float(rr.q2_yield) * 100 if rr.q2_yield is not None else None for rr in rr_list])
-        q3 = avg_or_none([float(rr.q3_yield) * 100 if rr.q3_yield is not None else None for rr in rr_list])
+        q1 = min_or_none([float(rr.q1_yield) * 100 if rr.q1_yield is not None else None for rr in rr_list])
+        q2 = min_or_none([float(rr.q2_yield) * 100 if rr.q2_yield is not None else None for rr in rr_list])
+        q3 = min_or_none([float(rr.q3_yield) * 100 if rr.q3_yield is not None else None for rr in rr_list])
 
         status = "PASS"
         if bin1_yield_pct < 95:
@@ -140,6 +144,9 @@ def get_wafer_detail(lot_id: int, wafer_id: str, db: Session = Depends(get_db)):
     for r in results:
         # Check if max is near spec limit (warning)
         max_warning = False  # Could check against cp_specs
+        # Per-item yields straight from the engine's per-(wafer, param) result —
+        # no cross-parameter aggregation, so a drifting item is visible on its
+        # own row. None means "no rule for this Q level" (distinct from 0%).
         params.append(ElectricalParam(
             param=r.param_name,
             avg=f"{float(r.average or 0):.2f}",
@@ -147,6 +154,9 @@ def get_wafer_detail(lot_id: int, wafer_id: str, db: Session = Depends(get_db)):
             min=f"{float(r.min_val or 0):.2f}",
             max=f"{float(r.max_val or 0):.2f}",
             maxWarning=max_warning,
+            q1Yield=round(float(r.q1_yield) * 100, 2) if r.q1_yield is not None else None,
+            q2Yield=round(float(r.q2_yield) * 100, 2) if r.q2_yield is not None else None,
+            q3Yield=round(float(r.q3_yield) * 100, 2) if r.q3_yield is not None else None,
         ))
 
     return WaferDetail(
