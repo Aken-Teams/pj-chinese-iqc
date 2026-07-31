@@ -172,7 +172,10 @@
     "anomalyCount": "Anomalies",
     "cpkAvg": "Avg Cpk",
     "score": "Score",
-    "scoreFormula": "Score = Yield×50% + Cpk×30% + Anomaly-free×20%"
+    "scoreFormula": "Score = Yield×50% + Cpk×30% + Anomaly-free×20%",
+    "site": "Site",
+    "allSites": "All Sites",
+    "siteScopeHint": "Showing: {{scope}}"
   },
   "pagination": {
     "prev": "Prev",

@@ -172,7 +172,10 @@
     "anomalyCount": "異常數",
     "cpkAvg": "平均 Cpk",
     "score": "評分",
-    "scoreFormula": "評分 = 良率×50% + Cpk×30% + 無異常×20%"
+    "scoreFormula": "評分 = 良率×50% + Cpk×30% + 無異常×20%",
+    "site": "廠區",
+    "allSites": "全集團",
+    "siteScopeHint": "目前顯示：{{scope}} 的評分"
   },
   "pagination": {
     "prev": "上一頁",

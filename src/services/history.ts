@@ -12,6 +12,8 @@ export interface HistoryRow {
   status: string
   /** True once 執行審核 has been run for this lot. */
   reviewed: boolean
+  /** AD site (廠區) the lot belongs to; null for legacy/unassigned lots. */
+  domain?: string | null
 }
 
 export interface HistoryResponse {

@@ -8,6 +8,7 @@ import { getHistory, type HistoryRow } from '@/services/history'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
 import LotSearchSelect from '@/components/ui/LotSearchSelect'
+import { useAuthStore } from '@/store/authStore'
 
 type WaferStatus = 'PASS' | 'WARN' | 'FAIL'
 
@@ -48,6 +49,7 @@ export default function ReviewPage() {
   const { t } = useTranslation('review')
   const navigate = useNavigate()
   const location = useLocation()
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [lots, setLots] = useState<HistoryRow[]>([])
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
   // Held separately from `lots` so the not-reviewed banner survives even after a
@@ -215,6 +217,7 @@ export default function ReviewPage() {
         onSelect={(lot) => { setSelectedLot(lot); loadResults(lot.id) }}
         onSearch={handleLotSearch}
         notReviewedLabel={t('notReviewedBadge')}
+        showSite={isAdmin}
         className="mt-7 w-[440px]"
       />
 

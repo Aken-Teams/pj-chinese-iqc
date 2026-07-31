@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { RefreshCw, TrendingUp, Trophy, Award, Star } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getVendorScores, calculateVendorScores, type VendorScore } from '@/services/vendors'
+import { useAuthStore } from '@/store/authStore'
+import { SITE_LABELS, siteLabel } from '@/config/sites'
 
 function ScoreBar({ score }: { score: number | null }) {
   const pct = Math.min(100, Math.max(0, score ?? 0))
@@ -32,19 +34,23 @@ export default function VendorScoresPage() {
   })
   const [scores, setScores] = useState<VendorScore[]>([])
   const [loading, setLoading] = useState(false)
+  const user = useAuthStore((s) => s.user)
+  const isAdmin = user?.role === 'admin'
+  // Admin can switch site ('' = group-wide); a site user is locked to their own.
+  const [site, setSite] = useState('')
 
   useEffect(() => {
     setLoading(true)
-    getVendorScores(period)
+    getVendorScores(period, site)
       .then(setScores)
       .catch(() => setScores([]))
       .finally(() => setLoading(false))
-  }, [period])
+  }, [period, site])
 
   async function recalculate() {
     setLoading(true)
     try {
-      const result = await calculateVendorScores(period)
+      const result = await calculateVendorScores(period, site)
       setScores(result)
     } catch {
       setScores([])
@@ -58,6 +64,24 @@ export default function VendorScoresPage() {
       <div className="flex items-center justify-between">
         <PageHeader title={t('scores.title')} subtitle={t('scores.desc')} />
         <div className="flex items-center gap-3">
+          {isAdmin ? (
+            <select
+              className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
+              value={site}
+              onChange={(e) => setSite(e.target.value)}
+            >
+              <option value="">{t('scores.allSites')}</option>
+              {Object.keys(SITE_LABELS).map((code) => (
+                <option key={code} value={code}>{siteLabel(code)}</option>
+              ))}
+            </select>
+          ) : (
+            user?.domain && (
+              <span className="border border-border-light bg-bg-page px-3 py-2 text-sm font-semibold text-text-secondary">
+                {siteLabel(user.domain)}
+              </span>
+            )
+          )}
           <input
             type="month"
             className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
@@ -75,8 +99,15 @@ export default function VendorScoresPage() {
         </div>
       </div>
 
-      {/* Score formula hint */}
-      <p className="text-xs text-text-muted">{t('scores.scoreFormula')}</p>
+      {/* Score formula + current site scope */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <p className="text-xs text-text-muted">{t('scores.scoreFormula')}</p>
+        <p className="text-xs font-semibold text-accent">
+          {t('scores.siteScopeHint', {
+            scope: isAdmin ? (site ? siteLabel(site) : t('scores.allSites')) : siteLabel(user?.domain),
+          })}
+        </p>
+      </div>
 
       {/* Table */}
       {loading ? (

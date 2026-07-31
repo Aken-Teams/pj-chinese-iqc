@@ -15,6 +15,10 @@ class Lot(Base):
     upload_time = Column(DateTime, server_default=func.now())
     file_name = Column(String(255))
     status = Column(String(20), default="pending")
+    # AD site (廠區) this lot belongs to = the uploader's domain at upload time.
+    # Null for legacy lots (before site separation) and local/admin uploads;
+    # those stay visible only to admins. Site users see only their own domain.
+    domain = Column(String(20), index=True)
 
     product = relationship("Product", back_populates="lots")
     wafers = relationship("Wafer", back_populates="lot", cascade="all, delete-orphan")

@@ -15,8 +15,11 @@ class VendorScore(Base):
     cpk_avg = Column(Numeric(6, 3))
     score = Column(Numeric(5, 2))
     rank = Column(Integer)
+    # AD site (廠區) this score was computed for. NULL = group-wide (all sites),
+    # which is the admin view; a code (e.g. WXPJ) = that site only.
+    domain = Column(String(20), index=True)
     calculated_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        UniqueConstraint("vendor_id", "period", name="uq_vendor_period"),
+        UniqueConstraint("vendor_id", "period", "domain", name="uq_vendor_period_domain"),
     )

@@ -2,7 +2,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, get_optional_user
+from app.dependencies import get_db, get_optional_user, assert_lot_visible, scope_lots_by_domain
 from app.models.ai import AiAnomaly, AiReviewSummary
 from app.models.user import User
 from app.models.wafer import Wafer
@@ -28,6 +28,7 @@ def generate_summary(
     lot = db.query(Lot).filter(Lot.id == req.lot_id).first()
     if not lot:
         raise HTTPException(404, "Lot not found")
+    assert_lot_visible(lot, current)
 
     wafer = None
     if req.wafer_id:
@@ -85,7 +86,11 @@ def generate_summary(
 
 
 @router.get("/review-summary/{lot_id}/{wafer_id}", response_model=ReviewSummaryResponse)
-def get_summary(lot_id: int, wafer_id: str, lang: str = "zh-TW", db: Session = Depends(get_db)):
+def get_summary(lot_id: int, wafer_id: str, lang: str = "zh-TW", db: Session = Depends(get_db),
+                current: User | None = Depends(get_optional_user)):
+    lot = db.query(Lot).filter(Lot.id == lot_id).first()
+    if lot:
+        assert_lot_visible(lot, current)
     wafer = db.query(Wafer).filter(
         Wafer.lot_id == lot_id, Wafer.wafer_id == wafer_id
     ).first()
@@ -115,10 +120,17 @@ def list_anomalies(
     severity: str = "",
     resolved: bool | None = None,
     db: Session = Depends(get_db),
+    current: User | None = Depends(get_optional_user),
 ):
     query = db.query(AiAnomaly)
     if lot_id is not None:
+        lot = db.query(Lot).filter(Lot.id == lot_id).first()
+        if lot:
+            assert_lot_visible(lot, current)
         query = query.filter(AiAnomaly.lot_id == lot_id)
+    elif current and current.role != "admin":
+        # No specific lot → a site user only sees anomalies from their own lots.
+        query = query.join(Lot, AiAnomaly.lot_id == Lot.id).filter(Lot.domain == current.domain)
     if lang:
         query = query.filter(AiAnomaly.lang == lang)
     if severity:
@@ -152,6 +164,7 @@ def detect_anomalies(
     lot = db.query(Lot).filter(Lot.id == req.lot_id).first()
     if not lot:
         raise HTTPException(404, "Lot not found")
+    assert_lot_visible(lot, current)
 
     wafer_ids = [w.id for w in db.query(Wafer).filter(Wafer.lot_id == lot.id).all()]
     wafer_count = len(wafer_ids)
@@ -232,10 +245,14 @@ def detect_anomalies(
 
 
 @router.patch("/anomalies/{anomaly_id}/resolve")
-def resolve_anomaly(anomaly_id: int, db: Session = Depends(get_db)):
+def resolve_anomaly(anomaly_id: int, db: Session = Depends(get_db),
+                    current: User | None = Depends(get_optional_user)):
     anomaly = db.query(AiAnomaly).filter(AiAnomaly.id == anomaly_id).first()
     if not anomaly:
         raise HTTPException(404, "Anomaly not found")
+    lot = db.query(Lot).filter(Lot.id == anomaly.lot_id).first()
+    if lot:
+        assert_lot_visible(lot, current)
     anomaly.is_resolved = True
     db.commit()
     return {"success": True}

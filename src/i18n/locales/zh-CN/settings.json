@@ -172,7 +172,10 @@
     "anomalyCount": "异常数",
     "cpkAvg": "平均 Cpk",
     "score": "评分",
-    "scoreFormula": "评分 = 良率×50% + Cpk×30% + 无异常×20%"
+    "scoreFormula": "评分 = 良率×50% + Cpk×30% + 无异常×20%",
+    "site": "厂区",
+    "allSites": "全集团",
+    "siteScopeHint": "当前显示：{{scope}} 的评分"
   },
   "pagination": {
     "prev": "上一页",

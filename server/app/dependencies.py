@@ -47,6 +47,33 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def can_see_all_domains(user: Optional[User]) -> bool:
+    """Admins see every site; everyone else is scoped to their own AD domain."""
+    return bool(user and user.role == "admin")
+
+
+def scope_lots_by_domain(query, user: Optional[User]):
+    """Restrict a query that selects/joins `Lot` to the rows the user may see.
+
+    Admins (and, defensively, an unidentified caller) see all sites; a regular
+    site user sees only lots tagged with their own domain. Legacy lots
+    (domain IS NULL) are therefore invisible to site users and visible to admins.
+    """
+    from app.models.lot import Lot
+    if can_see_all_domains(user) or user is None:
+        return query
+    return query.filter(Lot.domain == user.domain)
+
+
+def assert_lot_visible(lot, user: Optional[User]) -> None:
+    """Raise 404 (not 403, to avoid leaking existence) when a site user asks for
+    a lot outside their domain."""
+    if can_see_all_domains(user) or user is None:
+        return
+    if lot.domain != user.domain:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lot not found")
+
+
 def get_optional_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
     """Best-effort current user from the Bearer token; returns None instead of
     raising when absent/invalid. Used to attribute AI usage to a user without

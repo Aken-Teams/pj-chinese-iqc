@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user, assert_lot_visible
+from app.models.user import User
 from app.models.lot import Lot
 from app.models.wafer import Wafer
 from app.models.product import Product
@@ -19,16 +20,21 @@ router = APIRouter(prefix="/api/review", tags=["review"])
 
 
 @router.post("/execute")
-def run_review(req: ReviewExecuteRequest, db: Session = Depends(get_db)):
+def run_review(req: ReviewExecuteRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    lot = db.query(Lot).filter(Lot.id == req.lot_id).first()
+    if not lot:
+        raise HTTPException(404, "Lot not found")
+    assert_lot_visible(lot, user)
     results = execute_review(db, req.lot_id, req.params)
     return {"success": True, "resultCount": len(results)}
 
 
 @router.get("/results/{lot_id}", response_model=LotReviewSummary)
-def get_lot_results(lot_id: int, db: Session = Depends(get_db)):
+def get_lot_results(lot_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     lot = db.query(Lot).filter(Lot.id == lot_id).first()
     if not lot:
         raise HTTPException(404, "Lot not found")
+    assert_lot_visible(lot, user)
 
     product = db.query(Product).filter(Product.id == lot.product_id).first()
     vendor = db.query(Vendor).filter(Vendor.id == product.vendor_id).first() if product else None
@@ -120,10 +126,11 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/results/{lot_id}/wafer/{wafer_id}", response_model=WaferDetail)
-def get_wafer_detail(lot_id: int, wafer_id: str, db: Session = Depends(get_db)):
+def get_wafer_detail(lot_id: int, wafer_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     lot = db.query(Lot).filter(Lot.id == lot_id).first()
     if not lot:
         raise HTTPException(404, "Lot not found")
+    assert_lot_visible(lot, user)
 
     wafer = db.query(Wafer).filter(Wafer.lot_id == lot_id, Wafer.wafer_id == wafer_id).first()
     if not wafer:
@@ -167,7 +174,7 @@ def get_wafer_detail(lot_id: int, wafer_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/matrix/{lot_id}", response_model=ReviewMatrix)
-def get_review_matrix(lot_id: int, db: Session = Depends(get_db)):
+def get_review_matrix(lot_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Per-electrical-item yield matrix for a whole lot: one row per wafer, and
     Q1/Q2/Q3 yields for every parameter. No combined yield — this is the 徐州
     layout so a single drifting parameter is pinpointed instead of collapsing
@@ -175,6 +182,7 @@ def get_review_matrix(lot_id: int, db: Session = Depends(get_db)):
     lot = db.query(Lot).filter(Lot.id == lot_id).first()
     if not lot:
         raise HTTPException(404, "Lot not found")
+    assert_lot_visible(lot, user)
 
     wafers = db.query(Wafer).filter(Wafer.lot_id == lot_id).order_by(Wafer.wafer_id).all()
     wafer_ids = [w.id for w in wafers]

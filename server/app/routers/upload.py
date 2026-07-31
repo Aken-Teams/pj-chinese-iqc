@@ -7,7 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user
+from app.models.user import User
 from app.models.vendor import Vendor, VendorFormat
 from app.models.product import Product
 from app.models.lot import Lot
@@ -188,8 +189,12 @@ def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, 
     return parser, actual_path
 
 
-def _persist_result(result, db: Session, err: dict | None = None) -> dict:
-    """Persist parsed CP data to DB, return import summary."""
+def _persist_result(result, db: Session, err: dict | None = None, domain: str | None = None) -> dict:
+    """Persist parsed CP data to DB, return import summary.
+
+    `domain` tags the lot with the uploader's AD site (廠區) so later reads can
+    scope data per site. None = unassigned (legacy/admin), admin-only visibility.
+    """
     err = err or _ERR["en"]
     vendor = db.query(Vendor).filter(Vendor.code == result.vendor_code).first()
     if not vendor:
@@ -232,6 +237,7 @@ def _persist_result(result, db: Session, err: dict | None = None) -> dict:
         test_program=result.test_program,
         file_name=result.lot_id,
         status="pending",
+        domain=domain,
     )
     db.add(lot)
     db.flush()
@@ -352,6 +358,7 @@ async def upload_cp_data(
 def confirm_upload(
     req: UploadConfirmRequest,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Parse file fully and persist to database."""
     err = _ERR.get(getattr(req, "lang", None) or "zh-TW", _ERR["zh-TW"])
@@ -396,7 +403,7 @@ def confirm_upload(
         parser = best_parser or DynamicParser.from_vendor_format(vendor_code, fmts[0])
 
     result = parser.parse(file_path)
-    return _persist_result(result, db, err)
+    return _persist_result(result, db, err, domain=user.domain)
 
 
 @router.post("/batch")
@@ -405,6 +412,7 @@ async def batch_upload(
     vendor: str = Form(""),
     lang: str = Form("zh-TW"),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Upload and auto-import multiple CP Excel files without a preview step."""
     err = _ERR.get(lang, _ERR["zh-TW"])
@@ -416,7 +424,7 @@ async def batch_upload(
             file_path = _save_upload(file)
             parser, actual_path = _resolve_parser(file_path, file.filename, vendor, err, db)
             parsed = parser.parse(actual_path)
-            summary = _persist_result(parsed, db, err)
+            summary = _persist_result(parsed, db, err, domain=user.domain)
             entry.update(summary)
         except HTTPException as exc:
             entry["error"] = exc.detail

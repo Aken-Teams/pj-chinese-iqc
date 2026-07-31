@@ -86,12 +86,20 @@ export interface VendorScore {
   rank: number
 }
 
-export async function getVendorScores(period?: string): Promise<VendorScore[]> {
-  const qs = period ? `?period=${period}` : ''
-  return apiFetch(`/vendors/scores${qs}`)
+// `site` is an AD domain code to scope scores to one site (admins only);
+// '' = group-wide (all sites). Site users are always locked to their own site.
+function scoreQuery(period?: string, site?: string): string {
+  const p = new URLSearchParams()
+  if (period) p.set('period', period)
+  if (site) p.set('site', site)
+  const qs = p.toString()
+  return qs ? `?${qs}` : ''
 }
 
-export async function calculateVendorScores(period?: string): Promise<VendorScore[]> {
-  const qs = period ? `?period=${period}` : ''
-  return apiFetch(`/vendors/scores/calculate${qs}`, { method: 'POST' })
+export async function getVendorScores(period?: string, site?: string): Promise<VendorScore[]> {
+  return apiFetch(`/vendors/scores${scoreQuery(period, site)}`)
+}
+
+export async function calculateVendorScores(period?: string, site?: string): Promise<VendorScore[]> {
+  return apiFetch(`/vendors/scores/calculate${scoreQuery(period, site)}`, { method: 'POST' })
 }

@@ -92,22 +92,34 @@ _INSIGHT_T = {
 }
 
 
-def get_dashboard_summary(db: Session, lang: str = "zh-TW", period: str = "14d") -> dict:
-    """Aggregate data for the dashboard page."""
+def get_dashboard_summary(db: Session, lang: str = "zh-TW", period: str = "14d",
+                          domain: str | None = None) -> dict:
+    """Aggregate data for the dashboard page.
+
+    `domain` scopes every lot-derived aggregate to one AD site (廠區); None means
+    all sites (admin). Vendors/products themselves are shared and not scoped.
+    """
     if period not in ("14d", "30d", "6m"):
         period = "14d"
 
-    # KPIs
-    total_lots = db.query(func.count(Lot.id)).scalar() or 0
-    reviewed_lots = db.query(func.count(Lot.id)).filter(Lot.status == "reviewed").scalar() or 0
+    def scope_lot(q):
+        """Filter a query that references Lot to the requested site."""
+        return q.filter(Lot.domain == domain) if domain else q
 
-    avg_yield_result = db.query(func.avg(Wafer.bin1_yield)).scalar()
+    # KPIs
+    total_lots = scope_lot(db.query(func.count(Lot.id))).scalar() or 0
+    reviewed_lots = scope_lot(db.query(func.count(Lot.id)).filter(Lot.status == "reviewed")).scalar() or 0
+
+    avg_yield_result = scope_lot(
+        db.query(func.avg(Wafer.bin1_yield)).join(Lot, Wafer.lot_id == Lot.id)
+    ).scalar()
     avg_yield = float(avg_yield_result * 100) if avg_yield_result else 0.0
 
     vendor_count = db.query(func.count(Vendor.id)).scalar() or 0
 
-    anomaly_count = db.query(func.count(AiAnomaly.id)).filter(
-        AiAnomaly.is_resolved == False
+    anomaly_count = scope_lot(
+        db.query(func.count(AiAnomaly.id)).join(Lot, AiAnomaly.lot_id == Lot.id)
+        .filter(AiAnomaly.is_resolved == False)
     ).scalar() or 0
 
     kpis = [
@@ -124,7 +136,7 @@ def get_dashboard_summary(db: Session, lang: str = "zh-TW", period: str = "14d")
     for v in vendors:
         product_ids = [p.id for p in v.products]
         if product_ids:
-            lot_ids = [l.id for l in db.query(Lot.id).filter(Lot.product_id.in_(product_ids)).all()]
+            lot_ids = [l.id for l in scope_lot(db.query(Lot.id).filter(Lot.product_id.in_(product_ids))).all()]
             if lot_ids:
                 wafer_yield = db.query(func.avg(Wafer.bin1_yield)).filter(Wafer.lot_id.in_(lot_ids)).scalar()
                 if wafer_yield:
@@ -133,7 +145,7 @@ def get_dashboard_summary(db: Session, lang: str = "zh-TW", period: str = "14d")
     vendor_perf.sort(key=lambda x: x["yield"], reverse=True)
 
     # Recent lots as activity
-    recent_lots = db.query(Lot).order_by(Lot.upload_time.desc()).limit(5).all()
+    recent_lots = scope_lot(db.query(Lot).order_by(Lot.upload_time.desc())).limit(5).all()
     recent_activity = []
     for lot in recent_lots:
         wafer_count = db.query(func.count(Wafer.id)).filter(Wafer.lot_id == lot.id).scalar() or 0
@@ -148,7 +160,7 @@ def get_dashboard_summary(db: Session, lang: str = "zh-TW", period: str = "14d")
 
     # Cpk data: compute from latest reviewed lot
     cpk_data = []
-    latest_lot = db.query(Lot).filter(Lot.status == "reviewed").order_by(Lot.upload_time.desc()).first()
+    latest_lot = scope_lot(db.query(Lot).filter(Lot.status == "reviewed").order_by(Lot.upload_time.desc())).first()
     if latest_lot:
         cp_specs = db.query(CpSpec).filter(CpSpec.lot_id == latest_lot.id).all()
         spec_map = {s.param_name: s for s in cp_specs}
@@ -178,7 +190,7 @@ def get_dashboard_summary(db: Session, lang: str = "zh-TW", period: str = "14d")
     window_end = ends[-1]
 
     lots_in_window = (
-        db.query(Lot)
+        scope_lot(db.query(Lot))
         .filter(Lot.upload_time.isnot(None))
         .filter(Lot.upload_time >= window_start)
         .filter(Lot.upload_time < window_end)
@@ -233,7 +245,7 @@ def get_dashboard_summary(db: Session, lang: str = "zh-TW", period: str = "14d")
 
     # From AiAnomaly table (most recent unresolved)
     anomalies = (
-        db.query(AiAnomaly)
+        scope_lot(db.query(AiAnomaly).join(Lot, AiAnomaly.lot_id == Lot.id))
         .filter(AiAnomaly.is_resolved == False)
         .order_by(AiAnomaly.detected_at.desc())
         .limit(3)

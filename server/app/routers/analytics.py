@@ -3,7 +3,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user, assert_lot_visible, scope_lots_by_domain
+from app.models.user import User
 from app.models.wafer import Wafer
 from app.models.lot import Lot
 from app.models.review import ReviewResult
@@ -17,9 +18,17 @@ from app.schemas.analytics import SpcResponse, DistributionResponse, Correlation
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 
+def _assert_lot(db: Session, lot_id: int, user: User) -> None:
+    """Site users may only touch analytics for lots in their own domain."""
+    lot = db.query(Lot).filter(Lot.id == lot_id).first()
+    if lot:
+        assert_lot_visible(lot, user)
+
+
 @router.get("/params/{lot_id}")
-def get_param_names(lot_id: int, db: Session = Depends(get_db)):
+def get_param_names(lot_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Get distinct parameter names for a lot."""
+    _assert_lot(db, lot_id, user)
     wafer_ids = [w.id for w in db.query(Wafer.id).filter(Wafer.lot_id == lot_id).all()]
     if not wafer_ids:
         return []
@@ -34,9 +43,9 @@ def get_param_names(lot_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/spc/{product_id}/{param_name}", response_model=SpcResponse)
-def get_spc_chart(product_id: int, param_name: str, db: Session = Depends(get_db)):
+def get_spc_chart(product_id: int, param_name: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """SPC X-bar control chart for a parameter across wafers."""
-    lot_ids = [l.id for l in db.query(Lot.id).filter(Lot.product_id == product_id).all()]
+    lot_ids = [l.id for l in scope_lots_by_domain(db.query(Lot.id).filter(Lot.product_id == product_id), user).all()]
     if not lot_ids:
         return SpcResponse(param=param_name, dataPoints=[], grandMean=0, ucl=0, lcl=0, sigma2Upper=0, sigma2Lower=0)
 
@@ -122,8 +131,9 @@ def get_spc_chart(product_id: int, param_name: str, db: Session = Depends(get_db
 
 
 @router.get("/cpk/{lot_id}")
-def get_cpk(lot_id: int, db: Session = Depends(get_db)):
+def get_cpk(lot_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Cp/Cpk for all params in a lot."""
+    _assert_lot(db, lot_id, user)
     # Check cache
     cached = db.query(CpkResultModel).filter(CpkResultModel.lot_id == lot_id).all()
     if cached:
@@ -181,9 +191,10 @@ def get_cpk(lot_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/distribution/{lot_id}/{param_name}", response_model=DistributionResponse)
-def get_distribution(lot_id: int, param_name: str, db: Session = Depends(get_db)):
+def get_distribution(lot_id: int, param_name: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Distribution histogram for a parameter."""
     import numpy as np
+    _assert_lot(db, lot_id, user)
 
     wafers = db.query(Wafer).filter(Wafer.lot_id == lot_id).all()
     wafer_ids = [w.id for w in wafers]
@@ -227,11 +238,11 @@ def get_distribution(lot_id: int, param_name: str, db: Session = Depends(get_db)
 
 
 @router.get("/correlation/{product_id}", response_model=CorrelationResponse)
-def get_correlation(product_id: int, db: Session = Depends(get_db)):
+def get_correlation(product_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Parameter correlation matrix."""
     import numpy as np
 
-    lot_ids = [l.id for l in db.query(Lot.id).filter(Lot.product_id == product_id).all()]
+    lot_ids = [l.id for l in scope_lots_by_domain(db.query(Lot.id).filter(Lot.product_id == product_id), user).all()]
     if not lot_ids:
         return CorrelationResponse(params=[], matrix=[])
 

@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user, can_see_all_domains
+from app.models.user import User
 from app.models.vendor import Vendor, VendorFormat
 from app.models.product import Product
 from app.models.lot import Lot
@@ -104,16 +105,38 @@ def delete_format(vendor_id: int, fmt_id: int, db: Session = Depends(get_db)):
     return {"success": True}
 
 
+def _score_domain(user: User, site: str = "") -> str | None:
+    """Resolve which site scope to score.
+
+    Admins may pick a site via `site` ("" = group-wide/all sites); a regular
+    site user is always locked to their own domain regardless of `site`.
+    """
+    if can_see_all_domains(user):
+        return site or None
+    return user.domain
+
+
+def _filter_score_domain(query, domain: str | None):
+    if domain is None:
+        return query.filter(VendorScore.domain.is_(None))
+    return query.filter(VendorScore.domain == domain)
+
+
 @router.get("/scores")
-def list_vendor_scores(period: str = "", db: Session = Depends(get_db)):
-    """Get vendor scores for a given period (YYYY-MM). Returns cached if available."""
+def list_vendor_scores(period: str = "", site: str = "", db: Session = Depends(get_db),
+                       user: User = Depends(get_current_user)):
+    """Get vendor scores for a given period (YYYY-MM). Returns cached if available.
+
+    Scoped to a site: a site user always sees their own; an admin sees the
+    group-wide ranking by default, or a specific site via `site`.
+    """
     if not period:
         period = datetime.now().strftime("%Y-%m")
 
+    domain = _score_domain(user, site)
     # Return cached scores if they exist
     cached = (
-        db.query(VendorScore)
-        .filter(VendorScore.period == period)
+        _filter_score_domain(db.query(VendorScore).filter(VendorScore.period == period), domain)
         .order_by(VendorScore.rank)
         .all()
     )
@@ -135,23 +158,32 @@ def list_vendor_scores(period: str = "", db: Session = Depends(get_db)):
             for s in cached
         ]
 
-    return _calculate_and_save_scores(period, db)
+    return _calculate_and_save_scores(period, db, domain)
 
 
 @router.post("/scores/calculate")
-def calculate_vendor_scores(period: str = "", db: Session = Depends(get_db)):
-    """Recalculate vendor scores for a given period (YYYY-MM), overwriting existing."""
+def calculate_vendor_scores(period: str = "", site: str = "", db: Session = Depends(get_db),
+                            user: User = Depends(get_current_user)):
+    """Recalculate vendor scores for a given period (YYYY-MM), overwriting existing.
+
+    Only the selected site scope is recomputed (admin can target a site via
+    `site`, or the group-wide ranking by default), so one site's recalculation
+    never wipes another's cached scores.
+    """
     if not period:
         period = datetime.now().strftime("%Y-%m")
 
-    # Delete existing scores for this period
-    db.query(VendorScore).filter(VendorScore.period == period).delete(synchronize_session=False)
+    domain = _score_domain(user, site)
+    # Delete existing scores for this period + site scope
+    _filter_score_domain(
+        db.query(VendorScore).filter(VendorScore.period == period), domain
+    ).delete(synchronize_session=False)
     db.commit()
 
-    return _calculate_and_save_scores(period, db)
+    return _calculate_and_save_scores(period, db, domain)
 
 
-def _calculate_and_save_scores(period: str, db: Session) -> list:
+def _calculate_and_save_scores(period: str, db: Session, domain: str | None = None) -> list:
     """Core logic: calculate scores per vendor for a period and persist."""
     year, month = period.split("-")
     year_int, month_int = int(year), int(month)
@@ -164,16 +196,16 @@ def _calculate_and_save_scores(period: str, db: Session) -> list:
         if not product_ids:
             continue
 
-        # Lots in this period (MySQL: YEAR() / MONTH())
-        lots = (
-            db.query(Lot)
-            .filter(
-                Lot.product_id.in_(product_ids),
-                func.year(Lot.upload_time) == year_int,
-                func.month(Lot.upload_time) == month_int,
-            )
-            .all()
+        # Lots in this period (MySQL: YEAR() / MONTH()); scope to the site when
+        # a domain is given (None = group-wide / admin, all sites).
+        lots_q = db.query(Lot).filter(
+            Lot.product_id.in_(product_ids),
+            func.year(Lot.upload_time) == year_int,
+            func.month(Lot.upload_time) == month_int,
         )
+        if domain is not None:
+            lots_q = lots_q.filter(Lot.domain == domain)
+        lots = lots_q.all()
         if not lots:
             continue
 
@@ -233,6 +265,7 @@ def _calculate_and_save_scores(period: str, db: Session) -> list:
             cpk_avg=item["cpkAvg"],
             score=item["score"],
             rank=rank,
+            domain=domain,
             calculated_at=now,
         )
         db.add(vs)

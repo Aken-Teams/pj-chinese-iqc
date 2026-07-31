@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user, scope_lots_by_domain
 from app.models.lot import Lot
 from app.models.wafer import Wafer
 from app.models.product import Product
 from app.models.vendor import Vendor
+from app.models.user import User
 from app.schemas.history import HistoryResponse, HistoryRow
 
 router = APIRouter(prefix="/api", tags=["history"])
@@ -26,8 +27,11 @@ def list_lots(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=1000),
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     query = db.query(Lot).join(Product, Lot.product_id == Product.id).join(Vendor, Product.vendor_id == Vendor.id)
+    # Site isolation: a site user sees only their own domain; admins see all.
+    query = scope_lots_by_domain(query, user)
 
     if vendor:
         query = query.filter(Vendor.code == vendor)
@@ -85,6 +89,7 @@ def list_lots(
             avgYield=f"{avg_yield_pct:.2f}%",
             status=lot_status,
             reviewed=(lot.status == "reviewed"),
+            domain=lot.domain,
         ))
 
     return HistoryResponse(
