@@ -13,7 +13,8 @@ import {
   type VendorFormat,
 } from '@/services/vendors'
 import { useAuthStore } from '@/store/authStore'
-import { SITE_LABELS, siteLabel } from '@/config/sites'
+import { siteLabel, siteOptions } from '@/config/sites'
+import Select from '@/components/ui/Select'
 
 const DEFAULT_FORMAT: Omit<VendorFormat, 'id'> = {
   format_name: '',
@@ -474,16 +475,12 @@ export default function VendorsPage() {
         <PageHeader title={t('vendors.title')} subtitle={t('vendors.desc')} />
         <div className="flex items-center gap-3">
           {isAdmin && (
-            <select
-              className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
+            <Select
+              className="w-32"
               value={filterSite}
-              onChange={(e) => setFilterSite(e.target.value)}
-            >
-              <option value="">{t('scores.allSites')}</option>
-              {Object.keys(SITE_LABELS).map((code) => (
-                <option key={code} value={code}>{siteLabel(code)}</option>
-              ))}
-            </select>
+              onChange={setFilterSite}
+              options={siteOptions(t('scores.allSites'))}
+            />
           )}
           <button
             onClick={() => setShowAddForm(true)}

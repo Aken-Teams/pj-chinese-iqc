@@ -8,7 +8,8 @@ import { getVendors, getProducts, type Product } from '@/services/vendors'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
 import { useAuthStore } from '@/store/authStore'
-import { siteLabel, SITE_LABELS } from '@/config/sites'
+import { siteLabel, siteOptions } from '@/config/sites'
+import Select from '@/components/ui/Select'
 
 // SVG line chart for yield trend with hover tooltip
 function YieldTrendChart({ items }: { items: HistoryRow[] }) {
@@ -228,16 +229,11 @@ export default function HistoryPage() {
         {isAdmin && (
           <div className="w-[140px] flex flex-col gap-1.5">
             <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('table.site')}</label>
-            <select
+            <Select
               value={filterSite}
-              onChange={(e) => { setFilterSite(e.target.value); setVendor(''); setProduct(''); setPage(1) }}
-              className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60 cursor-pointer"
-            >
-              <option value="">{t('allSites')}</option>
-              {Object.keys(SITE_LABELS).map((code) => (
-                <option key={code} value={code}>{siteLabel(code)}</option>
-              ))}
-            </select>
+              onChange={(v) => { setFilterSite(v); setVendor(''); setProduct(''); setPage(1) }}
+              options={siteOptions(t('allSites'))}
+            />
           </div>
         )}
         <div className="w-[160px] flex flex-col gap-1.5">

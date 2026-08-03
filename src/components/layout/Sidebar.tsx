@@ -1,24 +1,53 @@
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Cpu, LayoutGrid, Upload, FileSearch, GitCompare,
   History, ChartNoAxesColumn, BookOpen, Settings, LogOut,
-  PanelLeftClose, PanelLeftOpen, Coins,
+  PanelLeftClose, PanelLeftOpen, Coins, ChevronDown,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
 import { useAppStore } from '@/store/appStore'
 import { useAuthStore } from '@/store/authStore'
 
-const navItems = [
-  { icon: LayoutGrid, labelKey: 'nav.dashboard', to: ROUTES.DASHBOARD },
-  { icon: Upload, labelKey: 'nav.upload', to: ROUTES.UPLOAD },
-  { icon: FileSearch, labelKey: 'nav.review', to: ROUTES.REVIEW },
-  { icon: GitCompare, labelKey: 'nav.compare', to: ROUTES.COMPARE },
-  { icon: History, labelKey: 'nav.history', to: ROUTES.HISTORY },
-  { icon: ChartNoAxesColumn, labelKey: 'nav.analytics', to: ROUTES.ANALYTICS },
-  { icon: BookOpen, labelKey: 'nav.manual', to: ROUTES.MANUAL },
-  { icon: Coins, labelKey: 'nav.aiUsage', to: ROUTES.ADMIN_AI_USAGE, adminOnly: true },
-  { icon: Settings, labelKey: 'nav.settings', to: ROUTES.SETTINGS },
+interface NavItem {
+  icon: LucideIcon
+  labelKey: string
+  to: string
+  adminOnly?: boolean
+}
+
+// Grouped so users can tell which features belong together. One group is
+// expanded at a time (accordion); the group of the current page opens by default.
+const navGroups: { id: string; titleKey: string; items: NavItem[] }[] = [
+  {
+    id: 'operations',
+    titleKey: 'navGroup.operations',
+    items: [
+      { icon: LayoutGrid, labelKey: 'nav.dashboard', to: ROUTES.DASHBOARD },
+      { icon: Upload, labelKey: 'nav.upload', to: ROUTES.UPLOAD },
+      { icon: FileSearch, labelKey: 'nav.review', to: ROUTES.REVIEW },
+      { icon: GitCompare, labelKey: 'nav.compare', to: ROUTES.COMPARE },
+    ],
+  },
+  {
+    id: 'analysis',
+    titleKey: 'navGroup.analysis',
+    items: [
+      { icon: History, labelKey: 'nav.history', to: ROUTES.HISTORY },
+      { icon: ChartNoAxesColumn, labelKey: 'nav.analytics', to: ROUTES.ANALYTICS },
+    ],
+  },
+  {
+    id: 'system',
+    titleKey: 'navGroup.system',
+    items: [
+      { icon: BookOpen, labelKey: 'nav.manual', to: ROUTES.MANUAL },
+      { icon: Coins, labelKey: 'nav.aiUsage', to: ROUTES.ADMIN_AI_USAGE, adminOnly: true },
+      { icon: Settings, labelKey: 'nav.settings', to: ROUTES.SETTINGS },
+    ],
+  },
 ]
 
 export default function Sidebar() {
@@ -27,6 +56,18 @@ export default function Sidebar() {
   const collapsed = useAppStore((s) => s.sidebarCollapsed)
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
   const { user, logout } = useAuthStore()
+
+  const isRouteActive = (to: string) =>
+    location.pathname === to ||
+    (to === ROUTES.REVIEW && location.pathname.startsWith('/review/')) ||
+    (to === ROUTES.SETTINGS && location.pathname.startsWith('/settings'))
+
+  // Which group holds the current page — that one opens by default.
+  const activeGroupId =
+    navGroups.find((g) => g.items.some((i) => isRouteActive(i.to)))?.id ?? navGroups[0].id
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(activeGroupId)
+  // Navigating to a page auto-opens its group.
+  useEffect(() => { setExpandedGroup(activeGroupId) }, [activeGroupId])
 
   const cycleLang = () => {
     const langs = ['zh-CN', 'zh-TW', 'en']
@@ -38,6 +79,45 @@ export default function Sidebar() {
     'zh-CN': '简',
     'zh-TW': '繁',
     en: 'EN',
+  }
+
+  const visibleItems = (items: NavItem[]) =>
+    items.filter((i) => !i.adminOnly || user?.role === 'admin')
+
+  const renderItem = ({ icon: Icon, labelKey, to }: NavItem) => {
+    const isActive = isRouteActive(to)
+    return (
+      <div key={to} className="relative group">
+        <NavLink
+          to={to}
+          className={`flex items-center gap-3.5 px-3 py-2.5 transition-colors ${
+            isActive
+              ? 'bg-bg-dark-surface text-accent'
+              : 'text-text-tertiary hover:text-text-on-dark'
+          } ${collapsed ? 'justify-center px-0' : ''}`}
+        >
+          <Icon size={20} className="shrink-0" />
+          {!collapsed && (
+            <span className={`font-heading text-[13px] tracking-[1px] uppercase ${
+              isActive ? 'font-semibold' : 'font-medium'
+            }`}>
+              {t(labelKey)}
+            </span>
+          )}
+        </NavLink>
+        {collapsed && (
+          <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            <div className={`border-l-2 px-3 py-1.5 whitespace-nowrap bg-bg-dark-surface shadow-lg ${
+              isActive ? 'border-accent' : 'border-text-tertiary'
+            }`}>
+              <span className="font-heading text-[11px] tracking-[1px] uppercase text-text-on-dark">
+                {t(labelKey)}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -68,47 +148,29 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex flex-col gap-1 px-4 flex-1">
-        {navItems
-          .filter((item) => !item.adminOnly || user?.role === 'admin')
-          .map(({ icon: Icon, labelKey, to }) => {
-          const isActive = location.pathname === to ||
-            (to === ROUTES.REVIEW && location.pathname.startsWith('/review/')) ||
-            (to === ROUTES.SETTINGS && location.pathname.startsWith('/settings'))
-          return (
-            <div key={to} className="relative group">
-              <NavLink
-                to={to}
-                className={`flex items-center gap-3.5 px-3 py-2.5 transition-colors ${
-                  isActive
-                    ? 'bg-bg-dark-surface text-accent'
-                    : 'text-text-tertiary hover:text-text-on-dark'
-                } ${collapsed ? 'justify-center px-0' : ''}`}
-              >
-                <Icon size={20} className="shrink-0" />
-                {!collapsed && (
-                  <span className={`font-heading text-[13px] tracking-[1px] uppercase ${
-                    isActive ? 'font-semibold' : 'font-medium'
-                  }`}>
-                    {t(labelKey)}
-                  </span>
-                )}
-              </NavLink>
-              {collapsed && (
-                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                  <div className={`border-l-2 px-3 py-1.5 whitespace-nowrap bg-bg-dark-surface shadow-lg ${
-                    isActive ? 'border-accent' : 'border-text-tertiary'
-                  }`}>
-                    <span className="font-heading text-[11px] tracking-[1px] uppercase text-text-on-dark">
-                      {t(labelKey)}
+      {/* Nav — collapsed: flat icons; expanded: accordion groups */}
+      <nav className="flex flex-col gap-1 px-4 flex-1 overflow-y-auto">
+        {collapsed
+          ? navGroups.flatMap((g) => visibleItems(g.items)).map(renderItem)
+          : navGroups.map((group) => {
+              const items = visibleItems(group.items)
+              if (items.length === 0) return null
+              const open = expandedGroup === group.id
+              return (
+                <div key={group.id} className="flex flex-col">
+                  <button
+                    onClick={() => setExpandedGroup(open ? null : group.id)}
+                    className="flex items-center justify-between px-3 py-2 mt-1.5 text-text-muted hover:text-text-tertiary transition-colors cursor-pointer"
+                  >
+                    <span className="font-heading text-[10px] font-bold uppercase tracking-[2px]">
+                      {t(group.titleKey)}
                     </span>
-                  </div>
+                    <ChevronDown size={14} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+                  </button>
+                  {open && <div className="flex flex-col gap-1">{items.map(renderItem)}</div>}
                 </div>
-              )}
-            </div>
-          )
-        })}
+              )
+            })}
       </nav>
 
       {/* Bottom: User + Language + Logout */}

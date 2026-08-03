@@ -10,6 +10,11 @@
     "aiUsage": "AI 用量",
     "settings": "设置"
   },
+  "navGroup": {
+    "operations": "作业",
+    "analysis": "查询分析",
+    "system": "系统"
+  },
   "status": {
     "pass": "通过",
     "warning": "警告",

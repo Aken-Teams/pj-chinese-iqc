@@ -10,6 +10,11 @@
     "aiUsage": "AI Usage",
     "settings": "Settings"
   },
+  "navGroup": {
+    "operations": "Operations",
+    "analysis": "Analysis",
+    "system": "System"
+  },
   "status": {
     "pass": "Pass",
     "warning": "Warning",

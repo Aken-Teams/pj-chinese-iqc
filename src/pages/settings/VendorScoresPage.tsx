@@ -4,7 +4,8 @@ import { RefreshCw, TrendingUp, Trophy, Award, Star } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getVendorScores, calculateVendorScores, type VendorScore } from '@/services/vendors'
 import { useAuthStore } from '@/store/authStore'
-import { SITE_LABELS, siteLabel } from '@/config/sites'
+import { siteLabel, siteOptions } from '@/config/sites'
+import Select from '@/components/ui/Select'
 
 function ScoreBar({ score }: { score: number | null }) {
   const pct = Math.min(100, Math.max(0, score ?? 0))
@@ -65,16 +66,12 @@ export default function VendorScoresPage() {
         <PageHeader title={t('scores.title')} subtitle={t('scores.desc')} />
         <div className="flex items-center gap-3">
           {isAdmin ? (
-            <select
-              className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
+            <Select
+              className="w-32"
               value={site}
-              onChange={(e) => setSite(e.target.value)}
-            >
-              <option value="">{t('scores.allSites')}</option>
-              {Object.keys(SITE_LABELS).map((code) => (
-                <option key={code} value={code}>{siteLabel(code)}</option>
-              ))}
-            </select>
+              onChange={setSite}
+              options={siteOptions(t('scores.allSites'))}
+            />
           ) : (
             user?.domain && (
               <span className="border border-border-light bg-bg-page px-3 py-2 text-sm font-semibold text-text-secondary">

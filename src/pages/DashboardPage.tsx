@@ -5,7 +5,8 @@ import PageHeader from '@/components/layout/PageHeader'
 import { Sparkles, TrendingUp, TrendingDown, Loader2 } from 'lucide-react'
 import { getDashboard, type DashboardData, type TrendPeriod } from '@/services/dashboard'
 import { useAuthStore } from '@/store/authStore'
-import { SITE_LABELS, siteLabel } from '@/config/sites'
+import { siteLabel, siteOptions } from '@/config/sites'
+import Select from '@/components/ui/Select'
 
 const PERIODS: TrendPeriod[] = ['14d', '30d', '6m']
 
@@ -89,16 +90,12 @@ export default function DashboardPage() {
         title={t('title')}
         actions={
           isAdmin ? (
-            <select
-              className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
+            <Select
+              className="w-32"
               value={site}
-              onChange={(e) => setSite(e.target.value)}
-            >
-              <option value="">{t('allSites')}</option>
-              {Object.keys(SITE_LABELS).map((code) => (
-                <option key={code} value={code}>{siteLabel(code)}</option>
-              ))}
-            </select>
+              onChange={setSite}
+              options={siteOptions(t('allSites'))}
+            />
           ) : (
             user?.domain ? (
               <span className="border border-border-light bg-bg-page px-3 py-2 text-sm font-semibold text-text-secondary">

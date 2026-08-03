@@ -12,7 +12,8 @@ import {
   type ReviewRule, type RulesImportPreview, type RulePreviewRow,
 } from '@/services/rules'
 import { useAuthStore } from '@/store/authStore'
-import { SITE_LABELS, siteLabel } from '@/config/sites'
+import { siteLabel, siteOptions } from '@/config/sites'
+import Select from '@/components/ui/Select'
 
 const LIMIT_KEYS: { key: keyof ReviewRule; labelKey: string }[] = [
   { key: 'q1_lower', labelKey: 'q1Lower' },
@@ -1002,32 +1003,24 @@ export default function RulesPage() {
             <label className="text-xs font-semibold text-text-muted uppercase tracking-[1px]">
               {t('scores.site')}
             </label>
-            <select
+            <Select
+              className="w-28"
               value={filterSite}
-              onChange={(e) => setFilterSite(e.target.value)}
-              className="bg-bg-card border border-border-light px-2 py-1 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
-            >
-              <option value="">{t('scores.allSites')}</option>
-              {Object.keys(SITE_LABELS).map((code) => (
-                <option key={code} value={code}>{siteLabel(code)}</option>
-              ))}
-            </select>
+              onChange={setFilterSite}
+              options={siteOptions(t('scores.allSites'))}
+            />
           </div>
         )}
         <div className="flex items-center gap-2">
           <label className="text-xs font-semibold text-text-muted uppercase tracking-[1px]">
             {t('rules.filterVendor')}
           </label>
-          <select
+          <Select
+            className="w-32"
             value={filterVendor}
-            onChange={(e) => setFilterVendor(e.target.value)}
-            className="bg-bg-card border border-border-light px-2 py-1 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
-          >
-            <option value="">{t('rules.allVendors')}</option>
-            {vendorOptions.map((v) => (
-              <option key={v} value={v}>{v}</option>
-            ))}
-          </select>
+            onChange={setFilterVendor}
+            options={[{ value: '', label: t('rules.allVendors') }, ...vendorOptions.map((v) => ({ value: v, label: v }))]}
+          />
         </div>
         <div className="flex items-center gap-2">
           <Search size={14} className="text-text-muted" />

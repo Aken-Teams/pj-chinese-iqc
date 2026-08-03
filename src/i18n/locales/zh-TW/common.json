@@ -10,6 +10,11 @@
     "aiUsage": "AI 用量",
     "settings": "設定"
   },
+  "navGroup": {
+    "operations": "作業",
+    "analysis": "查詢分析",
+    "system": "系統"
+  },
   "status": {
     "pass": "通過",
     "warning": "警告",

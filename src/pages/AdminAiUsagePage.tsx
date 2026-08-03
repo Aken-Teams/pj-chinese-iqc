@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Coins, Cpu, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { useAuthStore } from '@/store/authStore'
-import { SITE_LABELS, siteLabel } from '@/config/sites'
+import { siteLabel, siteOptions } from '@/config/sites'
+import Select from '@/components/ui/Select'
 import {
   getAiUsageSummary,
   getRecentAiUsage,
@@ -63,16 +64,12 @@ export default function AdminAiUsagePage() {
     <div className="p-12">
       <div className="flex items-start justify-between">
         <PageHeader title={t('title')} subtitle={t('subtitle')} />
-        <select
+        <Select
+          className="w-32"
           value={site}
-          onChange={(e) => { setSite(e.target.value); setRecentPage(1) }}
-          className="bg-bg-card border border-border-light px-3 py-2 text-sm text-text-primary outline-none focus:border-accent cursor-pointer"
-        >
-          <option value="">{t('allSites')}</option>
-          {Object.keys(SITE_LABELS).map((code) => (
-            <option key={code} value={code}>{siteLabel(code)}</option>
-          ))}
-        </select>
+          onChange={(v) => { setSite(v); setRecentPage(1) }}
+          options={siteOptions(t('allSites'))}
+        />
       </div>
 
       {error && <div className="mt-4 bg-badge-fail text-error text-sm px-4 py-2.5 font-medium">{error}</div>}

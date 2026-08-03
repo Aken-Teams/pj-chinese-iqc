@@ -16,3 +16,11 @@ export function siteLabel(domain?: string | null): string {
   if (!domain) return '未分廠'
   return SITE_LABELS[domain] ?? domain
 }
+
+/** Options for a site filter Select: an "all sites" entry (value '') + every site. */
+export function siteOptions(allLabel: string): { value: string; label: string }[] {
+  return [
+    { value: '', label: allLabel },
+    ...Object.keys(SITE_LABELS).map((code) => ({ value: code, label: siteLabel(code) })),
+  ]
+}
