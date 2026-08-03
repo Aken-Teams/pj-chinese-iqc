@@ -84,6 +84,11 @@ export default function Sidebar() {
   const visibleItems = (items: NavItem[]) =>
     items.filter((i) => !i.adminOnly || user?.role === 'admin')
 
+  // Non-empty groups (after admin filtering) — shared by both layouts.
+  const groupsToShow = navGroups
+    .map((g) => ({ ...g, items: visibleItems(g.items) }))
+    .filter((g) => g.items.length > 0)
+
   const renderItem = ({ icon: Icon, labelKey, to }: NavItem) => {
     const isActive = isRouteActive(to)
     return (
@@ -149,12 +154,27 @@ export default function Sidebar() {
       </div>
 
       {/* Nav — collapsed: flat icons; expanded: accordion groups */}
-      <nav className="flex flex-col gap-1 px-4 flex-1 overflow-y-auto">
+      <nav className={`flex flex-col gap-1 px-4 flex-1 ${collapsed ? 'overflow-visible' : 'overflow-y-auto'}`}>
         {collapsed
-          ? navGroups.flatMap((g) => visibleItems(g.items)).map(renderItem)
-          : navGroups.map((group) => {
-              const items = visibleItems(group.items)
-              if (items.length === 0) return null
+          ? groupsToShow.map((group, gi) => {
+              const open = expandedGroup === group.id
+              return (
+                <div key={group.id} className="flex flex-col gap-1">
+                  {gi > 0 && <div className="h-px bg-bg-dark-surface mx-2 mt-2" />}
+                  <button
+                    onClick={() => setExpandedGroup(open ? null : group.id)}
+                    title={t(group.titleKey)}
+                    className={`text-center font-heading text-[9px] font-bold uppercase tracking-[0.5px] pt-1 transition-colors cursor-pointer ${
+                      open ? 'text-text-tertiary' : 'text-text-muted hover:text-text-tertiary'
+                    }`}
+                  >
+                    {t(`${group.titleKey}Short`)}
+                  </button>
+                  {open && group.items.map(renderItem)}
+                </div>
+              )
+            })
+          : groupsToShow.map((group) => {
               const open = expandedGroup === group.id
               return (
                 <div key={group.id} className="flex flex-col">
@@ -167,7 +187,7 @@ export default function Sidebar() {
                     </span>
                     <ChevronDown size={14} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
                   </button>
-                  {open && <div className="flex flex-col gap-1">{items.map(renderItem)}</div>}
+                  {open && <div className="flex flex-col gap-1">{group.items.map(renderItem)}</div>}
                 </div>
               )
             })}

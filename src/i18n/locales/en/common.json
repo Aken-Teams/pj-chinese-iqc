@@ -13,7 +13,10 @@
   "navGroup": {
     "operations": "Operations",
     "analysis": "Analysis",
-    "system": "System"
+    "system": "System",
+    "operationsShort": "OPS",
+    "analysisShort": "ANL",
+    "systemShort": "SYS"
   },
   "status": {
     "pass": "Pass",

@@ -13,7 +13,10 @@
   "navGroup": {
     "operations": "作業",
     "analysis": "查詢分析",
-    "system": "系統"
+    "system": "系統",
+    "operationsShort": "作業",
+    "analysisShort": "分析",
+    "systemShort": "系統"
   },
   "status": {
     "pass": "通過",
