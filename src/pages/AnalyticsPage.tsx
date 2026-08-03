@@ -36,6 +36,35 @@ const OOC_STYLES: Record<string, {
            clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' },
 }
 
+// Shared SPC legend — used in both the card header and the enlarged modal.
+function SpcLegend() {
+  const { t } = useTranslation('analytics')
+  return (
+    <div className="flex gap-4">
+      <div className="flex items-center gap-1.5">
+        <div className="w-2.5 h-2.5 bg-success" />
+        <span className="text-[11px] text-text-secondary">{t('spc.mean')}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="w-2.5 h-2.5 bg-[#E8A849]" />
+        <span className="text-[11px] text-text-secondary">{t('spc.sigma2')}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="w-2.5 h-2.5 bg-error rounded-full" />
+        <span className="text-[11px] text-text-secondary">{t('spc.uclLcl')}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="flex-shrink-0" style={{ width: 11, height: 11, backgroundColor: OOC_STYLES.run.color, clipPath: OOC_STYLES.run.clipPath }} />
+        <span className="text-[11px] text-text-secondary">{OOC_STYLES.run.label}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="flex-shrink-0" style={{ width: 11, height: 11, backgroundColor: OOC_STYLES.trend.color, clipPath: OOC_STYLES.trend.clipPath }} />
+        <span className="text-[11px] text-text-secondary">{OOC_STYLES.trend.label}</span>
+      </div>
+    </div>
+  )
+}
+
 function SpcChart({ spc, chartHeight, scrollX = false }: { spc: SpcResponse; chartHeight: number; scrollX?: boolean }) {
   const { t } = useTranslation('analytics')
   const [hovered, setHovered] = useState<number | null>(null)
@@ -54,29 +83,32 @@ function SpcChart({ spc, chartHeight, scrollX = false }: { spc: SpcResponse; cha
   const PX_PER_POINT = 10
 
   return (
-    <div className={scrollX ? 'overflow-x-auto overflow-y-hidden' : undefined}>
-      <div
-        className="relative"
-        style={scrollX
-          ? { height: chartHeight, width: `${points.length * PX_PER_POINT}px`, minWidth: '100%' }
-          : { height: chartHeight }}
-      >
+    <div className="relative" style={scrollX ? { paddingRight: 92 } : undefined}>
+      <div className={scrollX ? 'overflow-x-auto overflow-y-hidden' : undefined}>
+        <div
+          className="relative"
+          style={scrollX
+            ? { height: chartHeight, width: `${points.length * PX_PER_POINT}px`, minWidth: '100%' }
+            : { height: chartHeight }}
+        >
+      {/* Bands. Limit labels render inline only when NOT scrolling; in the
+          scrollable view they live in a pinned overlay (see below). */}
       <div className="absolute inset-x-0 top-0 bg-[#FFEBEE] flex items-center justify-end pr-3" style={{ height: '15%' }}>
-        <span className="text-[10px] font-semibold text-error">UCL {spc.ucl.toFixed(4)}</span>
+        {!scrollX && <span className="text-[10px] font-semibold text-error">UCL {spc.ucl.toFixed(4)}</span>}
       </div>
       <div className="absolute inset-x-0 bg-[#FFF3E0] flex items-center justify-end pr-3" style={{ top: '15%', height: '15%' }}>
-        <span className="text-[10px] font-semibold text-[#E8A849]">+2&sigma;</span>
+        {!scrollX && <span className="text-[10px] font-semibold text-[#E8A849]">+2&sigma;</span>}
       </div>
       <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '30%', height: '20%' }} />
       <div className="absolute inset-x-0 bg-success flex items-center justify-end pr-3" style={{ top: '50%', height: '2px' }}>
-        <span className="text-[10px] font-semibold text-success absolute -top-3 right-3">{t('spc.mean')} {spc.grandMean.toFixed(4)}</span>
+        {!scrollX && <span className="text-[10px] font-semibold text-success absolute -top-3 right-3">{t('spc.mean')} {spc.grandMean.toFixed(4)}</span>}
       </div>
       <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '50%', height: '20%' }} />
       <div className="absolute inset-x-0 bg-[#FFF3E0] flex items-center justify-end pr-3" style={{ top: '70%', height: '15%' }}>
-        <span className="text-[10px] font-semibold text-[#E8A849]">-2&sigma;</span>
+        {!scrollX && <span className="text-[10px] font-semibold text-[#E8A849]">-2&sigma;</span>}
       </div>
       <div className="absolute inset-x-0 bg-[#FFEBEE] flex items-center justify-end pr-3" style={{ top: '85%', height: '15%' }}>
-        <span className="text-[10px] font-semibold text-error">LCL {spc.lcl.toFixed(4)}</span>
+        {!scrollX && <span className="text-[10px] font-semibold text-error">LCL {spc.lcl.toFixed(4)}</span>}
       </div>
       {/* Dots */}
       <div className="absolute inset-0">
@@ -118,11 +150,11 @@ function SpcChart({ spc, chartHeight, scrollX = false }: { spc: SpcResponse; cha
         const ooc = pt.oocReason ? OOC_STYLES[pt.oocReason] : null
         return (
           <div
-            className="absolute text-[10px] font-semibold px-2 py-1 whitespace-nowrap pointer-events-none z-20 flex flex-col gap-0.5"
+            className={`absolute font-semibold whitespace-nowrap pointer-events-none z-20 flex flex-col ${scrollX ? 'text-[13px] px-3 py-1.5 gap-1' : 'text-[10px] px-2 py-1 gap-0.5'}`}
             style={{
               left: `${xPct}%`,
               top: `${yPct}%`,
-              transform: 'translate(-50%, calc(-100% - 12px))',
+              transform: `translate(-50%, calc(-100% - ${scrollX ? 16 : 12}px))`,
               background: 'var(--color-text-primary)',
               color: 'var(--color-bg-card)',
             }}
@@ -132,7 +164,27 @@ function SpcChart({ spc, chartHeight, scrollX = false }: { spc: SpcResponse; cha
           </div>
         )
       })()}
+        </div>
       </div>
+      {/* Pinned control-limit labels — stay fixed on the right while the chart
+          scrolls horizontally (enlarged/scrollable view only). */}
+      {scrollX && (
+        <div className="pointer-events-none absolute top-0 right-0 z-10 overflow-hidden" style={{ height: chartHeight, width: 92 }}>
+          {/* Band backgrounds continue into the label gutter so it looks seamless */}
+          <div className="absolute inset-x-0 top-0 bg-[#FFEBEE]" style={{ height: '15%' }} />
+          <div className="absolute inset-x-0 bg-[#FFF3E0]" style={{ top: '15%', height: '15%' }} />
+          <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '30%', height: '20%' }} />
+          <div className="absolute inset-x-0 bg-success" style={{ top: '50%', height: '2px' }} />
+          <div className="absolute inset-x-0 bg-[#E8F5E9]" style={{ top: '50%', height: '20%' }} />
+          <div className="absolute inset-x-0 bg-[#FFF3E0]" style={{ top: '70%', height: '15%' }} />
+          <div className="absolute inset-x-0 bg-[#FFEBEE]" style={{ top: '85%', height: '15%' }} />
+          <span className="absolute right-3 -translate-y-1/2 whitespace-nowrap text-[10px] font-semibold text-error" style={{ top: '7.5%' }}>UCL {spc.ucl.toFixed(4)}</span>
+          <span className="absolute right-3 -translate-y-1/2 whitespace-nowrap text-[10px] font-semibold text-[#E8A849]" style={{ top: '22.5%' }}>+2&sigma;</span>
+          <span className="absolute right-3 -translate-y-1/2 whitespace-nowrap text-[10px] font-semibold text-success" style={{ top: '50%' }}>{t('spc.mean')} {spc.grandMean.toFixed(4)}</span>
+          <span className="absolute right-3 -translate-y-1/2 whitespace-nowrap text-[10px] font-semibold text-[#E8A849]" style={{ top: '77.5%' }}>-2&sigma;</span>
+          <span className="absolute right-3 -translate-y-1/2 whitespace-nowrap text-[10px] font-semibold text-error" style={{ top: '92.5%' }}>LCL {spc.lcl.toFixed(4)}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -394,28 +446,7 @@ export default function AnalyticsPage() {
                     </button>
                   )}
                 </div>
-                <div className="flex gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 bg-success" />
-                    <span className="text-[11px] text-text-secondary">{t('spc.mean')}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 bg-[#E8A849]" />
-                    <span className="text-[11px] text-text-secondary">{t('spc.sigma2')}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 bg-error rounded-full" />
-                    <span className="text-[11px] text-text-secondary">{t('spc.uclLcl')}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex-shrink-0" style={{ width: 11, height: 11, backgroundColor: OOC_STYLES.run.color, clipPath: OOC_STYLES.run.clipPath }} />
-                    <span className="text-[11px] text-text-secondary">{OOC_STYLES.run.label}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex-shrink-0" style={{ width: 11, height: 11, backgroundColor: OOC_STYLES.trend.color, clipPath: OOC_STYLES.trend.clipPath }} />
-                    <span className="text-[11px] text-text-secondary">{OOC_STYLES.trend.label}</span>
-                  </div>
-                </div>
+                <SpcLegend />
               </div>
 
               {spc && spc.dataPoints.length > 0 ? (
@@ -436,12 +467,15 @@ export default function AnalyticsPage() {
                 <div className="w-full max-w-[1400px] bg-bg-card p-6" onClick={(e) => e.stopPropagation()}>
                   <div className="mb-4 flex items-center justify-between">
                     <h3 className="font-heading font-bold">{t('spcChartTitle', { param: selectedParam })}</h3>
-                    <button
-                      onClick={() => setSpcZoom(false)}
-                      className="text-text-muted hover:text-text-primary cursor-pointer"
-                    >
-                      <X size={18} />
-                    </button>
+                    <div className="flex items-center gap-5">
+                      <SpcLegend />
+                      <button
+                        onClick={() => setSpcZoom(false)}
+                        className="text-text-muted hover:text-text-primary cursor-pointer"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
                   </div>
                   <SpcChart spc={spc} chartHeight={460} scrollX />
                 </div>
