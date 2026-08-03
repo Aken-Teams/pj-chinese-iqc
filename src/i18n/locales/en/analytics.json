@@ -7,7 +7,8 @@
     "title": "SPC Control Chart",
     "mean": "Mean",
     "sigma2": "\u00b12\u03c3",
-    "uclLcl": "UCL/LCL"
+    "uclLcl": "UCL/LCL",
+    "zoom": "Zoom"
   },
   "distribution": {
     "title": "Distribution Chart",

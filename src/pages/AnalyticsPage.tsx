@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Sparkles, TriangleAlert, CircleX } from 'lucide-react'
+import { Loader2, Sparkles, TriangleAlert, CircleX, Maximize2, X } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getHistory, type HistoryRow } from '@/services/history'
 import LotSearchSelect from '@/components/ui/LotSearchSelect'
@@ -36,7 +36,7 @@ const OOC_STYLES: Record<string, {
            clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' },
 }
 
-function SpcChart({ spc, chartHeight }: { spc: SpcResponse; chartHeight: number }) {
+function SpcChart({ spc, chartHeight, scrollX = false }: { spc: SpcResponse; chartHeight: number; scrollX?: boolean }) {
   const { t } = useTranslation('analytics')
   const [hovered, setHovered] = useState<number | null>(null)
   const points = spc.dataPoints
@@ -48,8 +48,19 @@ function SpcChart({ spc, chartHeight }: { spc: SpcResponse; chartHeight: number 
     return { xPct, yPct }
   }
 
+  // In the enlarged view, spread points out and let the chart scroll
+  // horizontally (a bottom scrollbar) instead of cramming hundreds of
+  // points into a single width.
+  const PX_PER_POINT = 10
+
   return (
-    <div className="relative" style={{ height: chartHeight }}>
+    <div className={scrollX ? 'overflow-x-auto overflow-y-hidden' : undefined}>
+      <div
+        className="relative"
+        style={scrollX
+          ? { height: chartHeight, width: `${points.length * PX_PER_POINT}px`, minWidth: '100%' }
+          : { height: chartHeight }}
+      >
       <div className="absolute inset-x-0 top-0 bg-[#FFEBEE] flex items-center justify-end pr-3" style={{ height: '15%' }}>
         <span className="text-[10px] font-semibold text-error">UCL {spc.ucl.toFixed(4)}</span>
       </div>
@@ -121,6 +132,7 @@ function SpcChart({ spc, chartHeight }: { spc: SpcResponse; chartHeight: number 
           </div>
         )
       })()}
+      </div>
     </div>
   )
 }
@@ -235,6 +247,7 @@ export default function AnalyticsPage() {
   const [selectedSite, setSelectedSite] = useState<string>('')
   const [params, setParams] = useState<string[]>([])
   const [selectedParam, setSelectedParam] = useState('')
+  const [spcZoom, setSpcZoom] = useState(false)
   const [loading, setLoading] = useState(true)
   const [dataLoading, setDataLoading] = useState(false)
   const [anomalyLoading, setAnomalyLoading] = useState(false)
@@ -369,7 +382,18 @@ export default function AnalyticsPage() {
             {/* SPC Control Chart */}
             <div className="flex-1 bg-bg-card p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-heading font-bold">{t('spcChartTitle', { param: selectedParam })}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-heading font-bold">{t('spcChartTitle', { param: selectedParam })}</h3>
+                  {spc && spc.dataPoints.length > 0 && (
+                    <button
+                      onClick={() => setSpcZoom(true)}
+                      title={t('spc.zoom')}
+                      className="text-text-muted hover:text-text-primary cursor-pointer"
+                    >
+                      <Maximize2 size={15} />
+                    </button>
+                  )}
+                </div>
                 <div className="flex gap-4">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 bg-success" />
@@ -402,6 +426,27 @@ export default function AnalyticsPage() {
                 </div>
               )}
             </div>
+
+            {/* SPC zoom modal — same chart, larger */}
+            {spcZoom && spc && spc.dataPoints.length > 0 && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-8"
+                onClick={() => setSpcZoom(false)}
+              >
+                <div className="w-full max-w-[1400px] bg-bg-card p-6" onClick={(e) => e.stopPropagation()}>
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="font-heading font-bold">{t('spcChartTitle', { param: selectedParam })}</h3>
+                    <button
+                      onClick={() => setSpcZoom(false)}
+                      className="text-text-muted hover:text-text-primary cursor-pointer"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <SpcChart spc={spc} chartHeight={460} scrollX />
+                </div>
+              </div>
+            )}
 
             {/* Distribution */}
             <div className="w-[340px] bg-bg-card p-5 flex flex-col">
