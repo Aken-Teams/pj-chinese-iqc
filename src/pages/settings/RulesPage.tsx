@@ -15,7 +15,9 @@ import { useAuthStore } from '@/store/authStore'
 import { siteLabel, siteOptions } from '@/config/sites'
 import Select from '@/components/ui/Select'
 
-const LIMIT_KEYS: { key: keyof ReviewRule; labelKey: string }[] = [
+type LimitKey = 'q1_lower' | 'q1_upper' | 'q2_lower' | 'q2_upper' | 'q3_lower' | 'q3_upper'
+
+const LIMIT_KEYS: { key: LimitKey; labelKey: string }[] = [
   { key: 'q1_lower', labelKey: 'q1Lower' },
   { key: 'q1_upper', labelKey: 'q1Upper' },
   { key: 'q2_lower', labelKey: 'q2Lower' },
@@ -52,7 +54,7 @@ function RuleRow({
   )
   const [saving, setSaving] = useState(false)
 
-  function setLimit(key: keyof ReviewRule, val: string) {
+  function setLimit(key: LimitKey, val: string) {
     setDraft((d) => ({ ...d, [key]: val === '' ? null : Number(val) }))
   }
 

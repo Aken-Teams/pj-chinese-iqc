@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ChevronLeft, ChevronRight, Sparkles, Loader2 } from 'lucide-react'
 import { getWaferDetail, type WaferDetail, type ElectricalParam } from '@/services/review'
-import { getWaferMap, getBinDistribution, type WaferMapData, type BinCount } from '@/services/waferMap'
+import { getWaferMap, type WaferMapData } from '@/services/waferMap'
 import { getLotResults } from '@/services/review'
 import { apiFetch } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
@@ -24,7 +24,6 @@ export default function ReviewDetailPage() {
   const [detail, setDetail] = useState<WaferDetail | null>(null)
   const [lotDomain, setLotDomain] = useState<string | null | undefined>(undefined)
   const [mapData, setMapData] = useState<WaferMapData | null>(null)
-  const [binDist, setBinDist] = useState<BinCount[]>([])
   const [loading, setLoading] = useState(true)
   const [waferIds, setWaferIds] = useState<string[]>([])
   const [aiSummary, setAiSummary] = useState<string | null>(null)
@@ -49,7 +48,6 @@ export default function ReviewDetailPage() {
       if (wafer) {
         setWaferDbId(wafer.dbId)
         getWaferMap(wafer.dbId).then(setMapData).catch(() => null)
-        getBinDistribution(wafer.dbId).then(setBinDist).catch(() => null)
       }
     }).catch(() => null)
 
@@ -173,7 +171,6 @@ export default function ReviewDetailPage() {
   }
 
   const params = detail?.electricalParams || []
-  const maxBinCount = Math.max(...(binDist.map(b => b.count) || [1]), 1)
 
   return (
     <div className="p-9 pl-11 flex flex-col gap-5">
