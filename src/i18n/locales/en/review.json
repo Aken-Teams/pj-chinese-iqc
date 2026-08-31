@@ -102,5 +102,8 @@
     "HOLD": "Hold",
     "notReviewed": "This lot has not been reviewed yet — the verdict above is a live reading. Run 執行審核 to fill the Q1 / Q2 columns.",
     "overridden": "Overridden (was {{from}})"
+  },
+  "map": {
+    "sampled": "This file carries {{count}} probed sites rather than every die, so the map is drawn as points."
   }
 }

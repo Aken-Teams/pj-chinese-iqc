@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ChevronLeft, ChevronRight, Sparkles, Loader2 } from 'lucide-react'
-import { getWaferDetail, type WaferDetail, type ElectricalParam } from '@/services/review'
+import { getWaferDetail, type WaferDetail } from '@/services/review'
 import { getWaferMap, type WaferMapData } from '@/services/waferMap'
 import { getLotResults } from '@/services/review'
 import { apiFetch } from '@/services/api'
@@ -80,28 +80,97 @@ export default function ReviewDetailPage() {
   const prevWaferId = currentIdx > 0 ? waferIds[currentIdx - 1] : null
   const nextWaferId = currentIdx < waferIds.length - 1 ? waferIds[currentIdx + 1] : null
 
-  // Build wafer map grid from die data
-  const mapGrid = useMemo(() => {
+  /**
+   * Die positions, converted from the vendor's coordinates to row/column
+   * indices using the real die pitch.
+   *
+   * The previous version rank-compressed the distinct X and Y values, which
+   * assumes the coordinates already are indices. Measured across both sites,
+   * they usually are not:
+   *
+   *   天狼芯 / 世界先进   pitch 1 — indices after all
+   *   捷捷微 / 祥瑞微     pitch 12-33 — physical units
+   *   祥瑞微 (無錫)       pitch alternating 4 and 5, so no integer fits
+   *   禾納                rows offset from each other, 300 probed sites
+   *
+   * Rank compression only works where the pitch never varies, which is why
+   * 徐州's maps looked right and 禾納's came out scrambled with distant dies
+   * drawn as neighbours. Dividing by the measured pitch works for all of them.
+   */
+  const mapPlot = useMemo(() => {
     if (!mapData || !mapData.dies.length) return null
-    // Normalize coordinates to 0-based indices so the grid always fits the display
-    // regardless of the actual coordinate values or range
-    const uniqueXs = [...new Set(mapData.dies.map(d => d.x))].sort((a, b) => a - b)
-    const uniqueYs = [...new Set(mapData.dies.map(d => d.y))].sort((a, b) => a - b)
-    const xToIdx = new Map(uniqueXs.map((x, i) => [x, i] as [number, number]))
-    const yToIdx = new Map(uniqueYs.map((y, i) => [y, i] as [number, number]))
+
+    // The pitch is the spacing between neighbours in the same row (width) or
+    // column (height). Gaps far above the median are dropped so a void in the
+    // middle of a row does not stretch the die; the rest are averaged, which is
+    // what handles 祥瑞微's alternating 4 and 5.
+    const pitchAlong = (groups: Map<number, number[]>) => {
+      const gaps: number[] = []
+      for (const line of groups.values()) {
+        const uniq = [...new Set(line)].sort((a, b) => a - b)
+        for (let k = 1; k < uniq.length; k++) gaps.push(uniq[k] - uniq[k - 1])
+      }
+      if (!gaps.length) return 1
+      gaps.sort((a, b) => a - b)
+      const median = gaps[Math.floor(gaps.length / 2)]
+      const kept = gaps.filter((g) => g <= median * 1.5)
+      return kept.reduce((a, b) => a + b, 0) / kept.length || 1
+    }
+
+    const byRow = new Map<number, number[]>()
+    const byCol = new Map<number, number[]>()
+    for (const d of mapData.dies) {
+      if (!byRow.has(d.y)) byRow.set(d.y, [])
+      if (!byCol.has(d.x)) byCol.set(d.x, [])
+      byRow.get(d.y)!.push(d.x)
+      byCol.get(d.x)!.push(d.y)
+    }
+
+    const xs = mapData.dies.map((d) => d.x)
+    const ys = mapData.dies.map((d) => d.y)
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const minY = Math.min(...ys), maxY = Math.max(...ys)
+
+    let pw = pitchAlong(byRow)
+    let ph = pitchAlong(byCol)
+
+    // A pitch too coarse lands two dies in one cell and hides one of them.
+    // Counting cells is not enough to catch that: 禾納's rows are offset from
+    // each other, so the spacing measured along a row overstates the pitch and
+    // 48 dies were being painted over even though the grid had room. Count the
+    // actual collisions and refine until they are gone.
+    const collisions = (w: number, h: number) => {
+      const seen = new Set<string>()
+      let hits = 0
+      for (const d of mapData.dies) {
+        const key = `${Math.round((maxY - d.y) / h)},${Math.round((d.x - minX) / w)}`
+        if (seen.has(key)) hits++
+        else seen.add(key)
+      }
+      return hits
+    }
+    for (let guard = 0; guard < 12 && collisions(pw, ph) > 0; guard++) {
+      pw /= 2
+      ph /= 2
+    }
+
+    const cols = Math.round((maxX - minX) / pw) + 1
+    const rows = Math.round((maxY - minY) / ph) + 1
     const grid: Record<string, number> = {}
-    for (const die of mapData.dies) {
-      const xi = xToIdx.get(die.x)!
-      const yi = yToIdx.get(die.y)!
-      grid[`${yi},${xi}`] = die.bin
+    for (const d of mapData.dies) {
+      const col = Math.round((d.x - minX) / pw)
+      // Y grows upward on a wafer and downward on screen.
+      const row = Math.round((maxY - d.y) / ph)
+      const key = `${row},${col}`
+      // A failing die must never be painted over by a passing one.
+      if (grid[key] === undefined || grid[key] === 1) grid[key] = d.bin
     }
-    return {
-      grid,
-      minX: 0,
-      maxX: uniqueXs.length - 1,
-      minY: 0,
-      maxY: uniqueYs.length - 1,
-    }
+    // 禾納's files carry 300 probed sites spread over the wafer rather than
+    // every die, and no pitch packs a staggered sample into a dense lattice.
+    // Flagged so the map can be drawn as points and say what it is, instead of
+    // looking like a full map with most of it missing.
+    const fill = Object.keys(grid).length / (cols * rows)
+    return { grid, cols, rows, sparse: fill < 0.2 }
   }, [mapData])
 
   if (loading) {
@@ -112,52 +181,70 @@ export default function ReviewDetailPage() {
     )
   }
 
-  // Fallback wafer map using circle if no real map data
   const renderWaferMap = () => {
-    if (mapGrid) {
-      const cols = mapGrid.maxX - mapGrid.minX + 1
-      const rows = mapGrid.maxY - mapGrid.minY + 1
-      // Pad to square so the wafer appears circular and symmetric
-      const displaySize = Math.max(cols, rows)
-      const colOffset = Math.floor((displaySize - cols) / 2)
-      const rowOffset = Math.floor((displaySize - rows) / 2)
-      const cellSize = Math.min(24, Math.floor(380 / displaySize))
-      const radius = Math.ceil(cellSize / 4)
+    if (mapPlot) {
+      const SIZE = 380
+      // Each axis fills the square viewport independently. A wafer is round, so
+      // this is the shape to draw even when the die itself is not square —
+      // 世界先进's map is 64 columns by 50 rows and would otherwise read as an
+      // oval.
+      const cw = SIZE / mapPlot.cols
+      const ch = SIZE / mapPlot.rows
+      const gap = Math.min(cw, ch) > 4 ? Math.min(cw, ch) * 0.12 : 0
+      const dieCount = Object.keys(mapPlot.grid).length
       return (
-        <div
-          className="inline-grid"
-            style={{ gridTemplateColumns: `repeat(${displaySize}, ${cellSize}px)`, gap: '1px' }}
-          >
-            {Array.from({ length: displaySize }, (_, row) =>
-              Array.from({ length: displaySize }, (_, col) => {
-                const dataRow = row - rowOffset
-                const dataCol = col - colOffset
-                const inBounds = dataRow >= 0 && dataRow < rows && dataCol >= 0 && dataCol < cols
-                const key = `${dataRow},${dataCol}`
-                const bin = inBounds ? mapGrid.grid[key] : undefined
-                let bgColor: string
-                if (bin === 1) bgColor = 'var(--color-success)'
-                else if (bin !== undefined) bgColor = 'var(--color-error)'
-                else if (inBounds) bgColor = 'rgba(0,0,0,0.06)'
-                else bgColor = 'transparent'
-                return (
-                  <div
-                    key={`${row}-${col}`}
-                    style={{ width: cellSize, height: cellSize, backgroundColor: bgColor, borderRadius: radius }}
-                  />
-                )
-              })
-            )}
+        <div className="flex flex-col gap-2">
+        <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img">
+          {/* The wafer edge, so a sparsely probed map still reads as a wafer
+              rather than as scattered dots. */}
+          <circle
+            cx={SIZE / 2} cy={SIZE / 2} r={SIZE / 2 - 1}
+            fill="rgba(0,0,0,0.035)" stroke="rgba(0,0,0,0.10)" strokeWidth={1}
+          />
+          {Object.entries(mapPlot.grid).map(([key, bin]) => {
+            const [row, col] = key.split(',').map(Number)
+            const fill = bin === 1 ? 'var(--color-success)' : 'var(--color-error)'
+            // A sampled map gets fixed-size points: cells scaled to a lattice
+            // that is 98% empty would be a pixel wide and invisible.
+            if (mapPlot.sparse) {
+              return (
+                <circle
+                  key={key}
+                  cx={col * cw + cw / 2}
+                  cy={row * ch + ch / 2}
+                  r={3}
+                  fill={fill}
+                />
+              )
+            }
+            return (
+              <rect
+                key={key}
+                x={col * cw + gap / 2}
+                y={row * ch + gap / 2}
+                width={Math.max(cw - gap, 1)}
+                height={Math.max(ch - gap, 1)}
+                rx={gap ? gap : 0}
+                fill={fill}
+              />
+            )
+          })}
+        </svg>
+        {mapPlot.sparse && (
+          <p className="max-w-[380px] text-[11px] leading-snug text-text-muted">
+            {t('map.sampled', { count: dieCount })}
+          </p>
+        )}
         </div>
       )
     }
-    // Fallback: circle approximation
-    const cx = 6.5, cy = 6.5, r = 6.5
+    // No coordinates in the file: a plain circle rather than an empty box.
+    const cx = 6.5, cy = 6.5, rad = 6.5
     return (
       <div className="inline-grid gap-px" style={{ gridTemplateColumns: 'repeat(14, 20px)' }}>
         {Array.from({ length: 14 }, (_, row) =>
           Array.from({ length: 14 }, (_, col) => {
-            const inside = (col - cx) ** 2 + (row - cy) ** 2 <= r * r
+            const inside = (col - cx) ** 2 + (row - cy) ** 2 <= rad * rad
             return (
               <div
                 key={`${row}-${col}`}
