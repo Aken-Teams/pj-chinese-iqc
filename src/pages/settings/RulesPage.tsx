@@ -4,6 +4,7 @@ import {
   AlertTriangle, Check, CheckCircle, ChevronDown, ChevronRight, Download, History, Loader2, PackagePlus, Plus, RefreshCw, Search, Table2, Trash2, Upload, X, XCircle,
 } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
+import ThresholdSettings from '@/components/settings/ThresholdSettings'
 import { downloadBlob } from '@/utils/downloadBlob'
 import { getProducts, type Product } from '@/services/vendors'
 import {
@@ -1034,6 +1035,8 @@ export default function RulesPage() {
           {exportError}
         </div>
       )}
+
+      <ThresholdSettings />
 
       {importMode && <ImportPanel onDone={handleImportDone} onImported={handleImported} />}
       {matrixMode && (

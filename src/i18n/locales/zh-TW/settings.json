@@ -87,16 +87,16 @@
   },
   "rules": {
     "title": "審核規則",
-    "desc": "設定各電性參數的 Q1 / Q2 / Q3 規格限制",
+    "desc": "設定各電性參數的 Q1 (CP) / Q2 (TMTT) / Q3 規格限制",
     "selectProduct": "請先選擇產品",
     "addRule": "新增規則",
     "paramName": "參數名稱",
     "noRules": "此產品尚無審核規則",
     "confirmDelete": "確定要刪除此規則嗎？",
-    "q1Lower": "Q1 下限",
-    "q1Upper": "Q1 上限",
-    "q2Lower": "Q2 下限",
-    "q2Upper": "Q2 上限",
+    "q1Lower": "Q1 (CP) 下限",
+    "q1Upper": "Q1 (CP) 上限",
+    "q2Lower": "Q2 (TMTT) 下限",
+    "q2Upper": "Q2 (TMTT) 上限",
     "q3Lower": "Q3 下限",
     "q3Upper": "Q3 上限",
     "importExcel": "匯入 Excel",
@@ -172,7 +172,8 @@
     "summary": "{{products}} 個產品 / {{specs}} 條測規",
     "specsCount": "{{count}} 條測規",
     "noSpecsAtAll": "尚無封裝測規，請展開產品並點擊「+」新增",
-    "addSpecFor": "為此產品新增測規"
+    "addSpecFor": "為此產品新增測規",
+    "showEmpty": "顯示無測規的產品（{{count}}）"
   },
   "scores": {
     "title": "廠商評分表",
@@ -337,5 +338,17 @@
     "downloadSample": "下載樣本檔",
     "versionTip": "目前版本，可在修改履歷檢視每一版差異",
     "downloadFailed": "下載失敗"
+  },
+  "thresholds": {
+    "title": "審核判定門檻",
+    "desc": "設定各廠區的 PASS / WARN / HOLD 良率門檻。系統依此主動提示，最終仍由人員判定確認。",
+    "site": "廠區",
+    "allSites": "全部（預設）",
+    "passMin": "PASS 門檻",
+    "warnMin": "WARN 門檻",
+    "explain": "良率 ≥ {{pass}}% 判 PASS、≥ {{warn}}% 判 WARN、低於 {{warn}}% 判 HOLD",
+    "save": "儲存",
+    "invalid": "門檻須符合 0 < WARN ≤ PASS ≤ 100",
+    "basisNote": "判定基準為 Q1 良率。Q1 上下限與供應商 CP data 管控一致，因此 Q1 良率等同 Bin 良率，兩廠共用同一套邏輯。"
   }
 }

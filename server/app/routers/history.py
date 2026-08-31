@@ -12,6 +12,7 @@ from app.models.product import Product
 from app.models.vendor import Vendor
 from app.models.user import User
 from app.schemas.history import HistoryResponse, HistoryRow
+from app.services.judgement import classify, get_thresholds
 
 router = APIRouter(prefix="/api", tags=["history"])
 
@@ -141,6 +142,15 @@ def list_lots(
         ):
             wafer_stats[lid] = (cnt or 0, avg)
 
+    # One lookup per site, not per lot: a 500-lot page would otherwise issue
+    # 500 identical threshold queries.
+    _threshold_cache: dict = {}
+
+    def thresholds_for(domain):
+        if domain not in _threshold_cache:
+            _threshold_cache[domain] = get_thresholds(db, domain)
+        return _threshold_cache[domain]
+
     items = []
     for lot in lots:
         product_obj = lot.product
@@ -148,11 +158,13 @@ def list_lots(
         wafer_count, avg_yield = wafer_stats.get(lot.id, (0, None))
         avg_yield_pct = float(avg_yield * 100) if avg_yield else 0.0
 
-        lot_status = "PASS"
-        if avg_yield_pct < 95:
-            lot_status = "FAIL"
-        elif avg_yield_pct < 98:
-            lot_status = "WARN"
+        # A confirmed decision outranks the computed one: the review is
+        # advisory and a person has the last word.
+        pass_min, warn_min, _basis = thresholds_for(lot.domain)
+        lot_status = (lot.confirmed_judgement
+                      or lot.judgement
+                      or classify(avg_yield_pct / 100, pass_min, warn_min)
+                      or "HOLD")
 
         items.append(HistoryRow(
             id=lot.id,

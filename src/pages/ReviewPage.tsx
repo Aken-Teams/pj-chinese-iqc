@@ -12,6 +12,7 @@ import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
 import LotSearchSelect from '@/components/ui/LotSearchSelect'
 import LotFilterBar, { FilterField } from '@/components/ui/LotFilterBar'
+import JudgementBar from '@/components/review/JudgementBar'
 import { useAuthStore } from '@/store/authStore'
 
 type WaferStatus = 'PASS' | 'WARN' | 'FAIL'
@@ -364,6 +365,15 @@ export default function ReviewPage() {
         </div>
       ) : summary ? (
         <>
+          {/* The verdict and the sign-off, above the numbers that produced it. */}
+          {selectedLotId !== null && (
+            <JudgementBar
+              lotId={selectedLotId}
+              summary={summary}
+              onChange={() => loadResults(selectedLotId)}
+            />
+          )}
+
           {/* Summary Cards */}
           <div className="mt-5 flex gap-4">
             <div className="flex-1 bg-bg-card p-4">

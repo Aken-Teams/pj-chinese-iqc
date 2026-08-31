@@ -1,9 +1,13 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.dependencies import get_db, get_current_user, assert_lot_visible, can_see_all_domains
+from app.models.review import ReviewThreshold
 from app.models.user import User
+from app.services.judgement import classify, get_thresholds, judge_lot, lot_yield
 from app.models.lot import Lot
 from app.models.wafer import Wafer
 from app.models.product import Product
@@ -11,9 +15,20 @@ from app.models.vendor import Vendor
 from app.models.review import ReviewResult, ReviewRule
 from app.models.die_data import DieData, ElectricalValue
 from app.schemas.review import (
-    ReviewExecuteRequest, LotReviewSummary, WaferReviewRow, WaferDetail, ElectricalParam,
-    ReviewMatrix, MatrixWaferRow, MatrixCell,
-    BatchReviewRequest, BatchReviewResponse, BatchReviewItem,
+    ReviewExecuteRequest,
+    LotReviewSummary,
+    WaferReviewRow,
+    WaferDetail,
+    ElectricalParam,
+    ReviewMatrix,
+    MatrixWaferRow,
+    MatrixCell,
+    BatchReviewRequest,
+    BatchReviewResponse,
+    BatchReviewItem,
+    ConfirmJudgementRequest,
+    ThresholdResponse,
+    ThresholdUpdate,
 )
 from app.services.review_engine import execute_review
 
@@ -27,7 +42,10 @@ def run_review(req: ReviewExecuteRequest, db: Session = Depends(get_db), user: U
         raise HTTPException(404, "Lot not found")
     assert_lot_visible(lot, user)
     results = execute_review(db, req.lot_id, req.params)
-    return {"success": True, "resultCount": len(results)}
+    verdict, value = judge_lot(db, lot)
+    db.commit()
+    return {"success": True, "resultCount": len(results),
+            "judgement": verdict, "judgedYield": value}
 
 
 @router.post("/execute-batch", response_model=BatchReviewResponse)
@@ -44,6 +62,8 @@ def run_batch_review(req: BatchReviewRequest, db: Session = Depends(get_db), use
             continue
         try:
             results = execute_review(db, lot_id)
+            judge_lot(db, lot)
+            db.commit()
             items.append(BatchReviewItem(lotId=lot_id, success=True, resultCount=len(results)))
             reviewed += 1
         except Exception as e:  # noqa: BLE001 — one bad lot must not abort the batch
@@ -87,6 +107,7 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db), user: User = Dep
 
     wafer_rows = []
     total_dies = 0
+    pass_min, warn_min, basis = get_thresholds(db, lot.domain)
     yield_sum = 0.0
 
     for w in wafers:
@@ -103,11 +124,12 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db), user: User = Dep
         q2 = float(w.q2_combined) * 100 if w.q2_combined is not None else None
         q3 = float(w.q3_combined) * 100 if w.q3_combined is not None else None
 
-        status = "PASS"
-        if bin1_yield_pct < 95:
-            status = "FAIL"
-        elif bin1_yield_pct < 98:
-            status = "WARN"
+        # Per wafer, on the site's own thresholds. Q1 is the basis where it
+        # exists — it reproduces the bin yield, and it is the level both sites
+        # agreed to judge on — with the bin yield standing in until a lot has
+        # been reviewed and has a Q1 to read.
+        basis_value = (q1 / 100) if (basis == "q1" and q1 is not None) else (bin1_yield_pct / 100)
+        status = classify(basis_value, pass_min, warn_min) or "HOLD"
 
         yield_sum += bin1_yield_pct
         wafer_rows.append(WaferReviewRow(
@@ -131,10 +153,27 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db), user: User = Dep
         nums = [v for v in vals if v is not None]
         if not nums:
             return "N/A"
-        return "PASS" if all(v >= 95 for v in nums) else "FAIL"
+        # Judged on the same cut-off as everything else on this page, rather
+        # than a second hardcoded number.
+        return "PASS" if all(v >= pass_min * 100 for v in nums) else "FAIL"
 
     q1_compliance = compliance(has_q1_rules, lambda w: w.q1Yield)
     q2_compliance = compliance(has_q2_rules, lambda w: w.q2Yield)
+
+    # A lot that has not been through 執行審核 has no stored judgement, and the
+    # bar would be blank on a page that is already showing a verdict per wafer.
+    # Work it out live from whatever yields exist — the same call the review
+    # would make — without writing it, so nothing is claimed as reviewed.
+    judgement = lot.judgement
+    judged_yield = float(lot.judged_yield) if lot.judged_yield is not None else None
+    if judgement is None:
+        judged_yield = lot_yield(db, lot, basis)
+        judgement = classify(judged_yield, pass_min, warn_min)
+
+    confirmed_by = None
+    if lot.confirmed_by:
+        who = db.query(User).filter(User.id == lot.confirmed_by).first()
+        confirmed_by = who.name if who else str(lot.confirmed_by)
 
     return LotReviewSummary(
         lotId=lot.lot_id,
@@ -147,6 +186,18 @@ def get_lot_results(lot_id: int, db: Session = Depends(get_db), user: User = Dep
         q1Compliance=q1_compliance,
         q2Compliance=q2_compliance,
         wafers=wafer_rows,
+        judgement=judgement,
+        judgedYield=judged_yield,
+        # False while the lot still needs 執行審核: the verdict above is a live
+        # reading, and Q1/Q2 columns stay N/A until the review has run.
+        reviewed=(lot.status == "reviewed"),
+        passMin=pass_min,
+        warnMin=warn_min,
+        basis=basis,
+        confirmedJudgement=lot.confirmed_judgement,
+        confirmedBy=confirmed_by,
+        confirmedAt=lot.confirmed_at.isoformat() if lot.confirmed_at else None,
+        confirmNote=lot.confirm_note,
     )
 
 
@@ -245,3 +296,84 @@ def get_review_matrix(lot_id: int, db: Session = Depends(get_db), user: User = D
         ))
 
     return ReviewMatrix(params=params, wafers=rows)
+
+
+@router.post("/confirm")
+def confirm_judgement(
+    req: ConfirmJudgementRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Record a person's decision on a lot.
+
+    The system flags; a person decides. The decision is stored separately from
+    `judgement` so re-running the review recomputes the suggestion without
+    touching what someone signed off. Passing null withdraws a confirmation.
+    """
+    lot = db.query(Lot).filter(Lot.id == req.lot_id).first()
+    if not lot:
+        raise HTTPException(404, "Lot not found")
+    assert_lot_visible(lot, user)
+
+    if req.judgement is not None and req.judgement not in ("PASS", "WARN", "HOLD"):
+        raise HTTPException(400, "judgement must be PASS, WARN, HOLD or null")
+
+    lot.confirmed_judgement = req.judgement
+    lot.confirm_note = req.note
+    if req.judgement is None:
+        lot.confirmed_by = None
+        lot.confirmed_at = None
+    else:
+        lot.confirmed_by = user.id
+        lot.confirmed_at = datetime.utcnow()
+    db.commit()
+    return {
+        "success": True,
+        "confirmedJudgement": lot.confirmed_judgement,
+        "confirmedBy": user.name,
+        "confirmedAt": lot.confirmed_at.isoformat() if lot.confirmed_at else None,
+    }
+
+
+@router.get("/thresholds", response_model=list[ThresholdResponse])
+def list_thresholds(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The PASS/WARN cut-offs. A site user sees their own row and the global
+    fallback; an admin sees every site's."""
+    q = db.query(ReviewThreshold)
+    if not can_see_all_domains(user):
+        q = q.filter(ReviewThreshold.domain.in_([user.domain, None]))
+    return [ThresholdResponse(domain=t.domain, passMin=float(t.pass_min),
+                              warnMin=float(t.warn_min), basis=t.basis or "q1")
+            for t in q.order_by(ReviewThreshold.domain.is_(None),
+                                ReviewThreshold.domain).all()]
+
+
+@router.put("/thresholds", response_model=ThresholdResponse)
+def update_threshold(
+    req: ThresholdUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Move one site's cut-offs. Only an admin may edit another site's."""
+    domain = req.domain
+    if not can_see_all_domains(user) and domain != user.domain:
+        raise HTTPException(403, "Cannot edit another site's thresholds")
+    if not (0 < req.warnMin <= req.passMin <= 1):
+        raise HTTPException(
+            400, "Thresholds must satisfy 0 < WARN <= PASS <= 1 (fractions, not percent)")
+
+    row = db.query(ReviewThreshold).filter(ReviewThreshold.domain == domain).first()
+    if row is None:
+        row = ReviewThreshold(domain=domain)
+        db.add(row)
+    row.pass_min = req.passMin
+    row.warn_min = req.warnMin
+    row.basis = req.basis
+    row.updated_by = user.id
+    row.updated_at = datetime.utcnow()
+    db.commit()
+    return ThresholdResponse(domain=row.domain, passMin=float(row.pass_min),
+                             warnMin=float(row.warn_min), basis=row.basis)

@@ -310,6 +310,7 @@ export default function SpecsPage() {
   const [filterSite, setFilterSite] = useState('')
   const [filterProduct, setFilterProduct] = useState('')
   const [filterParam, setFilterParam] = useState('')
+  const [showEmpty, setShowEmpty] = useState(false)
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const [addingNewFor, setAddingNewFor] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -377,8 +378,15 @@ export default function SpecsPage() {
         .map((g) => ({ ...g, specs: g.specs.filter((s) => s.param_name.toLowerCase().includes(q)) }))
         .filter((g) => g.specs.length > 0)
     }
+    if (!showEmpty) arr = arr.filter((g) => g.specs.length > 0)
     return arr
-  }, [specs, products, filterVendor, filterSite, filterProduct, filterParam])
+  }, [specs, products, filterVendor, filterSite, filterProduct, filterParam, showEmpty])
+
+  // How many products the toggle would reveal, before it is switched on.
+  const emptyCount = useMemo(
+    () => products.filter((p) => !specs.some((sp) => sp.product_id === p.id)).length,
+    [products, specs],
+  )
 
   const totalSpecsShown = useMemo(
     () => groups.reduce((n, g) => n + g.specs.length, 0),
@@ -392,7 +400,7 @@ export default function SpecsPage() {
   // Reset to first page whenever filters change
   useEffect(() => {
     setPage(1)
-  }, [filterVendor, filterSite, filterProduct, filterParam])
+  }, [filterVendor, filterSite, filterProduct, filterParam, showEmpty])
 
   const vendorOptions = useMemo(() => {
     const set = new Set<string>()
@@ -493,6 +501,15 @@ export default function SpecsPage() {
             className="bg-bg-card border border-border-light px-2 py-1 text-sm text-text-primary outline-none focus:border-accent w-44"
           />
         </div>
+        <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showEmpty}
+            onChange={(e) => setShowEmpty(e.target.checked)}
+            className="accent-accent"
+          />
+          {t('specs.showEmpty', { count: emptyCount })}
+        </label>
         <div className="ml-auto text-xs text-text-muted">
           {t('specs.summary', { products: groups.length, specs: totalSpecsShown })}
         </div>

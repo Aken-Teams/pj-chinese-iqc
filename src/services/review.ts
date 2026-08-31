@@ -25,6 +25,48 @@ export interface LotReviewSummary {
   q1Compliance: string
   q2Compliance: string
   wafers: WaferRow[]
+
+  /** What the system worked out from the site's thresholds — advisory. */
+  judgement?: string | null
+  judgedYield?: number | null
+  /** True once 執行審核 has run; until then the verdict is a live reading. */
+  reviewed?: boolean
+  passMin?: number | null
+  warnMin?: number | null
+  basis?: string | null
+  /** What a person decided. Separate, so a re-review never overwrites it. */
+  confirmedJudgement?: string | null
+  confirmedBy?: string | null
+  confirmedAt?: string | null
+  confirmNote?: string | null
+}
+
+export interface ReviewThreshold {
+  domain: string | null
+  passMin: number
+  warnMin: number
+  basis: string
+}
+
+export async function getThresholds(): Promise<ReviewThreshold[]> {
+  return apiFetch('/review/thresholds')
+}
+
+export async function updateThreshold(t: ReviewThreshold): Promise<ReviewThreshold> {
+  return apiFetch('/review/thresholds', {
+    method: 'PUT',
+    body: JSON.stringify(t),
+  })
+}
+
+/** Record a person's decision on a lot. `judgement: null` withdraws it. */
+export async function confirmJudgement(
+  lotId: number, judgement: string | null, note?: string,
+): Promise<{ confirmedJudgement: string | null; confirmedBy: string; confirmedAt: string | null }> {
+  return apiFetch('/review/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ lot_id: lotId, judgement, note: note ?? null }),
+  })
 }
 
 export interface ElectricalParam {

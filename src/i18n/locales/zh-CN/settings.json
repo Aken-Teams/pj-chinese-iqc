@@ -87,16 +87,16 @@
   },
   "rules": {
     "title": "审核规则",
-    "desc": "设置各电性参数的 Q1 / Q2 / Q3 规格限制",
+    "desc": "设置各电性参数的 Q1 (CP) / Q2 (TMTT) / Q3 规格限制",
     "selectProduct": "请先选择产品",
     "addRule": "新增规则",
     "paramName": "参数名称",
     "noRules": "此产品暂无审核规则",
     "confirmDelete": "确定要删除此规则吗？",
-    "q1Lower": "Q1 下限",
-    "q1Upper": "Q1 上限",
-    "q2Lower": "Q2 下限",
-    "q2Upper": "Q2 上限",
+    "q1Lower": "Q1 (CP) 下限",
+    "q1Upper": "Q1 (CP) 上限",
+    "q2Lower": "Q2 (TMTT) 下限",
+    "q2Upper": "Q2 (TMTT) 上限",
     "q3Lower": "Q3 下限",
     "q3Upper": "Q3 上限",
     "importExcel": "导入 Excel",
@@ -172,7 +172,8 @@
     "summary": "{{products}} 个产品 / {{specs}} 条测规",
     "specsCount": "{{count}} 条测规",
     "noSpecsAtAll": "暂无封装测规，请展开产品并点击「+」新增",
-    "addSpecFor": "为此产品新增测规"
+    "addSpecFor": "为此产品新增测规",
+    "showEmpty": "显示无测规的产品（{{count}}）"
   },
   "scores": {
     "title": "厂商评分表",
@@ -337,5 +338,17 @@
     "downloadSample": "下载样本文件",
     "versionTip": "当前版本，可在修改履历查看每一版差异",
     "downloadFailed": "下载失败"
+  },
+  "thresholds": {
+    "title": "审核判定门槛",
+    "desc": "设置各厂区的 PASS / WARN / HOLD 良率门槛。系统依此主动提示，最终仍由人员判定确认。",
+    "site": "厂区",
+    "allSites": "全部（默认）",
+    "passMin": "PASS 门槛",
+    "warnMin": "WARN 门槛",
+    "explain": "良率 ≥ {{pass}}% 判 PASS、≥ {{warn}}% 判 WARN、低于 {{warn}}% 判 HOLD",
+    "save": "保存",
+    "invalid": "门槛须符合 0 < WARN ≤ PASS ≤ 100",
+    "basisNote": "判定基准为 Q1 良率。Q1 上下限与供应商 CP data 管控一致，因此 Q1 良率等同 Bin 良率，两厂共用同一套逻辑。"
   }
 }

@@ -87,18 +87,18 @@
   },
   "rules": {
     "title": "Review Rules",
-    "desc": "Set Q1 / Q2 / Q3 spec limits for electrical parameters",
+    "desc": "Q1 (CP) / Q2 (TMTT) / Q3 limits per electrical parameter",
     "selectProduct": "Please select a product first",
     "addRule": "Add Rule",
     "paramName": "Parameter Name",
     "noRules": "No review rules for this product",
     "confirmDelete": "Delete this rule?",
-    "q1Lower": "Q1 Lower",
-    "q1Upper": "Q1 Upper",
-    "q2Lower": "Q2 Lower",
-    "q2Upper": "Q2 Upper",
-    "q3Lower": "Q3 Lower",
-    "q3Upper": "Q3 Upper",
+    "q1Lower": "Q1 (CP) lower",
+    "q1Upper": "Q1 (CP) upper",
+    "q2Lower": "Q2 (TMTT) lower",
+    "q2Upper": "Q2 (TMTT) upper",
+    "q3Lower": "Q3 lower",
+    "q3Upper": "Q3 upper",
     "importExcel": "Import Excel",
     "importTitle": "Import Review Rules from Excel",
     "importUpload": "Upload & Preview",
@@ -172,7 +172,8 @@
     "summary": "{{products}} products / {{specs}} specs",
     "specsCount": "{{count}} specs",
     "noSpecsAtAll": "No packaging specs yet — expand a product and click + to add one",
-    "addSpecFor": "Add spec for this product"
+    "addSpecFor": "Add spec for this product",
+    "showEmpty": "Show products with no spec ({{count}})"
   },
   "scores": {
     "title": "Vendor Scores",
@@ -337,5 +338,17 @@
     "downloadSample": "Download sample",
     "versionTip": "Current version — see the history for per-version diffs",
     "downloadFailed": "Download failed"
+  },
+  "thresholds": {
+    "title": "Review thresholds",
+    "desc": "PASS / WARN / HOLD yield cut-offs per site. The system flags against these; a person makes the final call.",
+    "site": "Site",
+    "allSites": "All sites (default)",
+    "passMin": "PASS at",
+    "warnMin": "WARN at",
+    "explain": "PASS at {{pass}}% or above, WARN at {{warn}}% or above, HOLD below {{warn}}%",
+    "save": "Save",
+    "invalid": "Requires 0 < WARN <= PASS <= 100",
+    "basisNote": "Judged on Q1 yield. Q1 limits are the vendor's own CP limits, so Q1 yield reproduces the bin yield — one basis serves both sites."
   }
 }

@@ -51,6 +51,44 @@ class LotReviewSummary(BaseModel):
     q2Compliance: str
     wafers: list[WaferReviewRow]
 
+    # What the system worked out from the site's thresholds, and the yield it
+    # judged on. Advisory — a person has the last word.
+    judgement: str | None = None
+    judgedYield: float | None = None
+    # True once 執行審核 has run. Until then the judgement above is computed on
+    # the fly and the Q columns have nothing to show.
+    reviewed: bool = False
+    passMin: float | None = None
+    warnMin: float | None = None
+    basis: str | None = None
+    # The decision a person recorded, kept apart so a re-review never
+    # overwrites it.
+    confirmedJudgement: str | None = None
+    confirmedBy: str | None = None
+    confirmedAt: str | None = None
+    confirmNote: str | None = None
+
+
+class ConfirmJudgementRequest(BaseModel):
+    lot_id: int
+    # PASS / WARN / HOLD, or null to withdraw a confirmation.
+    judgement: str | None = None
+    note: str | None = None
+
+
+class ThresholdResponse(BaseModel):
+    domain: str | None = None
+    passMin: float
+    warnMin: float
+    basis: str
+
+
+class ThresholdUpdate(BaseModel):
+    domain: str | None = None
+    passMin: float
+    warnMin: float
+    basis: str = "q1"
+
 
 class ElectricalParam(BaseModel):
     param: str
