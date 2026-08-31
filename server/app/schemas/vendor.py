@@ -126,6 +126,11 @@ class VendorFormatResponse(_LayoutExtras):
     lot_id_cell: str | None
     # AD site (廠區) this template belongs to; null = unassigned (all sites).
     domain: str | None = None
+    # How many saved versions exist. 0 means the template predates history.
+    version: int = 0
+    # Newest sample kept for this template, for the download action.
+    sampleToken: str | None = None
+    sampleName: str | None = None
 
     class Config:
         from_attributes = True

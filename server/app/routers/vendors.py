@@ -187,7 +187,21 @@ def list_formats(vendor_id: int, site: str = "", db: Session = Depends(get_db),
     q = scope_formats_by_domain(q, user)  # site user -> own + unassigned; admin -> all
     if site and can_see_all_domains(user):  # admin narrowing to one site
         q = q.filter(VendorFormat.domain == site)
-    return q.all()
+
+    out = []
+    for fmt in q.all():
+        version = db.query(VendorFormatRevision).filter(
+            VendorFormatRevision.vendor_format_id == fmt.id).count()
+        newest = (db.query(VendorFormatSample)
+                  .filter(VendorFormatSample.vendor_format_id == fmt.id)
+                  .order_by(VendorFormatSample.uploaded_at.desc()).first())
+        item = VendorFormatResponse.model_validate(fmt)
+        item.version = version
+        if newest:
+            item.sampleToken = newest.stored_name
+            item.sampleName = newest.file_name
+        out.append(item)
+    return out
 
 
 @router.post("/{vendor_id}/formats", response_model=VendorFormatResponse)

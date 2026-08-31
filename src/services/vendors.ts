@@ -78,6 +78,11 @@ export interface VendorFormat {
 
   /** AD site (廠區) this template belongs to; null = unassigned (all sites). */
   domain?: string | null
+  /** Saved versions. 0 means the template predates history tracking. */
+  version?: number
+  /** Newest kept sample, for the download action on the template row. */
+  sampleToken?: string | null
+  sampleName?: string | null
 }
 
 export interface Product {

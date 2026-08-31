@@ -82,7 +82,8 @@
     "confirmNo": "取消",
     "noTemplateWarning": "尚未设定格式模板，无法上传",
     "siteNoTemplate": "{{site}} 厂区没有可用的格式模板，该厂区上传会失败",
-    "createdHint": "厂商已创建。请接着设定格式模板，否则这家的文件无法上传。"
+    "createdHint": "厂商已创建。请接着设定格式模板，否则这家的文件无法上传。",
+    "editFields": "直接编辑字段数值"
   },
   "rules": {
     "title": "审核规则",
@@ -275,7 +276,6 @@
     "statsNoAiNeeded": "规则识别全部高置信，本次未调用 AI",
     "savedSamples": "该模板保存的样本文件",
     "saveTemplate": "保存模板",
-    "applyOnly": "仅应用到表单",
     "sheetSelector": "工作表",
     "textDelimiter": "分隔符（tab / comma）",
     "step1": "上传样本",
@@ -310,6 +310,22 @@
     "noSamplesYet": "保存模板时会一并保存本次的样本文件",
     "currentSample": "当前使用中",
     "waferExplain": "片号决定数据属于哪一片晶圆。没有它，良率、SPC、审核都无法对应。",
-    "metaExplain": "产品型号决定套用哪一组审核规则，批号决定同一批的晶圆会被归在一起。"
+    "metaExplain": "产品型号决定套用哪一组审核规则，批号决定同一批的晶圆会被归在一起。",
+    "openSaved": "打开模板",
+    "changeSample": "换样本文件",
+    "reDetectIntro": "上传新的样本文件会重新识别版面。原本的设定值会被识别结果取代，履历会记录本次变更。",
+    "diffField": "字段",
+    "diffFrom": "修改前",
+    "diffTo": "修改后",
+    "noFieldChange": "本次没有字段变更",
+    "otherSamples": "其他样本文件",
+    "openThisSample": "用这个样本文件重新预览",
+    "templateName": "模板名称",
+    "productColumn": "产品型号所在列",
+    "lotColumn": "批号所在列",
+    "fixedDieCount": "固定 DIE 数",
+    "site": "厂区",
+    "downloadSample": "下载样本文件",
+    "versionTip": "当前版本，可在修改履历查看每一版差异"
   }
 }

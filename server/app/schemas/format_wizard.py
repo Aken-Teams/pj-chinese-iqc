@@ -157,10 +157,16 @@ class SampleOut(BaseModel):
 
 class RevisionOut(BaseModel):
     id: int
+    # 1-based, oldest first — "v3" reads better than a timestamp when talking
+    # about which version of a template is in use.
+    version: int = 1
     action: str
     changedBy: str | None = None
     changedAt: str
     note: str | None = None
+    # The sample this change was made against, when one was in use.
+    sampleName: str | None = None
+    sampleToken: str | None = None
     # Field-level differences against the previous revision.
     changes: list[dict] = []
 

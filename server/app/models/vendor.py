@@ -163,3 +163,6 @@ class VendorFormatRevision(Base):
     changed_by = Column(Integer, ForeignKey("users.id"))
     changed_at = Column(DateTime, server_default=func.now())
     note = Column(String(200))
+    # The sample that was on screen when the change was made. A field diff is
+    # far easier to judge next to the file it came from.
+    sample_id = Column(Integer, ForeignKey("vendor_format_samples.id"))

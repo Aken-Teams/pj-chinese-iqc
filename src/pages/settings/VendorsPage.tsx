@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X, HelpCircle, Wand2, AlertTriangle } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X, HelpCircle, Wand2, AlertTriangle, Download } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import {
   getVendors,
@@ -18,6 +18,7 @@ import { useAuthStore } from '@/store/authStore'
 import { siteLabel, siteOptions } from '@/config/sites'
 import Select from '@/components/ui/Select'
 import FormatWizard from '@/components/settings/FormatWizard'
+import { downloadSample } from '@/services/formatWizard'
 
 const DEFAULT_FORMAT: Omit<VendorFormat, 'id'> = {
   format_name: '',
@@ -287,17 +288,55 @@ function FormatRow({
     return (
       <div className="flex items-center gap-3 px-4 py-3 bg-bg-page border border-border-light">
         <span className="flex-1 text-sm text-text-primary font-medium">{fmt?.format_name || '—'}</span>
+        {!!fmt?.version && (
+          <span className="px-1.5 py-0.5 bg-accent/10 text-accent text-[11px] font-heading
+                           font-bold rounded" title={t('wizard.versionTip')}>
+            v{fmt.version}
+          </span>
+        )}
+        {fmt?.sampleToken && (
+          <button
+            onClick={() => void downloadSample(fmt.sampleToken as string,
+                                               fmt.sampleName ?? 'sample')}
+            title={`${t('wizard.downloadSample')} — ${fmt.sampleName ?? ''}`}
+            className="p-1 text-text-muted hover:text-accent cursor-pointer"
+          >
+            <Download size={15} />
+          </button>
+        )}
         {fmt?.domain && (
           <span className="px-1.5 py-0.5 bg-bg-card text-text-secondary text-[10px] font-semibold rounded">
             {siteLabel(fmt.domain)}
           </span>
         )}
-        <button onClick={() => setEditing(true)} className="p-1 text-text-muted hover:text-accent cursor-pointer">
+        <button onClick={() => setWizardOpen(true)} title={t('wizard.openSaved')}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-accent text-white
+                           hover:opacity-90 cursor-pointer">
+          <Wand2 size={13} /> {t('wizard.openSaved')}
+        </button>
+        <button onClick={() => setEditing(true)} title={t('vendors.editFields')}
+                className="p-1 text-text-muted hover:text-accent cursor-pointer">
           <Pencil size={15} />
         </button>
         <button onClick={remove} className="p-1 text-text-muted hover:text-danger cursor-pointer">
           <Trash2 size={15} />
         </button>
+
+        {wizardOpen && (
+          <FormatWizard
+            vendorId={vendorId}
+            vendorCode={vendorCode}
+            formatId={fmt?.id ?? null}
+            initialTemplate={fmt ?? null}
+            site={siteFilter}
+            onClose={() => setWizardOpen(false)}
+            onApply={(tpl) => {
+              setDraft((d) => ({ ...d, ...tpl }) as FormatDraft)
+              setWizardOpen(false)
+            }}
+            onSaved={() => { setWizardOpen(false); onSaved(draft as VendorFormat) }}
+          />
+        )}
       </div>
     )
   }

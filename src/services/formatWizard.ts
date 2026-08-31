@@ -197,10 +197,16 @@ export interface RevisionChange {
 
 export interface Revision {
   id: number
+  /** 1-based, oldest first — "v3" is how people refer to a template version. */
+  version: number
   action: string
   changedBy: string | null
   changedAt: string
   note: string | null
+  /** The sample this change was made against — a diff reads very differently
+   *  next to the file it came from. */
+  sampleName: string | null
+  sampleToken: string | null
   changes: RevisionChange[]
 }
 
@@ -227,4 +233,20 @@ export async function getSamples(formatId: number): Promise<SavedSample[]> {
 
 export async function getRevisions(formatId: number): Promise<Revision[]> {
   return apiFetch(`/format-wizard/revisions/${formatId}`)
+}
+
+/** Open a kept sample. Goes through fetch so the auth header is sent. */
+export async function downloadSample(fileToken: string, fileName: string): Promise<void> {
+  const token = localStorage.getItem('iqc-auth-token')
+  const res = await fetch(
+    `/api/format-wizard/sample-file?file_token=${encodeURIComponent(fileToken)}`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  )
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`)
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  a.click()
+  URL.revokeObjectURL(url)
 }

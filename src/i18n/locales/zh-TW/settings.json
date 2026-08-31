@@ -82,7 +82,8 @@
     "confirmNo": "取消",
     "noTemplateWarning": "尚未設定格式模板，無法上傳",
     "siteNoTemplate": "{{site}} 廠區沒有可用的格式模板，該廠區上傳會失敗",
-    "createdHint": "廠商已建立。請接著設定格式模板，否則這家的檔案無法上傳。"
+    "createdHint": "廠商已建立。請接著設定格式模板，否則這家的檔案無法上傳。",
+    "editFields": "直接編輯欄位數值"
   },
   "rules": {
     "title": "審核規則",
@@ -275,7 +276,6 @@
     "statsNoAiNeeded": "規則辨識全部高信心，本次未呼叫 AI",
     "savedSamples": "這個模板保存的樣本檔",
     "saveTemplate": "儲存模板",
-    "applyOnly": "只套用到表單",
     "sheetSelector": "工作表",
     "textDelimiter": "分隔符（tab / comma）",
     "step1": "上傳樣本",
@@ -310,6 +310,22 @@
     "noSamplesYet": "儲存模板時會一併保存這次的樣本檔",
     "currentSample": "目前使用中",
     "waferExplain": "片號決定資料屬於哪一片晶圓。沒有它，良率、SPC、審核都無法對應。",
-    "metaExplain": "產品型號決定套用哪一組審核規則，批號決定同一批的晶圓會被歸在一起。"
+    "metaExplain": "產品型號決定套用哪一組審核規則，批號決定同一批的晶圓會被歸在一起。",
+    "openSaved": "開啟模板",
+    "changeSample": "換樣本檔",
+    "reDetectIntro": "上傳新的樣本檔會重新辨識版面。原本的設定值會被辨識結果取代，履歷會記錄這次變更。",
+    "diffField": "欄位",
+    "diffFrom": "修改前",
+    "diffTo": "修改後",
+    "noFieldChange": "這次沒有欄位變更",
+    "otherSamples": "其他樣本檔",
+    "openThisSample": "用這個樣本檔重新預覽",
+    "templateName": "模板名稱",
+    "productColumn": "產品型號所在欄",
+    "lotColumn": "批號所在欄",
+    "fixedDieCount": "固定 DIE 數",
+    "site": "廠區",
+    "downloadSample": "下載樣本檔",
+    "versionTip": "目前版本，可在修改履歷檢視每一版差異"
   }
 }

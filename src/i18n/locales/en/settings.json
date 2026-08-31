@@ -82,7 +82,8 @@
     "confirmNo": "Cancel",
     "noTemplateWarning": "No format template — uploads will fail",
     "siteNoTemplate": "{{site}} has no usable template; uploads from that site will fail",
-    "createdHint": "Vendor created. Set up a format template next, or its files cannot be uploaded."
+    "createdHint": "Vendor created. Set up a format template next, or its files cannot be uploaded.",
+    "editFields": "Edit raw field values"
   },
   "rules": {
     "title": "Review Rules",
@@ -275,7 +276,6 @@
     "statsNoAiNeeded": "Rules were confident throughout; no AI call was needed",
     "savedSamples": "Samples kept for this template",
     "saveTemplate": "Save template",
-    "applyOnly": "Apply to form only",
     "sheetSelector": "Worksheet",
     "textDelimiter": "Delimiter (tab / comma)",
     "step1": "Upload sample",
@@ -310,6 +310,22 @@
     "noSamplesYet": "The sample is kept when you save the template",
     "currentSample": "in use",
     "waferExplain": "The wafer ID decides which wafer each measurement belongs to. Without it, yield, SPC and review cannot line up.",
-    "metaExplain": "The product model selects which review rules apply; the lot ID keeps a lot's wafers together."
+    "metaExplain": "The product model selects which review rules apply; the lot ID keeps a lot's wafers together.",
+    "openSaved": "Open template",
+    "changeSample": "Change sample",
+    "reDetectIntro": "Uploading a new sample re-detects the layout, replacing the current values. The change is recorded in the history.",
+    "diffField": "Field",
+    "diffFrom": "Before",
+    "diffTo": "After",
+    "noFieldChange": "No field changed",
+    "otherSamples": "Other samples",
+    "openThisSample": "Preview with this sample",
+    "templateName": "Template name",
+    "productColumn": "Product column",
+    "lotColumn": "Lot column",
+    "fixedDieCount": "Fixed die count",
+    "site": "Site",
+    "downloadSample": "Download sample",
+    "versionTip": "Current version — see the history for per-version diffs"
   }
 }

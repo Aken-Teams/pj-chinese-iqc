@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Upload, Wand2, Play, Download, Check, X, AlertTriangle, Loader2,
-  ChevronDown, History, FileClock, Sparkles, Cpu,
+  ChevronDown, History, FileClock, Sparkles, Cpu, Download as DownloadIcon,
 } from 'lucide-react'
 import {
-  detectFormat, dryRunFormat, previewSample, downloadTemplate,
+  detectFormat, dryRunFormat, previewSample, downloadTemplate, downloadSample,
   inferFromCell, inferFromFilename, saveTemplate, getSamples, getRevisions,
   type Candidate, type DetectResponse, type DryRunResponse, type GridPreview,
   type InferOption, type InferResult, type InferRole,
@@ -418,18 +418,8 @@ export default function FormatWizard({
                               tracking-[1.5px] text-text-muted">
                 <FileClock size={14} /> {t('wizard.savedSamples')}
               </div>
-              {samples.map((s) => (
-                <button key={s.id} onClick={() => void reopenSample(s)}
-                        className="flex items-center gap-2.5 text-left px-3 py-2 border
-                                   border-border-light hover:border-accent
-                                   hover:bg-accent/5 transition-colors group">
-                  <FileClock size={14} className="text-text-muted group-hover:text-accent shrink-0" />
-                  <span className="text-[13px] flex-1 truncate">{s.fileName}</span>
-                  <span className="text-[11.5px] text-text-muted shrink-0">
-                    {s.uploadedBy ? `${s.uploadedBy} · ` : ''}{s.uploadedAt}
-                  </span>
-                </button>
-              ))}
+              <SampleList samples={samples} current="" t={t}
+                          onOpen={(x) => void reopenSample(x)} />
             </div>
           )}
           {error && <Banner tone="error">{error}</Banner>}
@@ -451,20 +441,17 @@ export default function FormatWizard({
                <HeaderButton icon={<History size={15} />} label={t('wizard.history')}
                              active={panel === 'history'}
                              onClick={() => setPanel(panel === 'history' ? null : 'history')} />
-               <HeaderButton icon={<FileClock size={15} />} label={t('wizard.savedSamples')}
-                             active={panel === 'samples'}
-                             onClick={() => setPanel(panel === 'samples' ? null : 'samples')} />
              </>
            }>
-      {panel && (
-        <div className="border-b border-border-light bg-bg-page px-5 py-3 max-h-[38vh] overflow-auto">
-          {panel === 'history'
-            ? (formatId
-              ? <RevisionList revisions={revisions} t={t} />
-              : <p className="text-[12.5px] text-text-muted">{t('wizard.historyAfterSave')}</p>)
-            : <SampleList samples={samples} current={detected.fileToken}
-                          onOpen={(x) => { void reopenSample(x); setPanel(null) }} t={t} />}
-        </div>
+      {panel === 'history' && (
+        <HistoryModal
+          revisions={revisions} current={detected.fileToken}
+          hasFormat={!!formatId} t={t}
+          onOpenSample={(token) => {
+            const s = samples.find((x) => x.fileToken === token)
+            if (s) { void reopenSample(s); setPanel(null) }
+          }}
+          onClose={() => setPanel(null)} />
       )}
       <div className="flex flex-col lg:flex-row min-h-0 flex-1">
         {/* left: the sheet */}
@@ -721,11 +708,6 @@ export default function FormatWizard({
                   className="flex items-center gap-2 px-4 py-2 border border-border-light
                              text-[12px] text-text-secondary hover:border-accent hover:text-accent">
             <Download size={14} /> {t('wizard.download')}
-          </button>
-          <button onClick={() => onApply(draft)}
-                  className="px-4 py-2 border border-border-light text-[12px]
-                             text-text-secondary hover:border-accent hover:text-accent">
-            {t('wizard.applyOnly')}
           </button>
           <button onClick={() => void persist()} disabled={busy === 'save'}
                   className="flex items-center gap-2 px-5 py-2 bg-accent text-white
@@ -1282,45 +1264,164 @@ function AdvancedFields({ draft, onChange, t }: {
   )
 }
 
-function RevisionList({ revisions, t }: {
+/** Internal field key -> the label used everywhere else in the UI. The history
+ *  is the one place these keys would otherwise leak to the reader. */
+const HISTORY_FIELD_LABEL: Record<string, string> = {
+  ...FIELD_LABEL,
+  format_name: 'wizard.templateName',
+  wafer_id_source: 'wizard.roleWafer',
+  wafer_id_col: 'wizard.waferColumn',
+  wafer_id_cell: 'wizard.cellAddress',
+  wafer_id_label: 'wizard.labelText',
+  wafer_id_pattern: 'wizard.pattern',
+  product_id_cell: 'wizard.roleProductCell',
+  product_id_col: 'wizard.productColumn',
+  product_id_label: 'wizard.productLabel',
+  product_id_pattern: 'wizard.productPattern',
+  product_id_filename_pattern: 'wizard.productFilenamePattern',
+  lot_id_cell: 'wizard.roleLotCell',
+  lot_id_col: 'wizard.lotColumn',
+  lot_id_label: 'wizard.lotLabel',
+  lot_id_pattern: 'wizard.lotPattern',
+  lot_id_filename_pattern: 'wizard.lotFilenamePattern',
+  sheet_selector: 'wizard.sheetSelector',
+  text_delimiter: 'wizard.textDelimiter',
+  fixed_die_count: 'wizard.fixedDieCount',
+  domain: 'wizard.site',
+}
+
+function HistoryModal({ revisions, current, hasFormat, t,
+                       onOpenSample, onClose }: {
   revisions: Revision[]
+  current: string
+  hasFormat: boolean
   t: (k: string, o?: Record<string, unknown>) => string
+  onOpenSample: (token: string) => void
+  onClose: () => void
 }) {
-  if (revisions.length === 0) {
-    return <p className="text-[11px] text-text-muted pt-1">{t('wizard.noHistory')}</p>
-  }
+  const label = (field: string) =>
+    HISTORY_FIELD_LABEL[field] ? t(HISTORY_FIELD_LABEL[field]) : field
+
   return (
-    <div className="flex flex-col gap-2 pt-1">
-      {revisions.map((r) => (
-        <div key={r.id} className="border border-border-light px-2.5 py-2">
-          <div className="flex items-center gap-2 text-[11px]">
-            <span className={`px-1 text-[9px] text-white ${
-              r.action === 'create' ? 'bg-emerald-600' : 'bg-sky-600'}`}>
-              {t(`wizard.action_${r.action}`)}
-            </span>
-            <span className="text-text-secondary">{r.changedBy ?? '—'}</span>
-            <span className="text-text-muted ml-auto">{r.changedAt}</span>
-          </div>
-          {r.note && <p className="text-[10px] text-text-muted mt-1">{r.note}</p>}
-          {r.changes.length > 0 && (
-            <div className="mt-1.5 flex flex-col gap-0.5">
-              {r.changes.slice(0, 12).map((c) => (
-                <div key={c.field} className="text-[10px] font-mono flex items-center gap-1.5">
-                  <span className="text-text-tertiary min-w-[120px] truncate">{c.field}</span>
-                  <span className="text-error line-through">{String(c.from ?? '—')}</span>
-                  <span className="text-text-muted">→</span>
-                  <span className="text-emerald-600">{String(c.to ?? '—')}</span>
-                </div>
-              ))}
-              {r.changes.length > 12 && (
-                <span className="text-[10px] text-text-muted">
-                  {t('wizard.moreChanges', { n: r.changes.length - 12 })}
+    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"
+         onClick={onClose}>
+      <div className="bg-bg-card border border-border-light shadow-2xl flex flex-col
+                      max-h-[86vh] w-full max-w-[900px]"
+           onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border-light">
+          <History size={16} className="text-accent" />
+          <span className="font-heading text-[14px] font-bold uppercase tracking-[1px]">
+            {t('wizard.history')}
+          </span>
+          <button onClick={onClose} className="ml-auto p-1 text-text-muted hover:text-error">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="overflow-auto p-5 flex flex-col gap-4">
+          {!hasFormat && (
+            <p className="text-[13px] text-text-muted">{t('wizard.historyAfterSave')}</p>
+          )}
+          {hasFormat && revisions.length === 0 && (
+            <p className="text-[13px] text-text-muted">{t('wizard.noHistory')}</p>
+          )}
+
+          {revisions.map((r) => (
+            <div key={r.id} className="border border-border-light">
+              <div className="flex items-center gap-2.5 px-3 py-2.5 bg-bg-page
+                              border-b border-border-light flex-wrap">
+                <span className="font-heading text-[13px] font-bold text-accent">
+                  v{r.version}
                 </span>
+                <span className={`px-1.5 py-0.5 text-[11px] text-white ${
+                  r.action === 'create' ? 'bg-emerald-600' : 'bg-sky-600'}`}>
+                  {t(`wizard.action_${r.action}`)}
+                </span>
+                <span className="text-[13px] text-text-primary">{r.changedBy ?? '—'}</span>
+                {r.sampleToken && (
+                  <span className="flex items-center border border-border-light max-w-[380px]">
+                    <button onClick={() => onOpenSample(r.sampleToken as string)}
+                            title={t('wizard.openThisSample')}
+                            className="flex items-center gap-1.5 text-[12px] px-2 py-0.5
+                                       text-text-tertiary hover:text-accent min-w-0">
+                      <FileClock size={12} className="shrink-0" />
+                      <span className="truncate">{r.sampleName}</span>
+                      {r.sampleToken === current && (
+                        <span className="text-[10px] text-accent shrink-0">
+                          · {t('wizard.currentSample')}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => void downloadSample(
+                        r.sampleToken as string, r.sampleName ?? 'sample')}
+                      title={t('wizard.downloadSample')}
+                      className="px-1.5 py-1 border-l border-border-light text-text-muted
+                                 hover:text-accent shrink-0">
+                      <DownloadIcon size={12} />
+                    </button>
+                  </span>
+                )}
+                <span className="text-[12.5px] text-text-muted ml-auto">{r.changedAt}</span>
+              </div>
+
+              {r.note && (
+                <p className="px-3 pt-2 text-[12.5px] text-text-secondary">{r.note}</p>
+              )}
+
+              {r.changes.length === 0 ? (
+                <p className="px-3 py-2 text-[12.5px] text-text-muted">
+                  {t('wizard.noFieldChange')}
+                </p>
+              ) : (
+                <div className="overflow-x-auto p-3">
+                  <table className="w-full border-collapse text-[13px]">
+                    <thead>
+                      <tr className="text-text-muted text-[12px]">
+                        <th className="border border-border-light px-2.5 py-1.5 text-left
+                                       bg-bg-page font-semibold">
+                          {t('wizard.diffField')}
+                        </th>
+                        <th className="border border-border-light px-2.5 py-1.5 text-left
+                                       bg-bg-page font-semibold w-[35%]">
+                          {t('wizard.diffFrom')}
+                        </th>
+                        <th className="border border-border-light px-2.5 py-1.5 text-left
+                                       bg-bg-page font-semibold w-[35%]">
+                          {t('wizard.diffTo')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.changes.map((c) => (
+                        <tr key={c.field}>
+                          <td className="border border-border-light px-2.5 py-1.5
+                                         text-text-secondary">
+                            {label(c.field)}
+                          </td>
+                          <td className="border border-border-light px-2.5 py-1.5 font-mono
+                                         text-error break-all">
+                            {c.from === null || c.from === undefined
+                              ? <span className="text-text-muted">—</span>
+                              : String(c.from)}
+                          </td>
+                          <td className="border border-border-light px-2.5 py-1.5 font-mono
+                                         text-emerald-700 break-all">
+                            {c.to === null || c.to === undefined
+                              ? <span className="text-text-muted">—</span>
+                              : String(c.to)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
-          )}
+          ))}
+
         </div>
-      ))}
+      </div>
     </div>
   )
 }

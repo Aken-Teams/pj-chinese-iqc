@@ -15,6 +15,7 @@ import os
 import time
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -184,6 +185,14 @@ def preview(file_token: str, sheet: str = "",
     """Re-read a stored sample, optionally on a different worksheet."""
     grid = open_grid(_resolve(file_token), sheet_selector=sheet or None)
     return _preview(grid)
+
+
+@router.get("/sample-file")
+def download_sample(file_token: str, user: User = Depends(get_current_user)):
+    """Hand back a kept sample so it can be opened outside the browser."""
+    path = _resolve(file_token)
+    return FileResponse(path, filename=os.path.basename(path),
+                        media_type="application/octet-stream")
 
 
 @router.post("/dry-run", response_model=DryRunResponse)
@@ -384,18 +393,23 @@ def save_template(req: SaveTemplateRequest,
             setattr(fmt, key, value)
     db.flush()
 
-    after = _snapshot(fmt)
-    db.add(VendorFormatRevision(
-        vendor_format_id=fmt.id, snapshot=after, action=action,
-        changed_by=user.id, note=(req.note or None)))
-
+    # The sample is recorded first so the revision can point at it.
+    sample = None
     if req.file_token:
-        db.add(VendorFormatSample(
+        sample = VendorFormatSample(
             vendor_format_id=fmt.id,
             file_name=req.file_name or req.file_token,
             stored_name=_safe_token(req.file_token),
             sheet_selector=req.template.sheet_selector,
-            uploaded_by=user.id))
+            uploaded_by=user.id)
+        db.add(sample)
+        db.flush()
+
+    after = _snapshot(fmt)
+    db.add(VendorFormatRevision(
+        vendor_format_id=fmt.id, snapshot=after, action=action,
+        changed_by=user.id, note=(req.note or None),
+        sample_id=sample.id if sample else None))
 
     try:
         db.commit()
@@ -433,21 +447,26 @@ def list_samples(format_id: int, db: Session = Depends(get_db),
 def list_revisions(format_id: int, db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):
     """Version history, each entry carrying its diff against the one before."""
-    rows = (db.query(VendorFormatRevision, User.name)
+    rows = (db.query(VendorFormatRevision, User.name, VendorFormatSample)
             .outerjoin(User, VendorFormatRevision.changed_by == User.id)
+            .outerjoin(VendorFormatSample,
+                       VendorFormatRevision.sample_id == VendorFormatSample.id)
             .filter(VendorFormatRevision.vendor_format_id == format_id)
             .order_by(VendorFormatRevision.changed_at.asc(),
                       VendorFormatRevision.id.asc())
             .all())
     out: list[RevisionOut] = []
     previous: dict | None = None
-    for revision, author in rows:
+    for index, (revision, author, sample) in enumerate(rows, start=1):
         snapshot = revision.snapshot or {}
         out.append(RevisionOut(
-            id=revision.id, action=revision.action, changedBy=author,
+            id=revision.id, version=index, action=revision.action, changedBy=author,
             changedAt=(revision.changed_at.strftime("%Y-%m-%d %H:%M")
                        if revision.changed_at else ""),
-            note=revision.note, changes=_diff(previous, snapshot)))
+            note=revision.note,
+            sampleName=sample.file_name if sample else None,
+            sampleToken=sample.stored_name if sample else None,
+            changes=_diff(previous, snapshot)))
         previous = snapshot
     out.reverse()   # newest first for display
     return out
