@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Upload, Wand2, Play, Download, Check, X, AlertTriangle, Loader2,
+  Upload, Wand2, Play, Check, X, AlertTriangle, Loader2,
   ChevronDown, History, FileClock, Sparkles, Cpu, Download as DownloadIcon,
 } from 'lucide-react'
 import {
-  detectFormat, dryRunFormat, previewSample, downloadTemplate, downloadSample,
+  detectFormat, dryRunFormat, previewSample, downloadSample,
   inferFromCell, inferFromFilename, saveTemplate, getSamples, getRevisions,
   type Candidate, type DetectResponse, type DryRunResponse, type GridPreview,
   type InferOption, type InferResult, type InferRole,
@@ -704,11 +704,6 @@ export default function FormatWizard({
       <div className="border-t border-border-light px-5 py-3 flex items-center gap-3">
         {error && <span className="text-[12px] text-error">{error}</span>}
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={() => downloadTemplate(String(draft.format_name || vendorCode), draft)}
-                  className="flex items-center gap-2 px-4 py-2 border border-border-light
-                             text-[12px] text-text-secondary hover:border-accent hover:text-accent">
-            <Download size={14} /> {t('wizard.download')}
-          </button>
           <button onClick={() => void persist()} disabled={busy === 'save'}
                   className="flex items-center gap-2 px-5 py-2 bg-accent text-white
                              font-heading text-[12px] uppercase tracking-[1px]
@@ -1299,6 +1294,7 @@ function HistoryModal({ revisions, current, hasFormat, t,
   onOpenSample: (token: string) => void
   onClose: () => void
 }) {
+  const [downloadError, setDownloadError] = useState<string | null>(null)
   const label = (field: string) =>
     HISTORY_FIELD_LABEL[field] ? t(HISTORY_FIELD_LABEL[field]) : field
 
@@ -1319,6 +1315,11 @@ function HistoryModal({ revisions, current, hasFormat, t,
         </div>
 
         <div className="overflow-auto p-5 flex flex-col gap-4">
+          {downloadError && (
+            <Banner tone="error">
+              {t('wizard.downloadFailed')}: {downloadError}
+            </Banner>
+          )}
           {!hasFormat && (
             <p className="text-[13px] text-text-muted">{t('wizard.historyAfterSave')}</p>
           )}
@@ -1353,8 +1354,11 @@ function HistoryModal({ revisions, current, hasFormat, t,
                       )}
                     </button>
                     <button
-                      onClick={() => void downloadSample(
-                        r.sampleToken as string, r.sampleName ?? 'sample')}
+                      onClick={async () => {
+                        const res = await downloadSample(
+                          r.sampleToken as string, r.sampleName ?? 'sample')
+                        if (!res.ok) setDownloadError(res.error)
+                      }}
                       title={t('wizard.downloadSample')}
                       className="px-1.5 py-1 border-l border-border-light text-text-muted
                                  hover:text-accent shrink-0">

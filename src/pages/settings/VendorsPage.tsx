@@ -205,6 +205,7 @@ function FormatRow({
   const [showHelp, setShowHelp] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
 
   const tv = (k: string) => t(`vendors.${k}`)
 
@@ -286,7 +287,8 @@ function FormatRow({
 
   if (!editing) {
     return (
-      <div className="flex items-center gap-3 px-4 py-3 bg-bg-page border border-border-light">
+      <div className="flex items-center gap-3 flex-wrap px-4 py-3 bg-bg-page
+                      border border-border-light">
         <span className="flex-1 text-sm text-text-primary font-medium">{fmt?.format_name || '—'}</span>
         {!!fmt?.version && (
           <span className="px-1.5 py-0.5 bg-accent/10 text-accent text-[11px] font-heading
@@ -296,8 +298,12 @@ function FormatRow({
         )}
         {fmt?.sampleToken && (
           <button
-            onClick={() => void downloadSample(fmt.sampleToken as string,
-                                               fmt.sampleName ?? 'sample')}
+            onClick={async () => {
+              setDownloadError(null)
+              const r = await downloadSample(fmt.sampleToken as string,
+                                             fmt.sampleName ?? 'sample')
+              if (!r.ok) setDownloadError(r.error)
+            }}
             title={`${t('wizard.downloadSample')} — ${fmt.sampleName ?? ''}`}
             className="p-1 text-text-muted hover:text-accent cursor-pointer"
           >
@@ -321,6 +327,15 @@ function FormatRow({
         <button onClick={remove} className="p-1 text-text-muted hover:text-danger cursor-pointer">
           <Trash2 size={15} />
         </button>
+
+        {/* A failed download used to be silent: the click fired a promise with
+            `void`, so the rejection went nowhere and the button looked dead. */}
+        {downloadError && (
+          <span className="w-full flex items-center gap-1.5 text-[11px] text-error">
+            <AlertTriangle size={11} className="shrink-0" />
+            {t('wizard.downloadFailed')}: {downloadError}
+          </span>
+        )}
 
         {wizardOpen && (
           <FormatWizard

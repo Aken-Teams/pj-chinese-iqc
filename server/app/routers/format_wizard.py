@@ -12,17 +12,19 @@ by saving it and doing a real upload, so a wrong number was discovered as a
 failed import rather than as a red field in a form.
 """
 import os
+import re
 import time
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.models.vendor import (
-    VendorFormat, VendorFormatRevision, VendorFormatSample,
+    Vendor, VendorFormat, VendorFormatRevision, VendorFormatSample,
 )
 from app.schemas.format_wizard import (
     CandidateOut,
@@ -187,11 +189,82 @@ def preview(file_token: str, sheet: str = "",
     return _preview(grid)
 
 
+# Workbooks embedded in a PowerPoint are stored with their window hidden.
+# Excel honours that and opens such a file as a blank frame — no grid, no sheet
+# tabs — which reads as a failed download even though every byte arrived.
+# The attribute only ever appears on <workbookView>, so a literal swap is
+# both sufficient and safer than a pattern carrying a backreference.
+_HIDDEN_ATTR = b'visibility="hidden"'
+_VISIBLE_ATTR = b'visibility="visible"'
+
+
+def _unhide_workbook(path: str) -> str | None:
+    """Return a temp copy with the workbook window made visible, or None.
+
+    The stored sample is left untouched; only the served copy is adjusted, and
+    only when it would otherwise open as an empty window.
+    """
+    if os.path.splitext(path)[1].lower() not in (".xlsx", ".xlsm"):
+        return None
+    import tempfile
+    import zipfile
+    try:
+        with zipfile.ZipFile(path) as src:
+            if "xl/workbook.xml" not in src.namelist():
+                return None
+            book = src.read("xl/workbook.xml")
+            if _HIDDEN_ATTR not in book:
+                return None
+            fixed = book.replace(_HIDDEN_ATTR, _VISIBLE_ATTR)
+            fd, out = tempfile.mkstemp(suffix=os.path.splitext(path)[1])
+            os.close(fd)
+            with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst:
+                for item in src.infolist():
+                    data = fixed if item.filename == "xl/workbook.xml" else src.read(item.filename)
+                    dst.writestr(item, data)
+            return out
+    except Exception:  # noqa: BLE001 — fall back to serving the file as-is
+        return None
+
+
+def _download_name(db: Session, stored: str, fallback: str) -> str:
+    """Name the download after the vendor and template it belongs to.
+
+    The stored names are whatever the file happened to be called —
+    "Microsoft_Excel_Worksheet.xlsx" tells nobody which vendor it is. Naming it
+    for the template also stops a fresh download colliding with an older copy
+    in the browser's downloads folder, which is otherwise indistinguishable
+    from the download having failed.
+    """
+    row = (db.query(VendorFormatSample, VendorFormat, Vendor)
+           .join(VendorFormat, VendorFormatSample.vendor_format_id == VendorFormat.id)
+           .join(Vendor, VendorFormat.vendor_id == Vendor.id)
+           .filter(VendorFormatSample.stored_name == stored)
+           .order_by(VendorFormatSample.id.desc())
+           .first())
+    if not row:
+        return fallback
+    _sample, fmt, vendor = row
+    ext = os.path.splitext(fallback)[1]
+    stem = "%s_%s" % (vendor.code, (fmt.format_name or "sample"))
+    return _safe_token(stem)[:120] + ext
+
+
 @router.get("/sample-file")
-def download_sample(file_token: str, user: User = Depends(get_current_user)):
+def download_sample(file_token: str, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
     """Hand back a kept sample so it can be opened outside the browser."""
     path = _resolve(file_token)
-    return FileResponse(path, filename=os.path.basename(path),
+    name = _download_name(db, _safe_token(file_token), os.path.basename(path))
+    # Never let a stale copy answer this: the whole point is to see the file as
+    # it is now.
+    headers = {"Cache-Control": "no-store, must-revalidate"}
+    visible = _unhide_workbook(path)
+    if visible:
+        return FileResponse(visible, filename=name, headers=headers,
+                            media_type="application/octet-stream",
+                            background=BackgroundTask(os.unlink, visible))
+    return FileResponse(path, filename=name, headers=headers,
                         media_type="application/octet-stream")
 
 

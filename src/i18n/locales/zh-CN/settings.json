@@ -239,7 +239,6 @@
     "statProduct": "产品",
     "statLot": "批号",
     "waferIds": "片号",
-    "download": "下载模板",
     "apply": "应用到表单",
     "requiredMissing": "必填，且文件中找不到 — 请手动指定",
     "conflict": "验证模型对「{{field}}」有异议：我们判定 {{ours}}，它判定 {{theirs}}",
@@ -326,6 +325,7 @@
     "fixedDieCount": "固定 DIE 数",
     "site": "厂区",
     "downloadSample": "下载样本文件",
-    "versionTip": "当前版本，可在修改履历查看每一版差异"
+    "versionTip": "当前版本，可在修改履历查看每一版差异",
+    "downloadFailed": "下载失败"
   }
 }

@@ -5,6 +5,7 @@ import {
   PackagePlus, ChevronDown, ChevronRight, Search, Table2, Download,
 } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
+import { downloadBlob } from '@/utils/downloadBlob'
 import { getProducts, type Product } from '@/services/vendors'
 import {
   getRules, createRule, updateRule, deleteRule, deleteProductRules,
@@ -610,12 +611,8 @@ function RulesMatrixModal({
     const blob = new Blob([BOM + lines.join('\n')], {
       type: 'text/csv;charset=utf-8',
     })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `review-rules-matrix-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(
+      blob, `review-rules-matrix-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
   const subColLabels = [

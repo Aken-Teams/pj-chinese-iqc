@@ -1,4 +1,5 @@
 import { apiFetch } from './api'
+import { downloadBlob } from '@/utils/downloadBlob'
 import type { VendorFormat } from './vendors'
 
 /** One detected field, with why it was chosen. */
@@ -106,19 +107,6 @@ export async function dryRunFormat(
     method: 'POST',
     body: JSON.stringify({ file_token: fileToken, template, vendor_code: vendorCode }),
   })
-}
-
-/** Save a template as a .json file the user can archive or re-import. */
-export function downloadTemplate(name: string, template: Partial<VendorFormat>): void {
-  const blob = new Blob([JSON.stringify(template, null, 2)], {
-    type: 'application/json;charset=utf-8',
-  })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${name || 'vendor-format'}.json`
-  a.click()
-  URL.revokeObjectURL(url)
 }
 
 /** What actually ran during detection, so a fast result isn't mistaken for a skipped one. */
@@ -235,18 +223,46 @@ export async function getRevisions(formatId: number): Promise<Revision[]> {
   return apiFetch(`/format-wizard/revisions/${formatId}`)
 }
 
-/** Open a kept sample. Goes through fetch so the auth header is sent. */
-export async function downloadSample(fileToken: string, fileName: string): Promise<void> {
+/**
+ * Open a kept sample. Goes through fetch so the auth header is sent.
+ *
+ * Failures are reported rather than thrown: callers were firing this with
+ * `void`, which turned every failure into an unhandled rejection and left the
+ * user staring at a button that appeared to do nothing.
+ */
+export async function downloadSample(
+  fileToken: string, fileName: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const token = localStorage.getItem('iqc-auth-token')
-  const res = await fetch(
-    `/api/format-wizard/sample-file?file_token=${encodeURIComponent(fileToken)}`,
-    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
-  )
-  if (!res.ok) throw new Error(`Download failed: ${res.status}`)
-  const url = URL.createObjectURL(await res.blob())
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName
-  a.click()
-  URL.revokeObjectURL(url)
+  let res: Response
+  try {
+    // A plain GET here is cacheable, and the browser was replaying an earlier
+    // response — same bytes, same Content-Disposition — without ever asking the
+    // server. Nothing reached the API log, and a fixed file could never arrive.
+    // The nonce makes each request a distinct URL; `no-store` keeps the answer
+    // out of the cache for next time.
+    const url = `/api/format-wizard/sample-file`
+      + `?file_token=${encodeURIComponent(fileToken)}`
+      + `&_=${Date.now()}`
+    res = await fetch(url, {
+      cache: 'no-store',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+  if (!res.ok) {
+    // A 404 here usually means the API has not been restarted since the
+    // endpoint was added, so say the status out loud.
+    const body = await res.text().catch(() => '')
+    let detail = body.slice(0, 200)
+    try {
+      detail = (JSON.parse(body).detail as string) ?? detail
+    } catch { /* not JSON */ }
+    return { ok: false, error: `HTTP ${res.status}${detail ? ` — ${detail}` : ''}` }
+  }
+  const blob = await res.blob()
+  if (blob.size === 0) return { ok: false, error: 'Empty response' }
+  downloadBlob(blob, fileName)
+  return { ok: true }
 }

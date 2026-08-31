@@ -239,7 +239,6 @@
     "statProduct": "Product",
     "statLot": "Lot",
     "waferIds": "Wafer IDs",
-    "download": "Download template",
     "apply": "Apply to form",
     "requiredMissing": "Required, and not found in the file — set it manually",
     "conflict": "The verifier disagrees on “{{field}}”: we read {{ours}}, it read {{theirs}}",
@@ -326,6 +325,7 @@
     "fixedDieCount": "Fixed die count",
     "site": "Site",
     "downloadSample": "Download sample",
-    "versionTip": "Current version — see the history for per-version diffs"
+    "versionTip": "Current version — see the history for per-version diffs",
+    "downloadFailed": "Download failed"
   }
 }
