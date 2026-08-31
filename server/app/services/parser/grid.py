@@ -11,6 +11,8 @@ from __future__ import annotations
 import csv
 import io
 import os
+import threading
+from collections import OrderedDict
 import re
 from typing import Any, Iterator, Optional
 
@@ -195,13 +197,55 @@ def _pick_sheet(names: list[str], selector: str | None) -> str:
     return names[0]
 
 
+# Vendor auto-detection probes every template against the same file, and each
+# probe used to re-read it from disk -- seven full reads of a 9,000-row file to
+# import it once. The grid is read-only, so the same one can serve every probe.
+# Keyed on identity *and* mtime/size so an edited file is never served stale.
+_CACHE: "OrderedDict[tuple, Grid]" = OrderedDict()
+_CACHE_MAX = 4
+_CACHE_LOCK = threading.Lock()
+
+
+def _cache_key(path: str, sheet_selector, delimiter, max_rows):
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (os.path.abspath(path), st.st_mtime_ns, st.st_size,
+            sheet_selector, delimiter, max_rows)
+
+
 def open_grid(path: str, sheet_selector: str | None = None,
               delimiter: str | None = None, max_rows: int | None = None) -> Grid:
     """Load any supported CP file into a Grid.
 
     `delimiter` is "tab"/"comma" to force one, or None to sniff.
     `max_rows` caps the load for preview/detection work.
+
+    Recently opened grids are reused; see `_CACHE`.
     """
+    key = _cache_key(path, sheet_selector, delimiter, max_rows)
+    if key is not None:
+        with _CACHE_LOCK:
+            hit = _CACHE.get(key)
+            if hit is not None:
+                _CACHE.move_to_end(key)
+                return hit
+
+    grid = _open_grid_uncached(path, sheet_selector, delimiter, max_rows)
+
+    if key is not None:
+        with _CACHE_LOCK:
+            _CACHE[key] = grid
+            _CACHE.move_to_end(key)
+            while len(_CACHE) > _CACHE_MAX:
+                _CACHE.popitem(last=False)
+    return grid
+
+
+def _open_grid_uncached(path: str, sheet_selector: str | None = None,
+                        delimiter: str | None = None,
+                        max_rows: int | None = None) -> Grid:
     ext = os.path.splitext(path)[1].lower()
 
     if ext in (".xlsx", ".xlsm"):
