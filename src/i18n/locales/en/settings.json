@@ -79,7 +79,10 @@
     "diagramDataRow": "Data Start Row = 5",
     "deleteVendor": "Delete vendor",
     "confirmYes": "Delete",
-    "confirmNo": "Cancel"
+    "confirmNo": "Cancel",
+    "noTemplateWarning": "No format template — uploads will fail",
+    "siteNoTemplate": "{{site}} has no usable template; uploads from that site will fail",
+    "createdHint": "Vendor created. Set up a format template next, or its files cannot be uploaded."
   },
   "rules": {
     "title": "Review Rules",

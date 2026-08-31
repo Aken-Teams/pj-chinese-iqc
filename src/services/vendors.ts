@@ -6,6 +6,22 @@ export interface Vendor {
   code: string
   /** AD sites (廠區) this vendor serves; empty = unassigned (all sites). */
   domains?: string[]
+  /** How many format templates exist. Zero means uploads for this vendor fail. */
+  formatCount?: number
+  /** Sites that have a template; '' is an unassigned template usable by all. */
+  formatDomains?: string[]
+}
+
+/**
+ * Sites the vendor is visible to but has no template for.
+ *
+ * Three vendors were sitting in this state unnoticed — a site could see them,
+ * pick them, and only discover the gap when the upload failed.
+ */
+export function sitesMissingTemplate(vendor: Vendor): string[] {
+  const covered = vendor.formatDomains ?? []
+  if (covered.includes('')) return []   // an unassigned template covers every site
+  return (vendor.domains ?? []).filter((d) => !covered.includes(d))
 }
 
 /** Where a file's wafer id comes from. Only two of the six real vendor formats

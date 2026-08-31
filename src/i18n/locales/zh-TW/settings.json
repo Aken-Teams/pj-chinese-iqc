@@ -79,7 +79,10 @@
     "diagramDataRow": "資料起始列 = 5",
     "deleteVendor": "刪除廠商",
     "confirmYes": "刪除",
-    "confirmNo": "取消"
+    "confirmNo": "取消",
+    "noTemplateWarning": "尚未設定格式模板，無法上傳",
+    "siteNoTemplate": "{{site}} 廠區沒有可用的格式模板，該廠區上傳會失敗",
+    "createdHint": "廠商已建立。請接著設定格式模板，否則這家的檔案無法上傳。"
   },
   "rules": {
     "title": "審核規則",

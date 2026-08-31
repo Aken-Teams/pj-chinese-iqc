@@ -14,6 +14,13 @@ class VendorResponse(BaseModel):
     code: str
     # AD sites (廠區) this vendor is visible to; empty = unassigned (all sites).
     domains: list[str] = []
+    # Template coverage, so the vendor list can show a vendor that cannot
+    # actually receive an upload. Three vendors sat in that state unnoticed
+    # because the gap only surfaced as a failed upload.
+    formatCount: int = 0
+    # Sites that have at least one template. "" stands for an unassigned
+    # template, which every site may use.
+    formatDomains: list[str] = []
 
     class Config:
         from_attributes = True

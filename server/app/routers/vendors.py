@@ -36,6 +36,16 @@ def list_vendors(site: str = "", db: Session = Depends(get_db),
     for vd in db.query(VendorDomain).all():
         dmap[vd.vendor_id].append(vd.domain)
 
+    # Which sites each vendor actually has a template for. An unassigned
+    # template ("" here) is usable by every site, matching scope_formats_by_domain.
+    fmap: dict[int, list[str]] = defaultdict(list)
+    fcount: dict[int, int] = defaultdict(int)
+    for vid, fdom in db.query(VendorFormat.vendor_id, VendorFormat.domain).all():
+        fcount[vid] += 1
+        tag = fdom or ""
+        if tag not in fmap[vid]:
+            fmap[vid].append(tag)
+
     admin = can_see_all_domains(user)
     out = []
     for v in db.query(Vendor).order_by(Vendor.code).all():
@@ -47,7 +57,11 @@ def list_vendors(site: str = "", db: Session = Depends(get_db),
         elif admin and site:  # admin narrowing to one site
             if site not in vdomains:
                 continue
-        out.append(VendorResponse(id=v.id, name=v.name, code=v.code, domains=vdomains))
+        out.append(VendorResponse(
+            id=v.id, name=v.name, code=v.code, domains=vdomains,
+            formatCount=fcount.get(v.id, 0),
+            formatDomains=sorted(fmap.get(v.id, [])),
+        ))
     return out
 
 

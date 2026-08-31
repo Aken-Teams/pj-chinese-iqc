@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X, HelpCircle, Wand2 } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X, HelpCircle, Wand2, AlertTriangle } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import {
   getVendors,
@@ -10,6 +10,7 @@ import {
   updateVendorFormat,
   deleteVendorFormat,
   deleteVendor,
+  sitesMissingTemplate,
   type Vendor,
   type VendorFormat,
 } from '@/services/vendors'
@@ -499,14 +500,19 @@ function FormatRow({
   )
 }
 
-function VendorCard({ vendor, siteFilter, onDeleted }: {
-  vendor: Vendor; siteFilter: string; onDeleted: () => void
+function VendorCard({ vendor, siteFilter, onDeleted, defaultOpen }: {
+  vendor: Vendor; siteFilter: string; onDeleted: () => void; defaultOpen?: boolean
 }) {
   const { t } = useTranslation('settings')
-  const [expanded, setExpanded] = useState(false)
+  // A freshly created vendor opens straight onto its (empty) template list, so
+  // the next step is in front of the user rather than one click away.
+  const [expanded, setExpanded] = useState(!!defaultOpen)
   const [formats, setFormats] = useState<VendorFormat[]>([])
   const [loaded, setLoaded] = useState(false)
   const [addingNew, setAddingNew] = useState(false)
+  const missingSites = sitesMissingTemplate(vendor)
+  const noTemplates = (vendor.formatCount ?? 0) === 0
+
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -526,6 +532,11 @@ function VendorCard({ vendor, siteFilter, onDeleted }: {
       setDeleting(false)
     }
   }
+
+  useEffect(() => {
+    if (defaultOpen) void loadFormats()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultOpen])
 
   async function loadFormats() {
     if (loaded) return
@@ -551,11 +562,30 @@ function VendorCard({ vendor, siteFilter, onDeleted }: {
         <span className="text-base text-text-primary">{vendor.name}</span>
         {vendor.domains && vendor.domains.length > 0 && (
           <span className="flex items-center gap-1">
-            {vendor.domains.map((d) => (
-              <span key={d} className="px-1.5 py-0.5 bg-bg-page text-text-secondary text-[10px] font-semibold rounded">
-                {siteLabel(d)}
-              </span>
-            ))}
+            {vendor.domains.map((d) => {
+              // A site that can see this vendor but has no template for it can
+              // select it and then fail at upload time — flag it here instead.
+              const gap = missingSites.includes(d)
+              return (
+                <span
+                  key={d}
+                  title={gap ? t('vendors.siteNoTemplate', { site: siteLabel(d) }) : undefined}
+                  className={`px-1.5 py-0.5 text-[10px] font-semibold rounded flex items-center gap-0.5 ${
+                    gap ? 'bg-amber-500/15 text-amber-700' : 'bg-bg-page text-text-secondary'
+                  }`}
+                >
+                  {siteLabel(d)}
+                  {gap && <AlertTriangle size={9} />}
+                </span>
+              )
+            })}
+          </span>
+        )}
+        {noTemplates && (
+          <span className="flex items-center gap-1 px-2 py-0.5 bg-error/10 text-error
+                           text-[10px] font-semibold rounded">
+            <AlertTriangle size={10} />
+            {t('vendors.noTemplateWarning')}
           </span>
         )}
       </button>
@@ -649,6 +679,7 @@ export default function VendorsPage() {
   const [newCode, setNewCode] = useState('')
   const [newName, setNewName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [justCreated, setJustCreated] = useState<string | null>(null)
 
   useEffect(() => {
     getVendors(filterSite).then(setVendors)
@@ -663,6 +694,9 @@ export default function VendorsPage() {
       setNewCode('')
       setNewName('')
       setShowAddForm(false)
+      // A vendor with no template cannot receive an upload, and nothing used to
+      // say so — one vendor sat half-configured for two months that way.
+      setJustCreated(v.code)
     } finally {
       setSaving(false)
     }
@@ -732,11 +766,23 @@ export default function VendorsPage() {
       )}
 
       <div className="flex flex-col gap-2">
+        {justCreated && (
+          <div className="flex items-center gap-2 px-4 py-2.5 border border-amber-500/40
+                          bg-amber-500/10 text-amber-700 text-xs">
+            <AlertTriangle size={14} className="shrink-0" />
+            <span className="flex-1">{t('vendors.createdHint')}</span>
+            <button onClick={() => setJustCreated(null)}
+                    className="text-amber-700 hover:opacity-70 cursor-pointer">
+              <X size={14} />
+            </button>
+          </div>
+        )}
         {vendors.map((v) => (
           <VendorCard
             key={v.id}
             vendor={v}
             siteFilter={filterSite}
+            defaultOpen={v.code === justCreated}
             onDeleted={() => setVendors((prev) => prev.filter((x) => x.id !== v.id))}
           />
         ))}

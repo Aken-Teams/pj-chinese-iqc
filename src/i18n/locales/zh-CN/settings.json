@@ -79,7 +79,10 @@
     "diagramDataRow": "数据起始行 = 5",
     "deleteVendor": "删除厂商",
     "confirmYes": "删除",
-    "confirmNo": "取消"
+    "confirmNo": "取消",
+    "noTemplateWarning": "尚未设定格式模板，无法上传",
+    "siteNoTemplate": "{{site}} 厂区没有可用的格式模板，该厂区上传会失败",
+    "createdHint": "厂商已创建。请接着设定格式模板，否则这家的文件无法上传。"
   },
   "rules": {
     "title": "审核规则",
