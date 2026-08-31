@@ -1,7 +1,12 @@
+import io
 import os
 import shutil
+from urllib.parse import quote
+
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -9,7 +14,7 @@ from app.dependencies import get_db, get_current_user, can_see_all_domains, scop
 from app.models.user import User
 from app.models.lot import Lot
 from app.models.product import Product
-from app.models.review import ReviewRule
+from app.models.review import ReviewRule, RuleRevision
 from app.models.spec import PackagingSpec
 from app.models.vendor import Vendor
 from app.schemas.rules import (
@@ -22,6 +27,7 @@ from app.schemas.rules import (
     RulesImportResult,
 )
 from app.services.rules_import_parser import build_import_preview, parse_review_rules_excel
+from app.services.rules_export import build_rules_workbook, current_version
 
 router = APIRouter(prefix="/api/rules", tags=["rules"])
 
@@ -231,6 +237,9 @@ def import_confirm(
     updated = 0
     skipped = 0
     products_created = 0
+    rules_before = (db.query(ReviewRule)
+                    .join(Product, ReviewRule.product_id == Product.id)
+                    .filter(Product.domain == user.domain).count())
 
     # Cache: vendor_code -> vendor_id
     vendor_cache = {v.code: v.id for v in db.query(Vendor).all()}
@@ -305,6 +314,26 @@ def import_confirm(
             ))
             created += 1
 
+    # A version so a sheet sent back later can be traced to what it was based
+    # on. Recorded before the commit so the rules and their revision land
+    # together — a ruleset with no revision has no identity.
+    domain = user.domain
+    revision = RuleRevision(
+        domain=domain,
+        version=current_version(db, domain) + 1,
+        action="import",
+        file_name=req.file_name,
+        note=req.note,
+        changed_by=user.id,
+        rules_before=rules_before,
+        rules_after=rules_before + created,
+        changes=[{
+            "product": r.product_code, "param": r.param_name,
+            "q1": [r.q1_lower, r.q1_upper], "q2": [r.q2_lower, r.q2_upper],
+            "q3": [r.q3_lower, r.q3_upper],
+        } for r in req.rules[:500]],
+    )
+    db.add(revision)
     db.commit()
 
     # Cleanup uploaded file
@@ -320,3 +349,65 @@ def import_confirm(
         skipped=skipped,
         products_created=products_created,
     )
+
+
+@router.get("/export")
+def export_rules(
+    site: str = Query("", description="AD site (廠區); admins may pick, others get their own"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Download the review-rule sheet for a site, pre-filled.
+
+    This is the same shape the importer reads, so the file that goes out is the
+    file that comes back. Parameter rows carry the names the vendor's CP files
+    actually use and Q1 is filled in from those files, leaving the site to enter
+    only Q2 — the part the system cannot know.
+    """
+    domain = site if (site and can_see_all_domains(user)) else user.domain
+    data, version = build_rules_workbook(db, domain)
+
+    label = {"WXPJ": "無錫", "PJXZ": "徐州"}.get(domain or "", domain or "全部")
+    stamp = datetime.now().strftime("%Y%m%d")
+    filename = f"審核規則_{label}_v{version}_{stamp}.xlsx"
+    # The name carries non-ASCII, so it goes in the RFC 5987 form; the plain
+    # `filename` is kept as a fallback for clients that ignore filename*.
+    quoted = quote(filename)
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=\"rules_v{version}_{stamp}.xlsx\"; "
+                f"filename*=UTF-8\'\'{quoted}"
+            ),
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get("/revisions")
+def list_rule_revisions(
+    site: str = Query(""),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Import history for a site, newest first."""
+    domain = site if (site and can_see_all_domains(user)) else user.domain
+    rows = (db.query(RuleRevision)
+            .filter(RuleRevision.domain == domain)
+            .order_by(RuleRevision.version.desc())
+            .limit(limit).all())
+    return [{
+        "id": r.id,
+        "version": r.version,
+        "action": r.action,
+        "fileName": r.file_name,
+        "changedBy": r.changed_by,
+        "changedAt": r.changed_at.isoformat() if r.changed_at else None,
+        "note": r.note,
+        "rulesBefore": r.rules_before,
+        "rulesAfter": r.rules_after,
+        "changeCount": len(r.changes or []),
+    } for r in rows]

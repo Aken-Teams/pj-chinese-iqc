@@ -1,16 +1,16 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Plus, Trash2, Check, X, Upload, Loader2, CheckCircle, AlertTriangle, XCircle, RefreshCw,
-  PackagePlus, ChevronDown, ChevronRight, Search, Table2, Download,
+  AlertTriangle, Check, CheckCircle, ChevronDown, ChevronRight, Download, History, Loader2, PackagePlus, Plus, RefreshCw, Search, Table2, Trash2, Upload, X, XCircle,
 } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { downloadBlob } from '@/utils/downloadBlob'
 import { getProducts, type Product } from '@/services/vendors'
 import {
   getRules, createRule, updateRule, deleteRule, deleteProductRules,
-  importRulesPreview, confirmRulesImport,
+  importRulesPreview, confirmRulesImport, exportRules, getRuleRevisions,
   type ReviewRule, type RulesImportPreview, type RulePreviewRow,
+  type RuleRevision,
 } from '@/services/rules'
 import { useAuthStore } from '@/store/authStore'
 import { siteLabel, siteOptions } from '@/config/sites'
@@ -219,7 +219,7 @@ function ImportPanel({
           q3_lower: r.q3_lower,
           q3_upper: r.q3_upper,
         }))
-      const result = await confirmRulesImport(preview.file_path, importable)
+      const result = await confirmRulesImport(preview.file_path, importable, file?.name)
       setSuccess(
         t('rules.importSuccess', {
           created: result.created,
@@ -796,6 +796,8 @@ function RulesMatrixModal({
           })}
         </div>
       </div>
+
+
     </div>
   )
 }
@@ -819,6 +821,26 @@ export default function RulesPage() {
   const [addingNewFor, setAddingNewFor] = useState<number | null>(null)
   const [importMode, setImportMode] = useState(false)
   const [matrixMode, setMatrixMode] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [revisions, setRevisions] = useState<RuleRevision[] | null>(null)
+
+  const handleExport = async () => {
+    setExporting(true); setExportError('')
+    const res = await exportRules(isAdmin ? filterSite || undefined : undefined)
+    setExporting(false)
+    if (!res.ok) setExportError(t('rules.exportFailed', { error: res.error }))
+  }
+
+  const openHistory = () => {
+    setHistoryOpen(true)
+    setRevisions(null)
+    getRuleRevisions(isAdmin ? filterSite || undefined : undefined)
+      .then(setRevisions)
+      .catch(() => setRevisions([]))
+  }
+
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
 
@@ -974,6 +996,23 @@ export default function RulesPage() {
         actions={
           <div className="flex items-center gap-2">
             <button
+              onClick={openHistory}
+              className="flex items-center gap-2 px-4 py-2 border border-border-light text-text-secondary text-sm font-medium hover:bg-bg-page cursor-pointer whitespace-nowrap"
+            >
+              <History size={16} /> {t('rules.history')}
+            </button>
+            {/* Export before import: the sheet that goes out is the one that
+                comes back, already carrying the real parameter names and Q1. */}
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              title={t('rules.exportHint')}
+              className="flex items-center gap-2 px-4 py-2 border border-border-light text-text-secondary text-sm font-medium hover:bg-bg-page cursor-pointer whitespace-nowrap disabled:opacity-40"
+            >
+              {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {t('rules.exportExcel')}
+            </button>
+            <button
               onClick={() => setMatrixMode(true)}
               disabled={groups.length === 0}
               className="flex items-center gap-2 px-4 py-2 border border-border-light text-text-secondary text-sm font-medium hover:bg-bg-page cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
@@ -989,6 +1028,12 @@ export default function RulesPage() {
           </div>
         }
       />
+
+      {exportError && (
+        <div className="mt-4 bg-badge-fail px-4 py-2.5 text-sm font-medium text-error">
+          {exportError}
+        </div>
+      )}
 
       {importMode && <ImportPanel onDone={handleImportDone} onImported={handleImported} />}
       {matrixMode && (
@@ -1093,6 +1138,68 @@ export default function RulesPage() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {historyOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+          onClick={() => setHistoryOpen(false)}
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-[760px] overflow-auto bg-bg-card p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-heading text-[18px] font-bold">{t('rules.historyTitle')}</h3>
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="text-text-muted hover:text-text-primary"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {revisions === null ? (
+              <div className="flex justify-center py-10">
+                <Loader2 size={22} className="animate-spin text-accent" />
+              </div>
+            ) : revisions.length === 0 ? (
+              <p className="py-8 text-center text-[13px] text-text-muted">
+                {t('rules.historyEmpty')}
+              </p>
+            ) : (
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-border-light text-left text-[11px] uppercase tracking-[0.5px] text-text-tertiary">
+                    <th className="py-2 pr-3">{t('rules.version')}</th>
+                    <th className="py-2 pr-3">{t('rules.importedFile')}</th>
+                    <th className="py-2 pr-3">{t('rules.importedAt')}</th>
+                    <th className="py-2 text-right">{t('rules.ruleCount')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {revisions.map((r) => (
+                    <tr key={r.id} className="border-b border-border-light last:border-0">
+                      <td className="py-2.5 pr-3">
+                        <span className="bg-accent/15 px-2 py-0.5 text-[11px] font-bold text-accent">
+                          v{r.version}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3 text-text-secondary">
+                        {r.fileName ?? '—'}
+                      </td>
+                      <td className="py-2.5 pr-3 text-text-muted">
+                        {r.changedAt ? r.changedAt.replace('T', ' ').slice(0, 16) : '—'}
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums text-text-secondary">
+                        {r.rulesBefore ?? '—'} → {r.rulesAfter ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
     </div>

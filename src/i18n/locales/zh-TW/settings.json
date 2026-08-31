@@ -140,7 +140,17 @@
     "matrixNoRules": "無可顯示的規則",
     "matrixColProduct": "產品",
     "matrixColVendor": "廠商",
-    "matrixNoValue": "/"
+    "matrixNoValue": "/",
+    "exportExcel": "匯出模板",
+    "history": "匯入履歷",
+    "historyTitle": "審核規則匯入履歷",
+    "historyEmpty": "尚無匯入紀錄。按「匯出模板」取得標準格式，填好 Q2 後再匯入。",
+    "version": "版次",
+    "importedFile": "來源檔案",
+    "importedAt": "時間",
+    "ruleCount": "規則數",
+    "exportHint": "匯出的檔案已帶入各產品實際參數名稱與 Q1（依 CP 檔案），只需填 Q2。",
+    "exportFailed": "匯出失敗：{{error}}"
   },
   "specs": {
     "title": "封裝測規管理",

@@ -140,7 +140,17 @@
     "matrixNoRules": "无可显示的规则",
     "matrixColProduct": "产品",
     "matrixColVendor": "厂商",
-    "matrixNoValue": "/"
+    "matrixNoValue": "/",
+    "exportExcel": "导出模板",
+    "history": "导入履历",
+    "historyTitle": "审核规则导入履历",
+    "historyEmpty": "尚无导入记录。按「导出模板」取得标准格式，填好 Q2 后再导入。",
+    "version": "版次",
+    "importedFile": "来源文件",
+    "importedAt": "时间",
+    "ruleCount": "规则数",
+    "exportHint": "导出的文件已带入各产品实际参数名称与 Q1（依 CP 文件），只需填 Q2。",
+    "exportFailed": "导出失败：{{error}}"
   },
   "specs": {
     "title": "封装测规管理",

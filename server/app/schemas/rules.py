@@ -96,6 +96,10 @@ class RuleImportItem(BaseModel):
 class RulesImportConfirmRequest(BaseModel):
     file_path: str
     rules: list[RuleImportItem]
+    # Recorded on the revision so a ruleset can be traced to the sheet it came
+    # from. The temp path in file_path is meaningless to a reader.
+    file_name: str | None = None
+    note: str | None = None
 
 
 class RulesImportResult(BaseModel):

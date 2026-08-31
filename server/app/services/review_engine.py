@@ -37,9 +37,19 @@ def calculate_wafer_param_review(
     q3_upper: Optional[float],
 ) -> dict:
     """
-    Core VBA port: calculate statistics and yields for one param on one wafer.
-    Uses STRICT inequalities (> and <) matching VBA COUNTIFS behavior.
-    Uses sample stdev (ddof=1) matching VBA STDEV.
+    Statistics and yields for one parameter on one wafer. Sample stdev (ddof=1),
+    matching the VBA this was ported from.
+
+    Limits are INCLUSIVE: a die sitting exactly on a limit passes. The original
+    VBA used COUNTIFS(">" & lower, "<" & upper) and this port copied it, which
+    was wrong. Vendors write a lower limit of 0 for leakage and the tester
+    measures exactly 0 — a good reading — so the strict form failed those dies.
+
+    Measured across both sites: the inclusive form reproduces the wafer's bin
+    yield on 18 of 19 products, while the strict form collapsed seven of them
+    (捷捷微 JI30050A read 0.00% against a bin yield of 100%, 新潔能 the same).
+    That invariant is the check: 徐州's Q1 limits ARE the vendor's CP limits, so
+    counting dies inside them has to reproduce how the tester binned them.
 
     Q yields return None when no rule is defined (both lower and upper are None).
     This is distinct from 0.0 (rule defined but no dies pass).
@@ -72,15 +82,14 @@ def calculate_wafer_param_review(
     def q_yield(lower: Optional[float], upper: Optional[float]) -> Optional[float]:
         if lower is None and upper is None:
             return None  # No rule defined → N/A, NOT "pass by default"
-        # Strict inequalities (> and <) matching VBA COUNTIFS behavior:
-        # VBA uses CountIfs(range, ">" & QIL, range, "<" & QIU)
-        # A value exactly equal to a limit counts as FAILING.
+        # Inclusive: a spec of "IGSS <= 100nA" passes at exactly 100nA, and a
+        # lower limit of 0 passes at exactly 0. See the note above.
         if lower is not None and upper is not None:
-            mask = (arr > lower) & (arr < upper)
+            mask = (arr >= lower) & (arr <= upper)
         elif lower is not None:
-            mask = arr > lower
+            mask = arr >= lower
         else:
-            mask = arr < upper
+            mask = arr <= upper
         count = int(np.sum(mask))
         return count / total_die_count if total_die_count > 0 else 0.0
 
@@ -104,7 +113,7 @@ def combined_die_yield(
     """True combined (die-intersection) yield for one Q level on one wafer.
 
     A die counts only if EVERY parameter that has a limit at this Q level is
-    within spec (strict > lower and < upper, matching the per-param VBA rule).
+    within spec, limits inclusive — the same rule as the per-parameter yield.
     Denominator is the wafer's total die count, consistent with bin1/per-param
     yields. Returns None when no parameter has a limit at this level (→ N/A),
     matching the per-param "no rule" convention.
@@ -124,10 +133,10 @@ def combined_die_yield(
             if v is None:
                 ok = False
                 break
-            if lower is not None and not (v > lower):
+            if lower is not None and v < lower:
                 ok = False
                 break
-            if upper is not None and not (v < upper):
+            if upper is not None and v > upper:
                 ok = False
                 break
         if ok:

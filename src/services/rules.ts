@@ -1,4 +1,5 @@
 import { apiFetch } from './api'
+import { downloadBlob } from '@/utils/downloadBlob'
 
 export interface ReviewRule {
   id: number
@@ -120,9 +121,73 @@ export async function importRulesPreview(file: File, lang = 'zh-TW'): Promise<Ru
 export async function confirmRulesImport(
   filePath: string,
   rules: RuleImportItem[],
+  fileName?: string,
 ): Promise<RulesImportResult> {
   return apiFetch('/rules/import-confirm', {
     method: 'POST',
-    body: JSON.stringify({ file_path: filePath, rules }),
+    body: JSON.stringify({ file_path: filePath, rules, file_name: fileName ?? null }),
   })
+}
+
+/** One change to a site's ruleset. */
+export interface RuleRevision {
+  id: number
+  version: number
+  action: string
+  fileName: string | null
+  changedBy: number | null
+  changedAt: string | null
+  note: string | null
+  rulesBefore: number | null
+  rulesAfter: number | null
+  changeCount: number
+}
+
+export async function getRuleRevisions(site?: string): Promise<RuleRevision[]> {
+  const qs = site ? `?site=${encodeURIComponent(site)}` : ''
+  return apiFetch(`/rules/revisions${qs}`)
+}
+
+/**
+ * Download the site's rule sheet. Goes through fetch so the auth header is
+ * sent, and reports failure rather than throwing: callers fire this from a
+ * button, and an unhandled rejection would leave it looking dead.
+ */
+export async function exportRules(
+  site?: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const token = localStorage.getItem('iqc-auth-token')
+  const qs = new URLSearchParams()
+  if (site) qs.set('site', site)
+  qs.set('_', String(Date.now()))
+  let res: Response
+  try {
+    res = await fetch(`/api/rules/export?${qs.toString()}`, {
+      cache: 'no-store',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    let detail = body.slice(0, 200)
+    try { detail = (JSON.parse(body).detail as string) ?? detail } catch { /* not JSON */ }
+    return { ok: false, error: `HTTP ${res.status}${detail ? ` — ${detail}` : ''}` }
+  }
+  const blob = await res.blob()
+  if (blob.size === 0) return { ok: false, error: 'Empty response' }
+  downloadBlob(blob, filenameFromDisposition(res) ?? 'review-rules.xlsx')
+  return { ok: true }
+}
+
+/** Prefer the server's UTF-8 name; the ASCII fallback loses the site label. */
+function filenameFromDisposition(res: Response): string | null {
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(cd)
+  if (star) {
+    try { return decodeURIComponent(star[1]) } catch { /* fall through */ }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(cd)
+  return plain ? plain[1] : null
 }

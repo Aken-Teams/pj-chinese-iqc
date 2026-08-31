@@ -140,7 +140,17 @@
     "matrixNoRules": "No rules to display",
     "matrixColProduct": "Product",
     "matrixColVendor": "Vendor",
-    "matrixNoValue": "/"
+    "matrixNoValue": "/",
+    "exportExcel": "Export template",
+    "history": "Import history",
+    "historyTitle": "Review rule import history",
+    "historyEmpty": "No imports yet. Export the template, fill in Q2, then import it back.",
+    "version": "Version",
+    "importedFile": "Source file",
+    "importedAt": "When",
+    "ruleCount": "Rules",
+    "exportHint": "The exported sheet already carries each product's real parameter names and Q1 from its CP files — only Q2 needs filling in.",
+    "exportFailed": "Export failed: {{error}}"
   },
   "specs": {
     "title": "Packaging Specs",
