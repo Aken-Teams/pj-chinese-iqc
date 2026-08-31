@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X, HelpCircle } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Check, X, HelpCircle, Wand2 } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import {
   getVendors,
@@ -15,6 +15,7 @@ import {
 import { useAuthStore } from '@/store/authStore'
 import { siteLabel, siteOptions } from '@/config/sites'
 import Select from '@/components/ui/Select'
+import FormatWizard from '@/components/settings/FormatWizard'
 
 const DEFAULT_FORMAT: Omit<VendorFormat, 'id'> = {
   format_name: '',
@@ -32,6 +33,7 @@ const DEFAULT_FORMAT: Omit<VendorFormat, 'id'> = {
   fixed_die_count: null,
   product_id_cell: null,
   lot_id_cell: null,
+  wafer_id_source: 'column',
 }
 
 type FormatDraft = Omit<VendorFormat, 'id'>
@@ -181,12 +183,14 @@ function FormatHelpDiagram({ t: tv }: { t: (k: string) => string }) {
 function FormatRow({
   fmt,
   vendorId,
+  vendorCode,
   siteFilter,
   onSaved,
   onDeleted,
 }: {
   fmt: VendorFormat | null
   vendorId: number
+  vendorCode: string
   siteFilter: string
   onSaved: (f: VendorFormat) => void
   onDeleted?: () => void
@@ -196,6 +200,7 @@ function FormatRow({
   const [draft, setDraft] = useState<FormatDraft>(fmt ?? DEFAULT_FORMAT)
   const [saving, setSaving] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
 
   const tv = (k: string) => t(`vendors.${k}`)
 
@@ -289,7 +294,28 @@ function FormatRow({
           <HelpCircle size={14} />
           {tv('helpToggle')}
         </button>
+        <button
+          onClick={() => setWizardOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium cursor-pointer
+                     bg-accent text-white hover:opacity-90 transition-opacity"
+        >
+          <Wand2 size={14} />
+          {t('wizard.open')}
+        </button>
       </div>
+
+      {wizardOpen && (
+        <FormatWizard
+          vendorCode={vendorCode}
+          onClose={() => setWizardOpen(false)}
+          onApply={(tpl) => {
+            // The wizard only fills in what it resolved; anything it could not
+            // determine keeps whatever the form already had.
+            setDraft((d) => ({ ...d, ...tpl }) as FormatDraft)
+            setWizardOpen(false)
+          }}
+        />
+      )}
 
       {/* Collapsible help diagram */}
       {showHelp && <FormatHelpDiagram t={tv} />}
@@ -305,7 +331,10 @@ function FormatRow({
             <input
               type="number"
               className="w-24 bg-bg-card border border-border-light px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent"
-              value={draft[key] ?? ''}
+              // Narrowed explicitly: FormatDraft now also holds non-numeric
+              // descriptors (param_cols, the wafer-id source), but numFields
+              // only ever lists numeric keys.
+              value={(draft[key] as number | null | undefined) ?? ''}
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
@@ -416,6 +445,7 @@ function VendorCard({ vendor, siteFilter }: { vendor: Vendor; siteFilter: string
                 key={fmt.id}
                 fmt={fmt}
                 vendorId={vendor.id}
+                vendorCode={vendor.code}
                 siteFilter={siteFilter}
                 onSaved={(saved) => setFormats((prev) => prev.map((f) => (f.id === saved.id ? saved : f)))}
                 onDeleted={() => setFormats((prev) => prev.filter((f) => f.id !== fmt.id))}
@@ -426,6 +456,7 @@ function VendorCard({ vendor, siteFilter }: { vendor: Vendor; siteFilter: string
               <FormatRow
                 fmt={null}
                 vendorId={vendor.id}
+                vendorCode={vendor.code}
                 siteFilter={siteFilter}
                 onSaved={(saved) => {
                   setFormats((prev) => [...prev, saved])

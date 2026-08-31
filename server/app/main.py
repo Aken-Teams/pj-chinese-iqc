@@ -19,6 +19,7 @@ from app.routers import (
     wafer_map,
     rules,
     admin,
+    format_wizard,
 )
 
 
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(wafer_map.router)
     app.include_router(rules.router)
     app.include_router(admin.router)
+    app.include_router(format_wizard.router)
 
     @app.get("/api/health")
     def health():

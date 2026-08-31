@@ -8,6 +8,10 @@ export interface Vendor {
   domains?: string[]
 }
 
+/** Where a file's wafer id comes from. Only two of the six real vendor formats
+ *  surveyed in 2026-08 carry a per-row wafer id column. */
+export type WaferIdSource = 'column' | 'cell' | 'label' | 'filename' | 'single'
+
 export interface VendorFormat {
   id: number
   format_name: string | null
@@ -16,7 +20,8 @@ export interface VendorFormat {
   lower_limit_row: number
   upper_limit_row: number
   electrical_start_col: number
-  wafer_id_col: number
+  /** Null unless wafer_id_source is 'column'. */
+  wafer_id_col: number | null
   bin_col: number
   x_coord_col: number | null
   y_coord_col: number | null
@@ -25,6 +30,27 @@ export interface VendorFormat {
   fixed_die_count: number | null
   product_id_cell: string | null
   lot_id_cell: string | null
+
+  // Flexible layout descriptors. All optional, so a template written against
+  // the original column-only model keeps working unchanged.
+  wafer_id_source?: WaferIdSource
+  wafer_id_cell?: string | null
+  /** Label to anchor on when the wafer-id row drifts between files. */
+  wafer_id_label?: string | null
+  /** Regex refining an extracted id; group 1 wins, e.g. `-(\d+)$`. */
+  wafer_id_pattern?: string | null
+  product_id_label?: string | null
+  lot_id_label?: string | null
+  /** Second header row naming the id columns, when split from the param row. */
+  id_header_row?: number | null
+  unit_row?: number | null
+  /** Worksheet name, or `#n` for a 1-indexed position. */
+  sheet_selector?: string | null
+  /** Explicit electrical columns; null = contiguous scan from the start col. */
+  param_cols?: number[] | null
+  /** 'tab' | 'comma', or null to sniff. */
+  text_delimiter?: string | null
+
   /** AD site (廠區) this template belongs to; null = unassigned (all sites). */
   domain?: string | null
 }

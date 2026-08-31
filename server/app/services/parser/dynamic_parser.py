@@ -1,12 +1,26 @@
 """
-Dynamic parser that uses VendorFormat column mappings from the database.
+Dynamic parser driven by a VendorFormat row from the database.
 
-This allows any vendor to be parsed as long as their format is configured
-in the 廠商管理 (Vendor Management) page.
+Any vendor can be parsed as long as their layout is described in 廠商管理
+(Vendor Management) — no code change per vendor. The descriptors grew after the
+2026-08 survey of real files from 無錫 (six vendors) and 徐州, which showed that
+a fixed "wafer id lives in column N" model cannot express most real CP dumps.
+See `grid.py` for the file-shape abstraction and `measure.py` for unit parsing.
 """
 
-import openpyxl
+import os
+import re
+
 from .base import BaseParser, ParseResult, ParsedWafer, ParsedDie, ParsedCpSpec
+from .grid import Grid, open_grid, parse_cell_ref
+from .measure import to_float
+
+# Stop scanning after this many consecutive blank rows. A single blank row in
+# the middle of the data used to end the parse silently, quietly dropping every
+# row after it; only a sustained run of blanks now means "end of data".
+_BLANK_RUN_LIMIT = 25
+
+WAFER_ID_SOURCES = ("column", "cell", "label", "filename", "single")
 
 
 class DynamicParser(BaseParser):
@@ -14,12 +28,24 @@ class DynamicParser(BaseParser):
 
     def __init__(self, vendor_code: str, header_row: int, data_start_row: int,
                  lower_limit_row: int, upper_limit_row: int,
-                 electrical_start_col: int, wafer_id_col: int, bin_col: int,
+                 electrical_start_col: int, wafer_id_col: int | None = None,
+                 bin_col: int = 1,
                  x_coord_col: int | None = None, y_coord_col: int | None = None,
                  product_id_col: int | None = None, lot_id_col: int | None = None,
                  fixed_die_count: int | None = None,
                  product_id_cell: str | None = None,
-                 lot_id_cell: str | None = None):
+                 lot_id_cell: str | None = None,
+                 wafer_id_source: str = "column",
+                 wafer_id_cell: str | None = None,
+                 wafer_id_label: str | None = None,
+                 wafer_id_pattern: str | None = None,
+                 product_id_label: str | None = None,
+                 lot_id_label: str | None = None,
+                 id_header_row: int | None = None,
+                 unit_row: int | None = None,
+                 sheet_selector: str | None = None,
+                 param_cols: list | None = None,
+                 text_delimiter: str | None = None):
         self.vendor_code = vendor_code
         self.HEADER_ROW = header_row
         self.DATA_START_ROW = data_start_row
@@ -33,25 +59,32 @@ class DynamicParser(BaseParser):
         self.PRODUCT_ID_COL = product_id_col
         self.LOT_ID_COL = lot_id_col
         self.FIXED_DIE_COUNT = fixed_die_count
-        self.PRODUCT_ID_CELL = self._parse_cell_ref(product_id_cell)
-        self.LOT_ID_CELL = self._parse_cell_ref(lot_id_cell)
+        self.PRODUCT_ID_CELL = parse_cell_ref(product_id_cell)
+        self.LOT_ID_CELL = parse_cell_ref(lot_id_cell)
 
-    @staticmethod
-    def _parse_cell_ref(cell_str: str | None) -> tuple[int, int] | None:
-        """Parse a "row,col" string (1-indexed) into a (row, col) tuple."""
-        if not cell_str:
-            return None
-        parts = cell_str.split(",")
-        if len(parts) != 2:
-            return None
-        try:
-            return int(parts[0].strip()), int(parts[1].strip())
-        except (ValueError, TypeError):
-            return None
+        self.WAFER_ID_SOURCE = (wafer_id_source or "column").strip().lower()
+        if self.WAFER_ID_SOURCE not in WAFER_ID_SOURCES:
+            self.WAFER_ID_SOURCE = "column"
+        self.WAFER_ID_CELL = parse_cell_ref(wafer_id_cell)
+        self.WAFER_ID_LABEL = wafer_id_label or None
+        self.WAFER_ID_PATTERN = wafer_id_pattern or None
+        self.PRODUCT_ID_LABEL = product_id_label or None
+        self.LOT_ID_LABEL = lot_id_label or None
+        self.ID_HEADER_ROW = id_header_row
+        self.UNIT_ROW = unit_row
+        self.SHEET_SELECTOR = sheet_selector or None
+        self.PARAM_COLS = list(param_cols) if param_cols else None
+        self.TEXT_DELIMITER = text_delimiter or None
 
+    # ------------------------------------------------------------------
     @classmethod
     def from_vendor_format(cls, vendor_code: str, fmt) -> "DynamicParser":
-        """Create a DynamicParser from a VendorFormat ORM object."""
+        """Build a parser from a VendorFormat ORM object.
+
+        Every field added after the original schema is read with getattr so a
+        stale row (or a lightweight stub in tests) still works.
+        """
+        g = lambda name: getattr(fmt, name, None)  # noqa: E731
         return cls(
             vendor_code=vendor_code,
             header_row=fmt.header_row,
@@ -66,175 +99,244 @@ class DynamicParser(BaseParser):
             product_id_col=fmt.product_id_col,
             lot_id_col=fmt.lot_id_col,
             fixed_die_count=fmt.fixed_die_count,
-            product_id_cell=getattr(fmt, 'product_id_cell', None),
-            lot_id_cell=getattr(fmt, 'lot_id_cell', None),
+            product_id_cell=g("product_id_cell"),
+            lot_id_cell=g("lot_id_cell"),
+            wafer_id_source=g("wafer_id_source") or "column",
+            wafer_id_cell=g("wafer_id_cell"),
+            wafer_id_label=g("wafer_id_label"),
+            wafer_id_pattern=g("wafer_id_pattern"),
+            product_id_label=g("product_id_label"),
+            lot_id_label=g("lot_id_label"),
+            id_header_row=g("id_header_row"),
+            unit_row=g("unit_row"),
+            sheet_selector=g("sheet_selector"),
+            param_cols=g("param_cols"),
+            text_delimiter=g("text_delimiter"),
         )
 
+    # --- helpers -------------------------------------------------------
     @staticmethod
     def _safe_float(val):
-        if val is None or val == "":
-            return None
-        try:
-            return float(val)
-        except (ValueError, TypeError):
-            return None
+        """Numeric value of a cell, unit-bearing strings included.
 
-    def _open_workbook(self, filepath: str):
-        return openpyxl.load_workbook(filepath, data_only=True, read_only=True)
+        Kept as a static method because callers and tests reach for it; the
+        real work now lives in measure.to_float so that "200.0mV" and "99.00uA"
+        yield numbers instead of None.
+        """
+        return to_float(val)
 
-    def _get_data_sheet(self, wb):
-        if "data" in wb.sheetnames:
-            return wb["data"]
-        return wb[wb.sheetnames[0]]
+    def _open(self, filepath: str, max_rows: int | None = None) -> Grid:
+        return open_grid(filepath, sheet_selector=self.SHEET_SELECTOR,
+                         delimiter=self.TEXT_DELIMITER, max_rows=max_rows)
 
-    def preview(self, filepath: str) -> dict:
-        wb = self._open_workbook(filepath)
-        ws = self._get_data_sheet(wb)
+    def _param_columns(self, grid: Grid) -> list[int]:
+        """Electrical columns, 1-indexed.
 
-        # Read param names from header row
-        param_names = []
+        An explicit `param_cols` wins; otherwise scan right from
+        ELECTRICAL_START_COL until the header row runs out — the original
+        behaviour, kept because most templates rely on it.
+        """
+        if self.PARAM_COLS:
+            return [int(c) for c in self.PARAM_COLS if int(c) >= 1]
+        cols = []
         col = self.ELECTRICAL_START_COL
         while True:
-            val = ws.cell(row=self.HEADER_ROW, column=col).value
-            if val is None:
+            if grid.cell(self.HEADER_ROW, col) is None:
                 break
-            param_names.append(str(val).strip())
+            cols.append(col)
             col += 1
+        return cols
 
-        # Count data rows and detect wafers
-        wafer_ids = set()
+    def _param_names(self, grid: Grid, cols: list[int]) -> list[str]:
+        return [str(grid.cell(self.HEADER_ROW, c)).strip() for c in cols]
+
+    def _apply_pattern(self, value) -> str:
+        """Refine an extracted id with the configured regex.
+
+        Group 1 wins when the pattern has one, else the whole match. This is
+        how 世界先进 gets a wafer id: its LOT ID cell reads "H2XR46.1-01", so
+        a pattern of `-(\\d+)$` yields "01".
+        """
+        s = "" if value is None else str(value).strip()
+        if s and self.WAFER_ID_PATTERN:
+            try:
+                m = re.search(self.WAFER_ID_PATTERN, s)
+            except re.error:
+                m = None
+            if m:
+                s = (m.group(1) if m.groups() else m.group(0)).strip()
+        # Trim separator punctuation left over from the source. 禾纳's
+        # tab-delimited dump yields ",001" for its `wafer number` label, and a
+        # wafer called ",001" then differs from the same wafer read elsewhere.
+        return re.sub(r"^[\s,;:|]+|[\s,;:|]+$", "", s)
+
+    def _file_wafer_id(self, grid: Grid, filepath: str) -> str:
+        """Wafer id for the whole file, for every source except `column`."""
+        src = self.WAFER_ID_SOURCE
+        raw = None
+        if src == "cell" and self.WAFER_ID_CELL:
+            raw = grid.cell(*self.WAFER_ID_CELL)
+        elif src == "label" and self.WAFER_ID_LABEL:
+            raw = grid.label_value(self.WAFER_ID_LABEL)
+        elif src == "filename":
+            raw = os.path.splitext(os.path.basename(filepath))[0]
+        elif src == "single":
+            # No id anywhere in the file; the file itself is the wafer.
+            raw = os.path.splitext(os.path.basename(filepath))[0]
+        return self._apply_pattern(raw)
+
+    def _meta_value(self, grid: Grid, cell_ref, label, col) -> str | None:
+        """Resolve one metadata field, most specific source first:
+        fixed cell -> label anchor -> first data row of a column."""
+        if cell_ref:
+            v = grid.cell(*cell_ref)
+            if v is not None:
+                return str(v).strip()
+        if label:
+            v = grid.label_value(label)
+            if v is not None:
+                return str(v).strip()
+        if col:
+            v = grid.cell(self.DATA_START_ROW, col)
+            if v is not None:
+                return str(v).strip()
+        return None
+
+    def _row_is_blank(self, grid: Grid, row: int, param_cols: list[int]) -> bool:
+        """A row counts as blank when it carries no id and no measurement."""
+        for c in (self.WAFER_ID_COL, self.BIN_COL, self.X_COORD_COL, self.Y_COORD_COL):
+            if c and grid.cell(row, c) is not None:
+                return False
+        for c in param_cols:
+            if grid.cell(row, c) is not None:
+                return False
+        return True
+
+    # --- API -----------------------------------------------------------
+    def preview(self, filepath: str) -> dict:
+        grid = self._open(filepath)
+        param_cols = self._param_columns(grid)
+        param_names = self._param_names(grid, param_cols)
+
+        wafer_ids: set[str] = set()
         row_count = 0
-        for r in ws.iter_rows(min_row=self.DATA_START_ROW, max_col=self.WAFER_ID_COL, values_only=False):
-            cell_val = r[self.WAFER_ID_COL - 1].value
-            if cell_val is None:
-                break
-            wafer_ids.add(str(cell_val))
+        blank_run = 0
+        file_wafer = (self._file_wafer_id(grid, filepath)
+                      if self.WAFER_ID_SOURCE != "column" else None)
+
+        for r in range(self.DATA_START_ROW, grid.n_rows + 1):
+            if self._row_is_blank(grid, r, param_cols):
+                blank_run += 1
+                if blank_run >= _BLANK_RUN_LIMIT:
+                    break
+                continue
+            blank_run = 0
             row_count += 1
+            if self.WAFER_ID_SOURCE == "column" and self.WAFER_ID_COL:
+                v = grid.cell(r, self.WAFER_ID_COL)
+                if v is not None:
+                    wafer_ids.add(self._apply_pattern(v) or str(v).strip())
+            elif file_wafer:
+                wafer_ids.add(file_wafer)
 
-        product_id = None
-        lot_id = None
-        # Prefer metadata cell over data-row column
-        if self.PRODUCT_ID_CELL:
-            product_id = ws.cell(row=self.PRODUCT_ID_CELL[0], column=self.PRODUCT_ID_CELL[1]).value
-        elif self.PRODUCT_ID_COL:
-            product_id = ws.cell(row=self.DATA_START_ROW, column=self.PRODUCT_ID_COL).value
-        if self.LOT_ID_CELL:
-            lot_id = ws.cell(row=self.LOT_ID_CELL[0], column=self.LOT_ID_CELL[1]).value
-        elif self.LOT_ID_COL:
-            lot_id = ws.cell(row=self.DATA_START_ROW, column=self.LOT_ID_COL).value
+        product_id = self._meta_value(grid, self.PRODUCT_ID_CELL,
+                                      self.PRODUCT_ID_LABEL, self.PRODUCT_ID_COL)
+        lot_id = self._meta_value(grid, self.LOT_ID_CELL,
+                                  self.LOT_ID_LABEL, self.LOT_ID_COL)
 
-        wb.close()
         return {
             "wafersDetected": len(wafer_ids),
             "diePerWafer": self.FIXED_DIE_COUNT,
             "dataRows": row_count,
             "format": self.vendor_code,
-            "productId": str(product_id).strip() if product_id else None,
-            "lotId": str(lot_id).strip() if lot_id else None,
+            "productId": product_id or None,
+            "lotId": lot_id or None,
             "paramNames": param_names,
+            "waferIdSource": self.WAFER_ID_SOURCE,
+            "waferIds": sorted(wafer_ids)[:50],
+            "sheetUsed": grid.sheet_used,
+            "sheets": grid.sheets,
+            "encoding": grid.encoding,
+            "delimiter": grid.delimiter,
         }
 
     def parse(self, filepath: str) -> ParseResult:
-        wb = self._open_workbook(filepath)
-        ws = self._get_data_sheet(wb)
+        grid = self._open(filepath)
+        param_cols = self._param_columns(grid)
+        param_names = self._param_names(grid, param_cols)
 
-        # 1. Read param names
-        param_names = []
-        col = self.ELECTRICAL_START_COL
-        while True:
-            val = ws.cell(row=self.HEADER_ROW, column=col).value
-            if val is None:
-                break
-            param_names.append(str(val).strip())
-            col += 1
-
-        # 2. Read CP specs
+        # CP spec limits, read through the unit-aware parser.
         cp_specs = []
-        for i, pname in enumerate(param_names):
-            ecol = self.ELECTRICAL_START_COL + i
-            lower = ws.cell(row=self.LOWER_LIMIT_ROW, column=ecol).value
-            upper = ws.cell(row=self.UPPER_LIMIT_ROW, column=ecol).value
+        for pname, col in zip(param_names, param_cols):
+            unit = grid.cell(self.UNIT_ROW, col) if self.UNIT_ROW else None
             cp_specs.append(ParsedCpSpec(
                 param_name=pname,
-                lower_limit=self._safe_float(lower),
-                upper_limit=self._safe_float(upper),
+                lower_limit=to_float(grid.cell(self.LOWER_LIMIT_ROW, col)),
+                upper_limit=to_float(grid.cell(self.UPPER_LIMIT_ROW, col)),
+                unit=str(unit).strip() if unit is not None else None,
             ))
 
-        # 3. Read product/lot from metadata cells if configured
-        product_id = None
-        lot_id = None
-        if self.PRODUCT_ID_CELL:
-            v = ws.cell(row=self.PRODUCT_ID_CELL[0], column=self.PRODUCT_ID_CELL[1]).value
-            product_id = str(v).strip() if v else ""
-        if self.LOT_ID_CELL:
-            v = ws.cell(row=self.LOT_ID_CELL[0], column=self.LOT_ID_CELL[1]).value
-            lot_id = str(v).strip() if v else ""
+        product_id = self._meta_value(grid, self.PRODUCT_ID_CELL,
+                                      self.PRODUCT_ID_LABEL, self.PRODUCT_ID_COL)
+        lot_id = self._meta_value(grid, self.LOT_ID_CELL,
+                                  self.LOT_ID_LABEL, self.LOT_ID_COL)
 
-        # 4. Read die data, group by wafer
+        file_wafer = (self._file_wafer_id(grid, filepath)
+                      if self.WAFER_ID_SOURCE != "column" else None)
+
         wafers_dict: dict[str, list[ParsedDie]] = {}
         mark_lot_id = None
         test_program = None
         total_rows = 0
+        blank_run = 0
 
-        for row in ws.iter_rows(min_row=self.DATA_START_ROW, values_only=False):
-            wafer_val = row[self.WAFER_ID_COL - 1].value
-            if wafer_val is None:
-                break
+        for r in range(self.DATA_START_ROW, grid.n_rows + 1):
+            if self._row_is_blank(grid, r, param_cols):
+                blank_run += 1
+                if blank_run >= _BLANK_RUN_LIMIT:
+                    break
+                continue
+            blank_run = 0
+
+            if self.WAFER_ID_SOURCE == "column":
+                raw = grid.cell(r, self.WAFER_ID_COL) if self.WAFER_ID_COL else None
+                if raw is None:
+                    # No id on a row that does carry data: keep scanning rather
+                    # than truncating the file, but do not invent a wafer.
+                    continue
+                wid = self._apply_pattern(raw) or str(raw).strip()
+            else:
+                wid = file_wafer
+            if not wid:
+                continue
 
             total_rows += 1
-            wid = str(wafer_val).strip()
-
-            if product_id is None:
-                if self.PRODUCT_ID_COL and self.PRODUCT_ID_COL - 1 < len(row):
-                    product_id = str(row[self.PRODUCT_ID_COL - 1].value or "")
-                else:
-                    product_id = ""
-            if lot_id is None:
-                if self.LOT_ID_COL and self.LOT_ID_COL - 1 < len(row):
-                    lot_id = str(row[self.LOT_ID_COL - 1].value or "")
-                else:
-                    lot_id = ""
             if mark_lot_id is None:
-                mark_lot_id = str(row[2].value or "") if len(row) > 2 else None
-                test_program = str(row[4].value or "") if len(row) > 4 else None
+                mv = grid.cell(r, 3)
+                tv = grid.cell(r, 5)
+                mark_lot_id = str(mv).strip() if mv is not None else None
+                test_program = str(tv).strip() if tv is not None else None
 
-            bin_val = row[self.BIN_COL - 1].value
-            x_val = row[self.X_COORD_COL - 1].value if self.X_COORD_COL and len(row) >= self.X_COORD_COL else None
-            y_val = row[self.Y_COORD_COL - 1].value if self.Y_COORD_COL and len(row) >= self.Y_COORD_COL else None
+            bin_val = grid.cell(r, self.BIN_COL) if self.BIN_COL else None
+            x_val = grid.cell(r, self.X_COORD_COL) if self.X_COORD_COL else None
+            y_val = grid.cell(r, self.Y_COORD_COL) if self.Y_COORD_COL else None
 
-            electrical = {}
-            for j, pname in enumerate(param_names):
-                ecol_idx = self.ELECTRICAL_START_COL - 1 + j
-                if ecol_idx < len(row):
-                    v = row[ecol_idx].value
-                    electrical[pname] = self._safe_float(v)
-                else:
-                    electrical[pname] = None
+            electrical = {pname: to_float(grid.cell(r, col))
+                          for pname, col in zip(param_names, param_cols)}
 
-            die = ParsedDie(
+            wafers_dict.setdefault(wid, []).append(ParsedDie(
                 site_no=None,
-                bin=int(bin_val) if bin_val is not None else 0,
-                x_coord=int(x_val) if x_val is not None else None,
-                y_coord=int(y_val) if y_val is not None else None,
+                bin=int(to_float(bin_val)) if to_float(bin_val) is not None else 0,
+                x_coord=int(to_float(x_val)) if to_float(x_val) is not None else None,
+                y_coord=int(to_float(y_val)) if to_float(y_val) is not None else None,
                 electrical=electrical,
-            )
-
-            if wid not in wafers_dict:
-                wafers_dict[wid] = []
-            wafers_dict[wid].append(die)
-
-        wb.close()
-
-        # Build wafer objects
-        wafers = []
-        for wid, dies in wafers_dict.items():
-            bin1_count = sum(1 for d in dies if d.bin == 1)
-            wafers.append(ParsedWafer(
-                wafer_id=wid,
-                gross_die=len(dies),
-                bin1_count=bin1_count,
-                dies=dies,
             ))
+
+        wafers = [
+            ParsedWafer(wafer_id=wid, gross_die=len(dies),
+                        bin1_count=sum(1 for d in dies if d.bin == 1), dies=dies)
+            for wid, dies in wafers_dict.items()
+        ]
 
         return ParseResult(
             product_id=product_id or "",

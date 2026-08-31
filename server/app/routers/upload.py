@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from typing import List
 
@@ -17,111 +18,68 @@ from app.models.die_data import DieData, ElectricalValue
 from app.models.spec import CpSpec
 from app.schemas.upload import UploadPreview, UploadConfirmRequest
 from app.services.parser.dynamic_parser import DynamicParser
+from app.services.parser.grid import is_supported
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
 _ERR = {
     "zh-TW": {
         "cannot_detect": "無法識別檔案格式，請先選擇廠商再上傳",
-        "xls_not_supported": "不支援舊版 .xls 格式，請用 Excel 另存為 .xlsx 後再上傳",
+        "xls_not_supported": "此 .xls 檔案無法讀取，可能已損毀或受密碼保護；請用 Excel 另存後再上傳",
         "parse_failed": "檔案解析失敗：{detail}",
         "no_format_config": "廠商 {vendor} 尚未設定格式模板，請先至「廠商管理」設定後再上傳",
-        "unsupported_format": "不支援此檔案格式，請上傳 .xlsx、.xls 或 .csv 格式",
+        "unsupported_format": "不支援此檔案格式，請上傳 .xlsx、.xlsm、.xls、.csv 或 .txt 格式",
         "product_vendor_mismatch": "產品 {code} 已屬於廠商 {existing}，無法以 {new} 匯入。請確認廠商選擇，或先在「審核規則」刪除衝突的產品規則。",
     },
     "zh-CN": {
         "cannot_detect": "无法识别文件格式，请先选择厂商再上传",
-        "xls_not_supported": "不支持旧版 .xls 格式，请用 Excel 另存为 .xlsx 后再上传",
+        "xls_not_supported": "此 .xls 文件无法读取，可能已损坏或受密码保护；请用 Excel 另存后再上传",
         "parse_failed": "文件解析失败：{detail}",
         "no_format_config": "厂商 {vendor} 尚未设定格式模板，请先至「厂商管理」设定后再上传",
-        "unsupported_format": "不支持此文件格式，请上传 .xlsx、.xls 或 .csv 格式",
+        "unsupported_format": "不支持此文件格式，请上传 .xlsx、.xlsm、.xls、.csv 或 .txt 格式",
         "product_vendor_mismatch": "产品 {code} 已属于厂商 {existing}，无法以 {new} 导入。请确认厂商选择，或先在\"审核规则\"删除冲突的产品规则。",
     },
     "en": {
         "cannot_detect": "Cannot detect file format. Please select a vendor and try again.",
-        "xls_not_supported": "Old .xls format is not supported. Please save as .xlsx and try again.",
+        "xls_not_supported": "This .xls file could not be read; it may be corrupt or password-protected.",
         "parse_failed": "Failed to parse file: {detail}",
         "no_format_config": "Vendor {vendor} has no format configured. Please set it up in Vendor Management first.",
-        "unsupported_format": "Unsupported file format. Please upload .xlsx, .xls or .csv files.",
+        "unsupported_format": "Unsupported file format. Please upload .xlsx, .xlsm, .xls, .csv or .txt files.",
         "product_vendor_mismatch": "Product {code} already belongs to vendor {existing}, cannot import as {new}. Please verify the vendor selection, or remove the conflicting product rules first.",
     },
 }
 
 
-def _convert_xls_to_xlsx(xls_path: str) -> str:
-    """Convert .xls file to a temporary .xlsx file using pandas+xlrd+openpyxl."""
-    import pandas as pd
-    xlsx_path = xls_path + ".xlsx"
-    df_dict = pd.read_excel(xls_path, sheet_name=None, header=None, engine="xlrd")
-    with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
-        for sheet_name, df in df_dict.items():
-            df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
-    return xlsx_path
+def _safe_name(name: str) -> str:
+    """Reduce an uploaded name to a bare, safe file name.
 
-
-def _coerce_cell(val: str):
-    """Turn a raw CSV string into the value openpyxl would yield for the same
-    cell in a real .xlsx: numbers become int/float, blanks become None, so the
-    DynamicParser reads a CSV exactly like an Excel file."""
-    s = (val or "").strip()
-    if s == "":
-        return None
-    try:
-        return int(s)
-    except ValueError:
-        pass
-    try:
-        return float(s)  # handles " +1.000E+00", "+.000E+00", etc.
-    except ValueError:
-        return s
-
-
-def _convert_csv_to_xlsx(csv_path: str) -> str:
-    """Convert a CSV CP dump to a temporary .xlsx so the openpyxl-based
-    DynamicParser reads it unchanged (無錫 NO1: CSV upload support).
-
-    The raw grid is preserved cell-for-cell — no header inference — because the
-    vendor format template addresses rows/cols by absolute position.
+    A multipart part can carry any string as its filename, including "../..",
+    which os.path.join would happily follow out of the upload directory.
     """
-    import csv as _csv
-    import openpyxl
-
-    xlsx_path = csv_path + ".xlsx"
-    # CP dumps are mostly ASCII but can carry a stray non-UTF8 byte (e.g. the Ω
-    # unit symbol); tolerate it instead of failing the whole import.
-    with open(csv_path, "r", encoding="utf-8-sig", errors="replace", newline="") as f:
-        rows = list(_csv.reader(f))
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    for r_idx, row in enumerate(rows, start=1):
-        for c_idx, raw in enumerate(row, start=1):
-            value = _coerce_cell(raw)
-            if value is not None:
-                ws.cell(row=r_idx, column=c_idx, value=value)
-    wb.save(xlsx_path)
-    return xlsx_path
+    base = os.path.basename((name or "").replace("\\", "/")).strip()
+    base = re.sub(r'[<>:"|?*\x00-\x1f]', "_", base)
+    base = base.lstrip(".") or "upload"
+    return base[:180]
 
 
 def _save_upload(file: UploadFile) -> str:
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    file_path = os.path.join(settings.UPLOAD_DIR, file.filename)
+    file_path = os.path.join(settings.UPLOAD_DIR, _safe_name(file.filename))
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
     return file_path
 
 
-def _ensure_xlsx(file_path: str, original_name: str, err: dict) -> str:
-    """Convert .xls → .xlsx if needed; reject other extensions. Returns the
-    path that openpyxl can read."""
-    name_lower = original_name.lower()
-    if name_lower.endswith(".csv"):
-        return _convert_csv_to_xlsx(file_path)
-    if name_lower.endswith(".xls") and not name_lower.endswith(".xlsx"):
-        return _convert_xls_to_xlsx(file_path)
-    if not name_lower.endswith(".xlsx"):
+def _check_supported(original_name: str, err: dict) -> None:
+    """Reject file types the parser cannot read.
+
+    No format conversion happens any more: the parser's grid layer reads
+    .xlsx/.xlsm/.xls/.csv/.txt directly, so CSV and XLS uploads are no longer
+    rewritten into a temporary .xlsx first. That round-trip lost cell types and
+    could not represent the tab-delimited .txt dumps two 無錫 vendors ship.
+    """
+    if not is_supported(original_name or ""):
         raise HTTPException(400, err.get("unsupported_format", "Unsupported format"))
-    return file_path
 
 
 def _build_vendor_parser(vendor: str, actual_path: str, err: dict, db: Session, user=None) -> DynamicParser:
@@ -177,12 +135,13 @@ def _detect_best_across_vendors(actual_path: str, db: Session, user=None) -> tup
 
 
 def _resolve_parser(file_path: str, original_name: str, vendor: str, err: dict, db: Session = None, user=None):
-    """Return (parser_instance, actual_path_to_use), handling .xls conversion.
+    """Return (parser_instance, path_to_use).
 
     When a vendor is given it is used (probing its own templates); when it is
     blank the file is auto-detected across the uploader's site templates.
     """
-    actual_path = _ensure_xlsx(file_path, original_name, err)
+    _check_supported(original_name, err)
+    actual_path = file_path
     if not db:
         raise HTTPException(500, "Database session not available")
 
@@ -325,12 +284,8 @@ async def upload_cp_data(
     err = _ERR.get(lang, _ERR["zh-TW"])
     file_path = _save_upload(file)
 
-    try:
-        actual_path = _ensure_xlsx(file_path, file.filename, err)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(400, err["parse_failed"].format(detail=str(e)))
+    _check_supported(file.filename, err)
+    actual_path = file_path
 
     # Always detect the best-matching vendor from the uploader's site templates.
     det_vendor, det_parser, det_rows = _detect_best_across_vendors(actual_path, db, user)
@@ -379,12 +334,7 @@ def confirm_upload(
     if not os.path.exists(file_path):
         raise HTTPException(400, "File not found")
 
-    # Handle .csv / .xls conversion for confirm step
-    if file_path.lower().endswith(".csv"):
-        file_path = _convert_csv_to_xlsx(file_path)
-    elif file_path.lower().endswith(".xls") and not file_path.lower().endswith(".xlsx"):
-        file_path = _convert_xls_to_xlsx(file_path)
-
+    # No conversion step: the parser reads every supported extension directly.
     # Use VendorFormat from DB (configured in 廠商管理)
     vendor_code = req.vendor_code
     vendor_obj = db.query(Vendor).filter(Vendor.code == vendor_code).first()
