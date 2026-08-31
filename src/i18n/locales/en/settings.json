@@ -340,15 +340,17 @@
     "downloadFailed": "Download failed"
   },
   "thresholds": {
-    "title": "Review thresholds",
-    "desc": "PASS / WARN / HOLD yield cut-offs per site. The system flags against these; a person makes the final call.",
+    "title": "Thresholds",
+    "desc": "The system flags PASS / WARN / HOLD against these; a person makes the final call. Each site sets its own.",
     "site": "Site",
     "allSites": "All sites (default)",
-    "passMin": "PASS at",
-    "warnMin": "WARN at",
+    "passMin": "PASS ≥",
+    "warnMin": "WARN ≥",
     "explain": "PASS at {{pass}}% or above, WARN at {{warn}}% or above, HOLD below {{warn}}%",
     "save": "Save",
     "invalid": "Requires 0 < WARN <= PASS <= 100",
-    "basisNote": "Judged on Q1 yield. Q1 limits are the vendor's own CP limits, so Q1 yield reproduces the bin yield — one basis serves both sites."
+    "basisNote": "Judged on Q1 yield. Q1 limits are the vendor's own CP limits, so Q1 yield reproduces the bin yield — one basis serves both sites.",
+    "holdBelow": "HOLD below {{warn}}%",
+    "savedOk": "Saved"
   }
 }

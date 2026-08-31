@@ -340,15 +340,17 @@
     "downloadFailed": "下载失败"
   },
   "thresholds": {
-    "title": "审核判定门槛",
-    "desc": "设置各厂区的 PASS / WARN / HOLD 良率门槛。系统依此主动提示，最终仍由人员判定确认。",
+    "title": "判定门槛",
+    "desc": "系统依此门槛主动提示 PASS / WARN / HOLD，最终仍由人员判定确认。各厂区可各自设置。",
     "site": "厂区",
     "allSites": "全部（默认）",
-    "passMin": "PASS 门槛",
-    "warnMin": "WARN 门槛",
+    "passMin": "PASS ≥",
+    "warnMin": "WARN ≥",
     "explain": "良率 ≥ {{pass}}% 判 PASS、≥ {{warn}}% 判 WARN、低于 {{warn}}% 判 HOLD",
     "save": "保存",
     "invalid": "门槛须符合 0 < WARN ≤ PASS ≤ 100",
-    "basisNote": "判定基准为 Q1 良率。Q1 上下限与供应商 CP data 管控一致，因此 Q1 良率等同 Bin 良率，两厂共用同一套逻辑。"
+    "basisNote": "判定基准为 Q1 良率。Q1 上下限与供应商 CP data 管控一致，因此 Q1 良率等同 Bin 良率，两厂共用同一套逻辑。",
+    "holdBelow": "低于 {{warn}}% 判 HOLD",
+    "savedOk": "已保存"
   }
 }

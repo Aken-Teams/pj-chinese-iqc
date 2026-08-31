@@ -340,15 +340,17 @@
     "downloadFailed": "下載失敗"
   },
   "thresholds": {
-    "title": "審核判定門檻",
-    "desc": "設定各廠區的 PASS / WARN / HOLD 良率門檻。系統依此主動提示，最終仍由人員判定確認。",
+    "title": "判定門檻",
+    "desc": "系統依此門檻主動提示 PASS / WARN / HOLD，最終仍由人員判定確認。各廠區可各自設定。",
     "site": "廠區",
     "allSites": "全部（預設）",
-    "passMin": "PASS 門檻",
-    "warnMin": "WARN 門檻",
+    "passMin": "PASS ≥",
+    "warnMin": "WARN ≥",
     "explain": "良率 ≥ {{pass}}% 判 PASS、≥ {{warn}}% 判 WARN、低於 {{warn}}% 判 HOLD",
     "save": "儲存",
     "invalid": "門檻須符合 0 < WARN ≤ PASS ≤ 100",
-    "basisNote": "判定基準為 Q1 良率。Q1 上下限與供應商 CP data 管控一致，因此 Q1 良率等同 Bin 良率，兩廠共用同一套邏輯。"
+    "basisNote": "判定基準為 Q1 良率。Q1 上下限與供應商 CP data 管控一致，因此 Q1 良率等同 Bin 良率，兩廠共用同一套邏輯。",
+    "holdBelow": "低於 {{warn}}% 判 HOLD",
+    "savedOk": "已儲存"
   }
 }
