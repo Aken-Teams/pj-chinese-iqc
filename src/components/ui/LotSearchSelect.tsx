@@ -7,10 +7,19 @@ function lotLabel(lot: HistoryRow) {
   return `${lot.vendor} / ${lot.product} / ${lot.lotId}`
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  PASS: 'text-success',
-  FAIL: 'text-error',
-  WARN: 'text-warning',
+// Backed badges rather than coloured text: HOLD was missing from the map
+// entirely and fell through to the muted grey, which read as "no result" next
+// to a green PASS. FAIL is kept as an alias for rows judged before the two
+// sites settled on PASS / WARN / HOLD.
+const STATUS_STYLE: Record<string, string> = {
+  PASS: 'bg-badge-pass text-success',
+  WARN: 'bg-badge-warn text-warning',
+  HOLD: 'bg-badge-fail text-error',
+  FAIL: 'bg-badge-fail text-error',
+}
+
+function statusStyle(status: string): string {
+  return STATUS_STYLE[status] ?? 'bg-bg-page text-text-muted'
 }
 
 interface LotSearchSelectProps {
@@ -118,7 +127,7 @@ export default function LotSearchSelect({
                   {notReviewedLabel}
                 </span>
               ) : (
-                <span className={`flex-shrink-0 text-[11px] font-bold ${STATUS_COLOR[selected.status] ?? 'text-text-muted'}`}>
+                <span className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] font-bold ${statusStyle(selected.status)}`}>
                   {selected.status}
                 </span>
               )}
@@ -170,7 +179,7 @@ export default function LotSearchSelect({
                       {notReviewedLabel}
                     </span>
                   ) : (
-                    <span className={`text-[11px] font-bold ml-3 flex-shrink-0 ${STATUS_COLOR[lot.status] ?? 'text-text-muted'}`}>
+                    <span className={`ml-3 flex-shrink-0 px-1.5 py-0.5 text-[10px] font-bold ${statusStyle(lot.status)}`}>
                       {lot.status}
                     </span>
                   )}

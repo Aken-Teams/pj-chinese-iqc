@@ -4,7 +4,7 @@ import { Loader2, Sparkles, TriangleAlert, CircleX, Maximize2, X } from 'lucide-
 import PageHeader from '@/components/layout/PageHeader'
 import { getHistory, type HistoryRow, type LotFilter } from '@/services/history'
 
-const EMPTY_FILTER: LotFilter = { vendor: '', product: '', lot: '' }
+const EMPTY_FILTER: LotFilter = { vendor: '', product: '', lot: '', judgement: '' }
 import LotSearchSelect from '@/components/ui/LotSearchSelect'
 import LotFilterBar, { FilterField } from '@/components/ui/LotFilterBar'
 import SearchSelect from '@/components/ui/SearchSelect'

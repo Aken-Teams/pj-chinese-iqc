@@ -14,7 +14,7 @@ interface LotFilterBarProps {
   className?: string
 }
 
-const EMPTY: LotFilter = { vendor: '', product: '', lot: '' }
+const EMPTY: LotFilter = { vendor: '', product: '', lot: '', judgement: '' }
 
 /**
  * 廠商 → 型號 → 批號, each list narrowed by the ones above it.
@@ -32,6 +32,7 @@ export default function LotFilterBar({ value, onChange, children, site, classNam
   const [vendors, setVendors] = useState<string[]>([])
   const [products, setProducts] = useState<string[]>([])
   const [lots, setLots] = useState<string[]>([])
+  const [judgements, setJudgements] = useState<string[]>([])
 
   useEffect(() => {
     let stale = false
@@ -41,6 +42,7 @@ export default function LotFilterBar({ value, onChange, children, site, classNam
         setVendors(res.vendors.map((v) => v.code))
         setProducts(res.products)
         setLots(res.lots)
+        setJudgements(res.judgements ?? [])
       })
       .catch(() => {})
     // Discard a slower earlier response so the lists always match the current
@@ -56,7 +58,7 @@ export default function LotFilterBar({ value, onChange, children, site, classNam
         <SearchSelect
           items={vendors}
           value={value.vendor}
-          onChange={(vendor) => onChange({ vendor, product: '', lot: '' })}
+          onChange={(vendor) => onChange({ ...value, vendor, product: '', lot: '' })}
           placeholder={t('filter.allVendors')}
           className="w-[150px]"
         />
@@ -79,6 +81,20 @@ export default function LotFilterBar({ value, onChange, children, site, classNam
           className="w-[230px]"
         />
       </FilterField>
+      {judgements.length > 0 && (
+        <FilterField label={t('filter.judgement')}>
+          <SearchSelect
+            items={judgements.map((j) => t(`filter.verdict.${j}`))}
+            value={value.judgement ? t(`filter.verdict.${value.judgement}`) : ''}
+            onChange={(label) => {
+              const hit = judgements.find((j) => t(`filter.verdict.${j}`) === label)
+              onChange({ ...value, judgement: hit ?? '' })
+            }}
+            placeholder={t('filter.allJudgements')}
+            className="w-[140px]"
+          />
+        </FilterField>
+      )}
       {children}
       {active && (
         <button

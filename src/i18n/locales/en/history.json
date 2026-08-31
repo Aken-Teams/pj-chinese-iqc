@@ -39,6 +39,14 @@
     "allVendors": "All vendors",
     "allProducts": "All products",
     "allLots": "All lots",
-    "clear": "Clear"
+    "clear": "Clear",
+    "judgement": "Verdict",
+    "allJudgements": "All verdicts",
+    "verdict": {
+      "PASS": "Pass",
+      "WARN": "Warning",
+      "HOLD": "Hold",
+      "NONE": "Not judged"
+    }
   }
 }

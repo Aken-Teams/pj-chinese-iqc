@@ -7,7 +7,7 @@ import InfoHint from '@/components/ui/InfoHint'
 import { getLotResults, getReviewMatrix, executeReview, executeBatchReview, type LotReviewSummary, type ReviewMatrix } from '@/services/review'
 import { getHistory, type HistoryRow, type LotFilter } from '@/services/history'
 
-const EMPTY_FILTER: LotFilter = { vendor: '', product: '', lot: '' }
+const EMPTY_FILTER: LotFilter = { vendor: '', product: '', lot: '', judgement: '' }
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
 import LotSearchSelect from '@/components/ui/LotSearchSelect'
@@ -449,7 +449,7 @@ export default function ReviewPage() {
                 <table className="border-collapse text-[12px]">
                   <thead>
                     <tr>
-                      <th rowSpan={2} className="sticky left-0 z-10 bg-bg-card border-b border-border-light px-3 py-2 text-left font-bold text-text-tertiary">{t('table.waferId')}</th>
+                      <th rowSpan={2} className="sticky left-0 z-10 bg-bg-card border-b border-border-light px-3 py-2 text-left font-bold text-text-tertiary whitespace-nowrap">{t('table.waferId')}</th>
                       <th rowSpan={2} className="border-b border-border-light px-3 py-2 text-right font-bold text-text-tertiary whitespace-nowrap">{t('table.bin1Yield')}</th>
                       {matrix!.params.map((p) => (
                         <th key={p} colSpan={3} className="border-b border-l border-border-light px-3 py-1.5 text-center font-bold text-text-secondary whitespace-nowrap">{p}</th>
@@ -468,7 +468,7 @@ export default function ReviewPage() {
                   <tbody>
                     {matrix!.wafers.map((w) => (
                       <tr key={w.waferId} className="border-t border-border-light hover:bg-bg-page">
-                        <td className="sticky left-0 z-10 bg-bg-card px-3 py-1.5 font-semibold text-text-primary">{w.waferId}</td>
+                        <td className="sticky left-0 z-10 whitespace-nowrap bg-bg-card px-3 py-1.5 font-semibold text-text-primary">{w.waferId}</td>
                         <td className={`px-3 py-1.5 text-right font-semibold ${yieldColor(w.bin1Yield)}`}>{w.bin1Yield.toFixed(2)}%</td>
                         {w.cells.map((c, i) => (
                           <Fragment key={matrix!.params[i]}>

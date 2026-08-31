@@ -29,12 +29,16 @@ export interface LotFilter {
   vendor: string
   product: string
   lot: string
+  /** PASS / WARN / HOLD, or NONE for lots not judged yet. */
+  judgement: string
 }
 
 export interface LotFilterOptions {
   vendors: { code: string; name: string }[]
   products: string[]
   lots: string[]
+  /** Only the verdicts actually present, so the select never empties the table. */
+  judgements: string[]
 }
 
 /**
@@ -59,6 +63,7 @@ export async function getHistory(params?: {
   vendor?: string
   product?: string
   lot?: string
+  judgement?: string
   status?: string
   search?: string
   site?: string
@@ -71,6 +76,7 @@ export async function getHistory(params?: {
   if (params?.vendor) searchParams.set('vendor', params.vendor)
   if (params?.product) searchParams.set('product', params.product)
   if (params?.lot) searchParams.set('lot', params.lot)
+  if (params?.judgement) searchParams.set('judgement', params.judgement)
   if (params?.status) searchParams.set('status', params.status)
   if (params?.search) searchParams.set('search', params.search)
   if (params?.site) searchParams.set('site', params.site)

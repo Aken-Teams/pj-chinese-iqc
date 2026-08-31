@@ -39,6 +39,14 @@
     "allVendors": "全部廠商",
     "allProducts": "全部型號",
     "allLots": "全部批號",
-    "clear": "清除篩選"
+    "clear": "清除篩選",
+    "judgement": "判定",
+    "allJudgements": "全部判定",
+    "verdict": {
+      "PASS": "允收",
+      "WARN": "警告",
+      "HOLD": "異常",
+      "NONE": "未判定"
+    }
   }
 }

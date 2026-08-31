@@ -108,6 +108,7 @@ export default function HistoryPage() {
   const [filterSite, setFilterSite] = useState('')
   const [product, setProduct] = useState('')
   const [lot, setLot] = useState('')
+  const [judgement, setJudgement] = useState('')
   const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -149,7 +150,7 @@ export default function HistoryPage() {
   })()
 
   const buildParams = () => ({
-    vendor, product, lot, status,
+    vendor, product, lot, judgement, status,
     site: isAdmin ? (filterSite || undefined) : undefined,
     fromDate: fromDate || undefined, toDate: toDate || undefined,
   })
@@ -183,7 +184,7 @@ export default function HistoryPage() {
 
   // Live filtering: reload whenever any filter (or page) changes — no need to
   // click 搜尋. Filter changes reset the page to 1 in their onChange handlers.
-  useEffect(() => { loadData(page) }, [page, vendor, filterSite, product, lot, status, fromDate, toDate])
+  useEffect(() => { loadData(page) }, [page, vendor, filterSite, product, lot, judgement, status, fromDate, toDate])
 
   const handleSearch = () => { setPage(1); loadData(1) }
 
@@ -278,6 +279,19 @@ export default function HistoryPage() {
             items={[t('filter.allLots'), ...lotOptions]}
             value={lot || t('filter.allLots')}
             onChange={(v) => { setLot(v === t('filter.allLots') ? '' : v); setPage(1) }}
+          />
+        </div>
+        <div className="w-[140px] flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('filter.judgement')}</label>
+          <SearchSelect
+            items={[t('filter.allJudgements'), t('filter.verdict.PASS'), t('filter.verdict.WARN'),
+                    t('filter.verdict.HOLD'), t('filter.verdict.NONE')]}
+            value={judgement ? t(`filter.verdict.${judgement}`) : t('filter.allJudgements')}
+            onChange={(v) => {
+              const hit = (['PASS', 'WARN', 'HOLD', 'NONE'] as const)
+                .find((j) => t(`filter.verdict.${j}`) === v)
+              setJudgement(hit ?? ''); setPage(1)
+            }}
           />
         </div>
         <div className="w-[140px] flex flex-col gap-1.5">

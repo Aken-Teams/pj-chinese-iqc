@@ -64,7 +64,16 @@ def lot_filter_options(
         .distinct().order_by(Lot.lot_id).all() if code
     ]
 
-    return {"vendors": vendors, "products": products, "lots": lots}
+    present = {
+        row[0] for row in by_product.with_entities(
+            func.coalesce(Lot.confirmed_judgement, Lot.judgement)).distinct().all()
+    }
+    judgements = [j for j in ("PASS", "WARN", "HOLD") if j in present]
+    if None in present:
+        judgements.append("NONE")
+
+    return {"vendors": vendors, "products": products, "lots": lots,
+            "judgements": judgements}
 
 
 @router.get("/lots", response_model=HistoryResponse)
@@ -72,6 +81,7 @@ def list_lots(
     vendor: str = Query("", description="Vendor code filter"),
     product: str = Query("", description="Product code filter"),
     lot: str = Query("", description="Exact lot number filter"),
+    judgement: str = Query("", description="PASS / WARN / HOLD, or NONE for not yet judged"),
     status: str = Query("", description="Status filter"),
     search: str = Query("", description="Free-text search over lot / product / vendor"),
     site: str = Query("", description="AD site (廠區) filter — admin only"),
@@ -95,6 +105,15 @@ def list_lots(
         query = query.filter(Product.product_code == product)
     if lot:
         query = query.filter(Lot.lot_id == lot)
+    if judgement:
+        # A person's decision outranks the computed one, so filter on whichever
+        # is in force. Lots that have never been reviewed hold neither, and are
+        # reachable through the explicit "NONE".
+        in_force = func.coalesce(Lot.confirmed_judgement, Lot.judgement)
+        if judgement.upper() == "NONE":
+            query = query.filter(in_force.is_(None))
+        else:
+            query = query.filter(in_force == judgement.upper())
     if status:
         query = query.filter(Lot.status == status.lower())
     if search:
