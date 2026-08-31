@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Upload, Wand2, Play, Download, Check, X, AlertTriangle, Loader2,
@@ -113,6 +113,10 @@ interface Props {
   vendorId: number
   vendorCode: string
   formatId?: number | null
+  /** Values of an already-saved template. Given these, the wizard opens straight
+   *  into the confirm step on the stored sample instead of asking for a file —
+   *  a saved template and a fresh detection are the same screen. */
+  initialTemplate?: Draft | null
   site?: string
   onApply: (template: Draft) => void
   onSaved?: (formatId: number) => void
@@ -120,7 +124,7 @@ interface Props {
 }
 
 export default function FormatWizard({
-  vendorId, vendorCode, formatId, site, onApply, onSaved, onClose,
+  vendorId, vendorCode, formatId, initialTemplate, site, onApply, onSaved, onClose,
 }: Props) {
   const { t } = useTranslation('settings')
 
@@ -136,7 +140,10 @@ export default function FormatWizard({
   // The field a grid click will land on. Set by clicking a field row, so
   // the panel and the sheet drive each other in both directions.
   const [focused, setFocused] = useState<string | null>(null)
-  const [showSamples, setShowSamples] = useState(false)
+  // Pointing at a field on the right lights up what it refers to on the left.
+  const [hovered, setHovered] = useState<string | null>(null)
+  const [panel, setPanel] = useState<'history' | 'samples' | null>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
 
   const [selection, setSelection] = useState<Selection | null>(null)
   const [infer, setInfer] = useState<{ role: InferRole; result: InferResult } | null>(null)
@@ -145,7 +152,6 @@ export default function FormatWizard({
 
   const [samples, setSamples] = useState<SavedSample[]>([])
   const [revisions, setRevisions] = useState<Revision[]>([])
-  const [showHistory, setShowHistory] = useState(false)
 
   const evidence: Record<string, Candidate | null> = detected?.fields ?? {}
 
@@ -153,9 +159,30 @@ export default function FormatWizard({
   // which the 無錫 users cannot reliably do, their file names arriving mojibake.
   useEffect(() => {
     if (!formatId) return
-    getSamples(formatId).then(setSamples).catch(() => setSamples([]))
     getRevisions(formatId).then(setRevisions).catch(() => setRevisions([]))
-  }, [formatId])
+    getSamples(formatId).then(async (list) => {
+      setSamples(list)
+      // Reopen the template on the file it was built from, showing the saved
+      // values — not a fresh detection, which would discard hand edits.
+      if (!initialTemplate || list.length === 0) return
+      setBusy('detect')
+      try {
+        const newest = list[0]
+        const preview = await previewSample(
+          newest.fileToken, newest.sheetSelector ?? undefined)
+        setGrid(preview)
+        setDraft(initialTemplate)
+        setDetected({
+          fileToken: newest.fileToken, fileName: newest.fileName, stats: null,
+          preview, fields: {}, warnings: [], missing: [], conflicts: [], template: {},
+        })
+      } catch {
+        /* the sample may have been cleaned off disk; fall back to step 1 */
+      } finally {
+        setBusy(null)
+      }
+    }).catch(() => setSamples([]))
+  }, [formatId, initialTemplate])
 
   const applyDetection = useCallback((res: DetectResponse) => {
     setDetected(res)
@@ -260,6 +287,27 @@ export default function FormatWizard({
   }
 
   /** Which roles land on each row / column / cell, for the grid overlay. */
+  /** Row / column the highlighted field points at, for the sheet overlay. */
+  const spotlight = useMemo(() => {
+    const key = focused ?? hovered
+    if (!key) return null
+    const value = draft[key as keyof VendorFormat]
+    if (typeof value !== 'number') return null
+    const isCol = COL_ROLES.some((c) => c.key === key) || key === 'wafer_id_col'
+    return { kind: isCol ? 'col' as const : 'row' as const, index: value, key }
+  }, [focused, hovered, draft])
+
+  // A highlighted row is usually below the fold — the header row of a real file
+  // sits at row 15 or 19, well past what the preview shows at rest.
+  useEffect(() => {
+    if (!spotlight || !sheetRef.current) return
+    const sel = spotlight.kind === 'row'
+      ? `[data-row="${spotlight.index}"]`
+      : `[data-col="${spotlight.index}"]`
+    const el = sheetRef.current.querySelector(sel)
+    el?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' })
+  }, [spotlight])
+
   const marks = useMemo(() => {
     const rows = new Map<number, Tone>()
     const cols = new Map<number, Tone>()
@@ -347,7 +395,7 @@ export default function FormatWizard({
           </label>
 
           <p className="text-[13.5px] text-text-secondary leading-relaxed">
-            {t('wizard.introText')}
+            {formatId ? t('wizard.reDetectIntro') : t('wizard.introText')}
           </p>
 
           <label className="flex items-start gap-2.5 px-3 py-2.5 border border-border-light
@@ -395,7 +443,29 @@ export default function FormatWizard({
     ? grid?.rows[selection.row - 1]?.[selection.col - 1] ?? '' : ''
 
   return (
-    <Shell title={`${t('wizard.title')} — ${detected.fileName}`} onClose={onClose} wide>
+    <Shell title={`${t('wizard.title')} — ${detected.fileName}`} onClose={onClose} wide
+           actions={
+             <>
+               <HeaderButton icon={<Upload size={15} />} label={t('wizard.changeSample')}
+                             onClick={() => { setDetected(null); setPanel(null) }} />
+               <HeaderButton icon={<History size={15} />} label={t('wizard.history')}
+                             active={panel === 'history'}
+                             onClick={() => setPanel(panel === 'history' ? null : 'history')} />
+               <HeaderButton icon={<FileClock size={15} />} label={t('wizard.savedSamples')}
+                             active={panel === 'samples'}
+                             onClick={() => setPanel(panel === 'samples' ? null : 'samples')} />
+             </>
+           }>
+      {panel && (
+        <div className="border-b border-border-light bg-bg-page px-5 py-3 max-h-[38vh] overflow-auto">
+          {panel === 'history'
+            ? (formatId
+              ? <RevisionList revisions={revisions} t={t} />
+              : <p className="text-[12.5px] text-text-muted">{t('wizard.historyAfterSave')}</p>)
+            : <SampleList samples={samples} current={detected.fileToken}
+                          onOpen={(x) => { void reopenSample(x); setPanel(null) }} t={t} />}
+        </div>
+      )}
       <div className="flex flex-col lg:flex-row min-h-0 flex-1">
         {/* left: the sheet */}
         <div className="flex-1 min-w-0 flex flex-col border-r border-border-light">
@@ -418,7 +488,7 @@ export default function FormatWizard({
             </div>
           </div>
 
-          <div className="overflow-auto flex-1 max-h-[46vh]">
+          <div ref={sheetRef} className="overflow-auto flex-1 max-h-[46vh]">
             <table className="border-collapse font-mono text-[11px] whitespace-nowrap">
               <thead className="sticky top-0 z-10">
                 <tr>
@@ -426,14 +496,23 @@ export default function FormatWizard({
                   {Array.from({ length: grid?.nCols ?? 0 }, (_, i) => i + 1).map((c) => {
                     const tone = marks.cols.get(c)
                     const active = selection?.kind === 'col' && selection.col === c
+                    const lit = spotlight?.kind === 'col' && spotlight.index === c
                     return (
-                      <th key={c}
+                      <th key={c} data-col={c}
                           onClick={() => { setSelection({ kind: 'col', col: c }); setInfer(null) }}
                           className={`border border-border-light px-2 py-1 font-semibold cursor-pointer
-                            hover:bg-accent/20 transition-colors
+                            hover:bg-accent/20 transition-colors relative
                             ${tone ? TONE[tone].band : 'bg-bg-page'}
+                            ${lit ? 'ring-2 ring-inset ring-accent bg-accent/25' : ''}
                             ${active ? 'ring-2 ring-inset ring-accent' : ''}`}>
                         {colName(c)}
+                        {lit && (
+                          <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 -translate-y-full
+                                           px-1.5 py-0.5 bg-accent text-white text-[10px]
+                                           whitespace-nowrap z-30 pointer-events-none">
+                            {t(FIELD_LABEL[spotlight.key] ?? 'wizard.roleWaferCol')}
+                          </span>
+                        )}
                       </th>
                     )
                   })}
@@ -444,13 +523,23 @@ export default function FormatWizard({
                   const r = ri + 1
                   const rowTone = marks.rows.get(r)
                   const rowActive = selection?.kind === 'row' && selection.row === r
+                  const rowLit = spotlight?.kind === 'row' && spotlight.index === r
                   return (
-                    <tr key={r} className={rowTone ? TONE[rowTone].band : undefined}>
+                    <tr key={r} data-row={r} className={`${rowTone ? TONE[rowTone].band : ''} ${
+                      rowLit ? 'outline outline-2 -outline-offset-2 outline-accent bg-accent/15' : ''}`}>
                       <td onClick={() => { setSelection({ kind: 'row', row: r }); setInfer(null) }}
                           className={`border border-border-light px-2 py-1 text-right text-text-muted
-                            font-semibold sticky left-0 bg-bg-page z-10 cursor-pointer
-                            hover:bg-accent/20 ${rowActive ? 'ring-2 ring-inset ring-accent' : ''}`}>
+                            font-semibold sticky left-0 bg-bg-page z-10 cursor-pointer relative
+                            hover:bg-accent/20 ${rowActive ? 'ring-2 ring-inset ring-accent' : ''}
+                            ${rowLit ? 'bg-accent text-white' : ''}`}>
                         {r}
+                        {rowLit && (
+                          <span className="absolute left-full top-1/2 -translate-y-1/2 ml-1
+                                           px-1.5 py-0.5 bg-accent text-white text-[10px]
+                                           whitespace-nowrap z-30 pointer-events-none">
+                            {t(FIELD_LABEL[spotlight.key] ?? '')}
+                          </span>
+                        )}
                       </td>
                       {row.map((cell, ci) => {
                         const c = ci + 1
@@ -578,6 +667,14 @@ export default function FormatWizard({
             </Section>
           )}
 
+          <WaferSourceEditor draft={draft} grid={grid} fileName={detected.fileName}
+                             onChange={setField} t={t} />
+
+          <MetaEditor draft={draft} grid={grid} onChange={setField}
+                      onAskFilename={askFilename} filenameOptions={filenameOptions}
+                      onPickFilename={(o) => { setField(o.fields as Draft); setFilenameOptions(null) }}
+                      t={t} />
+
           {/* The whole mapping, editable. Everything the parser needs is listed
               here whether it was detected or not, so a gap is visible as an
               empty required field rather than only as a failed dry run. */}
@@ -591,6 +688,7 @@ export default function FormatWizard({
                           candidate={evidence[r.key] ?? null} weak={isWeak(r.key)}
                           focused={focused === r.key}
                           onFocus={() => setFocused(focused === r.key ? null : r.key)}
+                          onHover={(on) => setHovered(on ? r.key : null)}
                           onChange={(v) => setField({ [r.key]: v } as Draft)} t={t} />
               ))}
               {COL_ROLES.map((c) => (
@@ -600,18 +698,11 @@ export default function FormatWizard({
                           candidate={evidence[c.key] ?? null} weak={isWeak(c.key)}
                           focused={focused === c.key}
                           onFocus={() => setFocused(focused === c.key ? null : c.key)}
+                          onHover={(on) => setHovered(on ? c.key : null)}
                           onChange={(v) => setField({ [c.key]: v } as Draft)} t={t} />
               ))}
             </div>
           </Section>
-
-          <WaferSourceEditor draft={draft} grid={grid} fileName={detected.fileName}
-                             onChange={setField} t={t} />
-
-          <MetaEditor draft={draft} grid={grid} onChange={setField}
-                      onAskFilename={askFilename} filenameOptions={filenameOptions}
-                      onPickFilename={(o) => { setField(o.fields as Draft); setFilenameOptions(null) }}
-                      t={t} />
 
           {detected.warnings.map((w, i) => <Banner key={i} tone="warn">{w}</Banner>)}
 
@@ -620,18 +711,6 @@ export default function FormatWizard({
             <AdvancedFields draft={draft} onChange={setField} t={t} />
           </Collapse>
 
-          <Collapse title={t('wizard.history')} open={showHistory}
-                    onToggle={() => setShowHistory((v) => !v)} icon={<History size={12} />}>
-            {formatId
-              ? <RevisionList revisions={revisions} t={t} />
-              : <p className="text-[12px] text-text-muted pt-1">{t('wizard.historyAfterSave')}</p>}
-          </Collapse>
-
-          <Collapse title={t('wizard.savedSamples')} open={showSamples}
-                    onToggle={() => setShowSamples((v) => !v)} icon={<FileClock size={12} />}>
-            <SampleList samples={samples} current={detected.fileToken}
-                        onOpen={(s) => void reopenSample(s)} t={t} />
-          </Collapse>
         </div>
       </div>
 
@@ -663,8 +742,9 @@ export default function FormatWizard({
 
 /* ── pieces ── */
 
-function Shell({ title, onClose, wide, children }: {
-  title: string; onClose: () => void; wide?: boolean; children: React.ReactNode
+function Shell({ title, onClose, wide, actions, children }: {
+  title: string; onClose: () => void; wide?: boolean
+  actions?: React.ReactNode; children: React.ReactNode
 }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
@@ -675,9 +755,12 @@ function Shell({ title, onClose, wide, children }: {
           <span className="font-heading text-[13px] font-bold uppercase tracking-[1px] truncate">
             {title}
           </span>
-          <button onClick={onClose} className="ml-auto text-text-muted hover:text-error">
-            <X size={18} />
-          </button>
+          <span className="ml-auto flex items-center gap-1">
+            {actions}
+            <button onClick={onClose} className="p-1.5 text-text-muted hover:text-error">
+              <X size={18} />
+            </button>
+          </span>
         </div>
         {children}
       </div>
@@ -715,6 +798,45 @@ function StepRail({ active, t, compact }: {
         </div>
       ))}
     </div>
+  )
+}
+
+/** A section the template cannot work without. The status is stated rather
+ *  than implied, because these three drive which product and lot the data is
+ *  filed under — and they sat below the fold with no marking at all. */
+function SectionRequired({ title, met, explain, children }: {
+  title: string; met: boolean; explain: string; children: React.ReactNode
+}) {
+  return (
+    <div className={`border px-3 py-2.5 flex flex-col gap-2 ${
+      met ? 'border-border-light' : 'border-error/50 bg-error/5'}`}>
+      <div className="flex items-center gap-2">
+        <span className="font-heading text-[12px] font-bold uppercase tracking-[1.5px]
+                         text-text-secondary">
+          {title}
+        </span>
+        <span className="text-error text-[13px] leading-none">*</span>
+        {met
+          ? <Check size={13} className="text-emerald-600 ml-auto" />
+          : <AlertTriangle size={13} className="text-error ml-auto" />}
+      </div>
+      <p className="text-[12px] text-text-muted leading-relaxed -mt-1">{explain}</p>
+      {children}
+    </div>
+  )
+}
+
+function HeaderButton({ icon, label, active, onClick }: {
+  icon: React.ReactNode; label: string; active?: boolean; onClick: () => void
+}) {
+  return (
+    <button onClick={onClick} title={label}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] transition-colors ${
+              active ? 'bg-accent text-white'
+                : 'text-text-muted hover:text-accent hover:bg-accent/10'}`}>
+      {icon}
+      <span className="hidden md:inline">{label}</span>
+    </button>
   )
 }
 
@@ -827,7 +949,7 @@ function StatsBar({ stats, t }: {
 
 /** One mapping field: editable directly, or armed for a click on the sheet. */
 function FieldRow({ kind, tone, label, required, value, candidate, weak,
-                    focused, onFocus, onChange, t }: {
+                    focused, onFocus, onHover, onChange, t }: {
   kind: 'row' | 'col'
   tone: Tone
   label: string
@@ -837,6 +959,7 @@ function FieldRow({ kind, tone, label, required, value, candidate, weak,
   weak: boolean
   focused: boolean
   onFocus: () => void
+  onHover: (on: boolean) => void
   onChange: (v: number | null) => void
   t: (k: string, o?: Record<string, unknown>) => string
 }) {
@@ -844,7 +967,8 @@ function FieldRow({ kind, tone, label, required, value, candidate, weak,
   const bad = (required && unset) || weak
   const shown = unset ? '' : kind === 'col' ? colName(Number(value)) : String(value)
   return (
-    <div className={`border px-2.5 py-2 transition-colors ${
+    <div onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}
+         className={`border px-2.5 py-2 transition-colors ${
       focused ? 'border-accent bg-accent/5'
         : bad ? 'border-error/50 bg-error/5' : 'border-border-light'}`}>
       <div className="flex items-center gap-2">
@@ -931,9 +1055,10 @@ function WaferSourceEditor({ draft, grid, fileName, onChange, t }: {
           : ''
 
   return (
-    <Section title={t('wizard.roleWafer')}>
+    <SectionRequired title={t('wizard.roleWafer')} met={!!mode}
+                     explain={t('wizard.waferExplain')}>
       {!mode && (
-        <p className="text-[12px] text-error -mt-1">{t('wizard.waferNotFound')}</p>
+        <p className="text-[12.5px] text-error -mt-1">{t('wizard.waferNotFound')}</p>
       )}
       <div className="flex flex-wrap gap-1.5">
         {WAFER_MODES.map((m) => (
@@ -946,7 +1071,12 @@ function WaferSourceEditor({ draft, grid, fileName, onChange, t }: {
           </button>
         ))}
       </div>
-      {mode && <p className="text-[11.5px] text-text-muted">{t(`wizard.srcHint_${mode}`)}</p>}
+      {mode && (
+        <p className="text-[12px] text-text-secondary bg-bg-page border border-border-light
+                      px-2.5 py-1.5 leading-relaxed">
+          {t(`wizard.srcHint_${mode}`)}
+        </p>
+      )}
 
       {mode === 'column' && (
         <TextField label={t('wizard.waferColumn')} placeholder="A"
@@ -980,13 +1110,13 @@ function WaferSourceEditor({ draft, grid, fileName, onChange, t }: {
 
       {mode && (
         <div className="mt-1 px-2.5 py-1.5 bg-bg-page border border-border-light">
-          <span className="text-[11px] text-text-muted">{t('wizard.willRead')}</span>
-          <span className="ml-2 font-mono text-[13px] text-text-primary">
+          <span className="text-[11.5px] text-text-muted">{t('wizard.willRead')}</span>
+          <span className="ml-2 font-mono text-[13.5px] text-text-primary">
             {preview || t('wizard.nothingYet')}
           </span>
         </div>
       )}
-    </Section>
+    </SectionRequired>
   )
 }
 
@@ -1018,8 +1148,10 @@ function MetaEditor({ draft, grid, onChange, onAskFilename, filenameOptions,
     return ''
   }
 
+  const bothSet = !!describe('product_id') && !!describe('lot_id')
   return (
-    <Section title={t('wizard.metaTitle')}>
+    <SectionRequired title={t('wizard.metaTitle')} met={bothSet}
+                     explain={t('wizard.metaExplain')}>
       {(['product', 'lot'] as const).map((role) => {
         const prefix = role === 'product' ? 'product_id' : 'lot_id'
         const desc = describe(prefix)
@@ -1065,7 +1197,7 @@ function MetaEditor({ draft, grid, onChange, onAskFilename, filenameOptions,
           </div>
         )
       })}
-    </Section>
+    </SectionRequired>
   )
 }
 

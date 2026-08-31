@@ -164,7 +164,7 @@ export default function Sidebar() {
                   <button
                     onClick={() => setExpandedGroup(open ? null : group.id)}
                     title={t(group.titleKey)}
-                    className={`text-center font-heading text-[9px] font-bold uppercase tracking-[0.5px] pt-1 transition-colors cursor-pointer ${
+                    className={`text-center font-heading text-[11px] font-bold uppercase tracking-[0.5px] pt-1 transition-colors cursor-pointer ${
                       open ? 'text-text-tertiary' : 'text-text-muted hover:text-text-tertiary'
                     }`}
                   >
@@ -182,7 +182,7 @@ export default function Sidebar() {
                     onClick={() => setExpandedGroup(open ? null : group.id)}
                     className="flex items-center justify-between px-3 py-2 mt-1.5 text-text-muted hover:text-text-tertiary transition-colors cursor-pointer"
                   >
-                    <span className="font-heading text-[10px] font-bold uppercase tracking-[2px]">
+                    <span className="font-heading text-[13px] font-bold uppercase tracking-[2px]">
                       {t(group.titleKey)}
                     </span>
                     <ChevronDown size={14} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
