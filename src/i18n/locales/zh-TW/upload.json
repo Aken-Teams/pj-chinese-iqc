@@ -5,7 +5,7 @@
   "modeBatch": "批次上傳",
   "dropzone": {
     "title": "拖曳 CP 資料檔案至此處",
-    "subtitle": "支援 .xlsx、.csv 格式，來自任意晶圓廠",
+    "subtitle": "支援 .xlsx、.xlsm、.xls、.csv、.txt 格式，來自任意晶圓廠",
     "browse": "瀏覽檔案",
     "uploading": "上傳中..."
   },
@@ -53,10 +53,15 @@
     "success": "成功",
     "failed": "失敗",
     "wafers": "{{count}} 片",
-    "rows": "{{count}} 筆"
+    "rows": "{{count}} 筆",
+    "queued": "等待中",
+    "importing": "匯入中…",
+    "pending": "待匯入檔案",
+    "notStarted": "尚未開始，按「開始批次匯入」"
   },
   "error": {
     "uploadFailed": "上傳失敗，請稍後再試",
     "confirmFailed": "匯入失敗，請稍後再試"
-  }
+  },
+  "noTemplateForSite": "未設定格式模板"
 }

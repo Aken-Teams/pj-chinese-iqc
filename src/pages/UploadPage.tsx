@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { CloudUpload, FileSpreadsheet, Loader2, CheckCircle, XCircle } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import SearchSelect from '@/components/ui/SearchSelect'
-import { uploadCpData, confirmUpload, batchUpload, type UploadPreview, type BatchUploadResult } from '@/services/upload'
-import { getVendors } from '@/services/vendors'
+import { useAuthStore } from '@/store/authStore'
+import { uploadCpData, confirmUpload, batchUploadOne, type UploadPreview, type BatchUploadResult } from '@/services/upload'
+import { getVendors, canUploadFor } from '@/services/vendors'
 
 type Mode = 'single' | 'batch'
 
-function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { selectedVendor: string; setSelectedVendor: (v: string) => void; vendorCodes: string[] }) {
+function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes, unusableVendors }: { selectedVendor: string; setSelectedVendor: (v: string) => void; vendorCodes: string[]; unusableVendors: Record<string, string> }) {
   const { t, i18n } = useTranslation('upload')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -89,6 +90,7 @@ function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { sele
               value={selectedVendor}
               onChange={setSelectedVendor}
               placeholder={t('formatConfig.autoDetectVendor')}
+              unavailable={unusableVendors}
             />
           </div>
           <div className="w-[280px] flex flex-col gap-1.5">
@@ -144,7 +146,7 @@ function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { sele
           >
             {t('dropzone.browse')}
           </button>
-          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} className="hidden" />
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xlsm,.xls,.csv,.txt" onChange={handleFileChange} className="hidden" />
         </div>
 
         {preview && (
@@ -182,32 +184,65 @@ function SingleUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { sele
   )
 }
 
-function BatchUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { selectedVendor: string; setSelectedVendor: (v: string) => void; vendorCodes: string[] }) {
+/** A file's place in the batch run. `pending` rows are shown before the run
+ *  starts, so the list stays the same list throughout, rather than a preview
+ *  that gets replaced by a result table. */
+interface BatchRow {
+  name: string
+  status: 'pending' | 'running' | 'ok' | 'fail'
+  result?: BatchUploadResult
+}
+
+function BatchUpload({ selectedVendor, setSelectedVendor, vendorCodes, unusableVendors }: { selectedVendor: string; setSelectedVendor: (v: string) => void; vendorCodes: string[]; unusableVendors: Record<string, string> }) {
   const { t, i18n } = useTranslation('upload')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<File[]>([])
   const [processing, setProcessing] = useState(false)
-  const [results, setResults] = useState<BatchUploadResult[] | null>(null)
+  // One row per selected file, updated as each import lands. The previous
+  // version posted all 20 files in a single request and rendered nothing until
+  // the last one finished, so a working import looked identical to a hang.
+  const [rows, setRows] = useState<BatchRow[]>([])
   const [error, setError] = useState('')
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? [])
-    if (selected.length > 0) { setFiles(selected); setResults(null) }
+    if (selected.length > 0) {
+      setFiles(selected)
+      setRows(selected.map((f) => ({ name: f.name, status: 'pending' })))
+    }
   }
 
   const handleStart = async () => {
     if (files.length === 0) return
     setProcessing(true); setError('')
-    try {
-      const res = await batchUpload(files, selectedVendor, i18n.language)
-      setResults(res)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t('error.uploadFailed'))
-    } finally { setProcessing(false) }
+    setRows(files.map((f) => ({ name: f.name, status: 'pending' })))
+    const patch = (i: number, next: Partial<BatchRow>) =>
+      setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...next } : r)))
+
+    for (let i = 0; i < files.length; i++) {
+      patch(i, { status: 'running' })
+      try {
+        const r = await batchUploadOne(files[i], selectedVendor, i18n.language)
+        patch(i, { status: r.success ? 'ok' : 'fail', result: r })
+      } catch (err: unknown) {
+        // A transport failure kills this file, not the run: the remaining
+        // files are independent imports and should still be attempted.
+        patch(i, {
+          status: 'fail',
+          result: {
+            fileName: files[i].name, success: false,
+            error: err instanceof Error ? err.message : t('error.uploadFailed'),
+          },
+        })
+      }
+    }
+    setProcessing(false)
   }
 
-  const successCount = results?.filter((r) => r.success).length ?? 0
-  const failCount = results?.filter((r) => !r.success).length ?? 0
+  const successCount = rows.filter((r) => r.status === 'ok').length
+  const failCount = rows.filter((r) => r.status === 'fail').length
+  const doneCount = successCount + failCount
+  const started = processing || doneCount > 0
 
   return (
     <div className="mt-7 flex flex-col gap-6">
@@ -222,6 +257,7 @@ function BatchUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { selec
             onChange={setSelectedVendor}
             placeholder={t('formatConfig.autoDetectVendor')}
             className="min-w-[180px]"
+            unavailable={unusableVendors}
           />
         </div>
 
@@ -239,7 +275,7 @@ function BatchUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { selec
                 {t('batch.selectedCount', { count: files.length })}
               </span>
             )}
-            <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" multiple onChange={handleFileChange} className="hidden" />
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xlsm,.xls,.csv,.txt" multiple onChange={handleFileChange} className="hidden" />
           </div>
         </div>
 
@@ -252,44 +288,77 @@ function BatchUpload({ selectedVendor, setSelectedVendor, vendorCodes }: { selec
         </button>
       </div>
 
-      {files.length > 0 && !results && (
-        <div className="bg-bg-card p-4 flex flex-col gap-1">
-          {files.map((f, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm text-text-secondary py-1.5 border-b border-border-light last:border-0">
-              <FileSpreadsheet size={14} className="text-text-muted shrink-0" />
-              {f.name}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {results && (
+      {rows.length > 0 && (
         <div className="bg-bg-card p-6">
           <div className="flex items-center gap-4 mb-4">
-            <h3 className="font-heading font-bold">{t('batch.results')}</h3>
-            <span className="bg-badge-pass text-success text-[12px] font-semibold px-2.5 py-1">
-              {successCount} {t('batch.success')}
-            </span>
+            <h3 className="font-heading font-bold">
+              {started ? t('batch.results') : t('batch.pending')}
+            </h3>
+            {started && (
+              <span className="text-sm text-text-secondary tabular-nums">
+                {doneCount} / {rows.length}
+              </span>
+            )}
+            {successCount > 0 && (
+              <span className="bg-badge-pass text-success text-[12px] font-semibold px-2.5 py-1">
+                {successCount} {t('batch.success')}
+              </span>
+            )}
             {failCount > 0 && (
               <span className="bg-badge-fail text-error text-[12px] font-semibold px-2.5 py-1">
                 {failCount} {t('batch.failed')}
               </span>
             )}
           </div>
+
+          {started && (
+            <div className="h-1 bg-border-light mb-4">
+              <div
+                className="h-full bg-accent transition-[width] duration-300"
+                style={{ width: `${(doneCount / rows.length) * 100}%` }}
+              />
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
-            {results.map((r, i) => (
-              <div key={i} className={`flex items-start gap-3 p-3 border ${r.success ? 'border-border-light' : 'border-error/30 bg-badge-fail/30'}`}>
-                {r.success
-                  ? <CheckCircle size={16} className="text-success shrink-0 mt-0.5" />
-                  : <XCircle size={16} className="text-error shrink-0 mt-0.5" />}
+            {rows.map((r, i) => (
+              <div
+                key={i}
+                className={`flex items-start gap-3 p-3 border ${
+                  r.status === 'fail' ? 'border-error/30 bg-badge-fail/30'
+                  : r.status === 'running' ? 'border-accent/40'
+                  : 'border-border-light'
+                }`}
+              >
+                {r.status === 'ok' ? <CheckCircle size={16} className="text-success shrink-0 mt-0.5" />
+                  : r.status === 'fail' ? <XCircle size={16} className="text-error shrink-0 mt-0.5" />
+                  : r.status === 'running' ? <Loader2 size={16} className="text-accent shrink-0 mt-0.5 animate-spin" />
+                  : <FileSpreadsheet size={16} className="text-text-muted shrink-0 mt-0.5" />}
+
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-text-primary block truncate">{r.fileName}</span>
-                  {r.success ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-text-primary truncate">{r.name}</span>
+                    {/* The supplier badge. With auto-detect on this is the only
+                        place the uploader learns what the file was read as. */}
+                    {r.result?.vendor && (
+                      <span className="bg-accent/15 text-accent text-[11px] font-semibold px-2 py-0.5 shrink-0">
+                        {r.result.vendor}
+                        {r.result.vendorName ? ` ${r.result.vendorName}` : ''}
+                      </span>
+                    )}
+                  </div>
+                  {r.status === 'ok' && r.result ? (
                     <span className="text-xs text-text-secondary">
-                      {r.lotCode} · {t('batch.wafers', { count: r.waferCount })} · {t('batch.rows', { count: r.totalRows })}
+                      {r.result.lotCode} · {t('batch.wafers', { count: r.result.waferCount })} · {t('batch.rows', { count: r.result.totalRows })}
                     </span>
+                  ) : r.status === 'fail' ? (
+                    <span className="text-xs text-error">{r.result?.error}</span>
                   ) : (
-                    <span className="text-xs text-error">{r.error}</span>
+                    <span className="text-xs text-text-muted">
+                      {r.status === 'running' ? t('batch.importing')
+                        : started ? t('batch.queued')
+                        : t('batch.notStarted')}
+                    </span>
                   )}
                 </div>
               </div>
@@ -306,13 +375,24 @@ export default function UploadPage() {
   const [mode, setMode] = useState<Mode>('single')
   const [vendorCodes, setVendorCodes] = useState<string[]>([])
   const [selectedVendor, setSelectedVendor] = useState('')
+  // Vendors this site can see but has no template for. Shown, and shown as
+  // unpickable: selecting one only fails later at upload time.
+  const [unusableVendors, setUnusableVendors] = useState<Record<string, string>>({})
+  const user = useAuthStore((s) => s.user)
 
   useEffect(() => {
     getVendors().then((list) => {
       setVendorCodes(list.map((v) => v.code))
+      const blocked: Record<string, string> = {}
+      for (const v of list) {
+        if (!canUploadFor(v, user?.domain, user?.role === 'admin')) {
+          blocked[v.code] = t('noTemplateForSite')
+        }
+      }
+      setUnusableVendors(blocked)
       // Leave vendor blank so the server auto-detects it from the dropped file.
     }).catch(() => {})
-  }, [])
+  }, [user, t])
 
   return (
     <div className="p-12">
@@ -334,8 +414,10 @@ export default function UploadPage() {
       </div>
 
       {mode === 'single'
-        ? <SingleUpload selectedVendor={selectedVendor} setSelectedVendor={setSelectedVendor} vendorCodes={vendorCodes} />
-        : <BatchUpload selectedVendor={selectedVendor} setSelectedVendor={setSelectedVendor} vendorCodes={vendorCodes} />}
+        ? <SingleUpload selectedVendor={selectedVendor} setSelectedVendor={setSelectedVendor}
+                        vendorCodes={vendorCodes} unusableVendors={unusableVendors} />
+        : <BatchUpload selectedVendor={selectedVendor} setSelectedVendor={setSelectedVendor}
+                       vendorCodes={vendorCodes} unusableVendors={unusableVendors} />}
     </div>
   )
 }

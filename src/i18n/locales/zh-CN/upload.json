@@ -5,7 +5,7 @@
   "modeBatch": "批量上传",
   "dropzone": {
     "title": "拖拽 CP 数据文件至此处",
-    "subtitle": "支持 .xlsx、.csv 格式，来自任意晶圆厂",
+    "subtitle": "支持 .xlsx、.xlsm、.xls、.csv、.txt 格式，来自任意晶圆厂",
     "browse": "浏览文件",
     "uploading": "上传中..."
   },
@@ -53,10 +53,15 @@
     "success": "成功",
     "failed": "失败",
     "wafers": "{{count}} 片",
-    "rows": "{{count}} 条"
+    "rows": "{{count}} 条",
+    "queued": "等待中",
+    "importing": "导入中…",
+    "pending": "待导入文件",
+    "notStarted": "尚未开始，按「开始批量导入」"
   },
   "error": {
     "uploadFailed": "上传失败，请稍后再试",
     "confirmFailed": "导入失败，请稍后再试"
-  }
+  },
+  "noTemplateForSite": "未设定格式模板"
 }

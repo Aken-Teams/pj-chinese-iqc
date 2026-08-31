@@ -112,13 +112,51 @@ def _build_vendor_parser(vendor: str, actual_path: str, err: dict, db: Session, 
     return best_parser or DynamicParser.from_vendor_format(vendor, fmts[0])
 
 
+def _preview_quality(pv: dict) -> tuple:
+    """Rank one template's reading of a file, best first when sorted descending.
+
+    Row count alone is not evidence of a match. Every template walks the same
+    sheet, so a wrong one still counts roughly the same number of non-blank
+    rows -- 東部高科's file scored 5,556 rows under XRW's template versus 5,550
+    under its own, and XRW won by six rows while extracting no parameters, no
+    lot and a product id of "PROBE CARD ID:" (a stray label, not a value).
+
+    What actually separates right from wrong is whether the template pulled
+    structured data out: parameters and wafers first, identifiers next, and
+    only then row count as a tie-break.
+    """
+    n_params = len(pv.get("paramNames") or [])
+    n_wafers = pv.get("wafersDetected") or 0
+    return (
+        1 if (n_params > 0 and n_wafers > 0) else 0,   # read both -> real match
+        1 if n_params > 0 else 0,
+        1 if n_wafers > 0 else 0,
+        1 if _looks_like_id(pv.get("lotId")) else 0,
+        1 if _looks_like_id(pv.get("productId")) else 0,
+        # Fewer non-die rows beats more rows: a template aimed one row too high
+        # reads a separator line as data and would otherwise win on row count.
+        -(pv.get("junkRows") or 0),
+        pv.get("dataRows", 0),
+    )
+
+
+def _looks_like_id(value) -> bool:
+    """True for something that reads as a lot/product code rather than a label
+    that leaked out of a neighbouring cell (e.g. "PROBE CARD ID:")."""
+    if not value:
+        return False
+    text = str(value).strip()
+    return bool(text) and ":" not in text and len(text) <= 40
+
+
 def _detect_best_across_vendors(actual_path: str, db: Session, user=None) -> tuple[str | None, DynamicParser | None, int]:
     """Probe every vendor's every format template against the file and return
-    the (vendor_code, parser, data_rows) that yields the most data rows. A wrong
-    template typically reads 0 rows, so the real vendor wins. Only the uploader's
-    own site templates are tried, so one site's template never detects another
-    site's file."""
+    the (vendor_code, parser, data_rows) of the best reading. Only the
+    uploader's own site templates are tried, so one site's template never
+    detects another site's file. Ranking is by _preview_quality, not row count.
+    """
     best_vendor, best_parser, best_rows = None, None, 0
+    best_score: tuple | None = None
     for v in db.query(Vendor).all():
         fmts = scope_formats_by_domain(
             db.query(VendorFormat).filter(VendorFormat.vendor_id == v.id), user
@@ -126,11 +164,15 @@ def _detect_best_across_vendors(actual_path: str, db: Session, user=None) -> tup
         for fmt in fmts:
             parser = DynamicParser.from_vendor_format(v.code, fmt)
             try:
-                rows = parser.preview(actual_path).get("dataRows", 0)
+                pv = parser.preview(actual_path)
             except Exception:
                 continue
-            if rows > best_rows:
-                best_vendor, best_parser, best_rows = v.code, parser, rows
+            rows = pv.get("dataRows", 0)
+            if rows <= 0:
+                continue
+            score = _preview_quality(pv)
+            if best_score is None or score > best_score:
+                best_vendor, best_parser, best_rows, best_score = v.code, parser, rows, score
     return best_vendor, best_parser, best_rows
 
 
@@ -263,6 +305,11 @@ def _persist_result(result, db: Session, err: dict | None = None, domain: str | 
         "lotCode": lot.lot_id,
         "waferCount": len(result.wafers),
         "totalRows": result.total_rows,
+        # Echoed back so a batch row can say which supplier the file was read
+        # as. With auto-detect on, that is the one thing the uploader cannot
+        # tell by looking at the file name.
+        "vendor": vendor.code,
+        "vendorName": vendor.name,
     }
 
 
@@ -383,10 +430,15 @@ async def batch_upload(
     results = []
 
     for file in files:
-        entry: dict = {"fileName": file.filename, "success": False, "error": None}
+        entry: dict = {"fileName": file.filename, "success": False, "error": None,
+                       "vendor": vendor or None, "vendorName": None}
         try:
             file_path = _save_upload(file)
             parser, actual_path = _resolve_parser(file_path, file.filename, vendor, err, db, user)
+            # Set before parsing: a file that fails halfway is still worth
+            # labelling, since "which vendor did it think this was" is usually
+            # the first question about a failure.
+            entry["vendor"] = getattr(parser, "vendor_code", None) or entry["vendor"]
             parsed = parser.parse(actual_path)
             summary = _persist_result(parsed, db, err, domain=user.domain)
             entry.update(summary)

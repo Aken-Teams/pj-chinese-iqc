@@ -278,6 +278,7 @@ class DynamicParser(BaseParser):
         file_wafer = (self._file_wafer_id(grid, filepath)
                       if self.WAFER_ID_SOURCE != "column" else None)
 
+        junk_rows = 0
         for r in range(self.DATA_START_ROW, grid.n_rows + 1):
             if self._row_is_blank(grid, r, param_cols):
                 blank_run += 1
@@ -286,6 +287,14 @@ class DynamicParser(BaseParser):
                 continue
             blank_run = 0
             row_count += 1
+            # A row inside the data region whose bin is not a number is not a
+            # die. It means DATA_START_ROW is pointing above the real data, at
+            # a separator or repeated header. This is what tells 禾納 and 新潔能
+            # apart: they share a tester format, but 禾納's files carry an extra
+            # "wafer number <n>" line before the dies, so 新潔能's template reads
+            # one row too early and picks up that line as a die.
+            if self.BIN_COL and to_float(grid.cell(r, self.BIN_COL)) is None:
+                junk_rows += 1
             if self.WAFER_ID_SOURCE == "column" and self.WAFER_ID_COL:
                 v = grid.cell(r, self.WAFER_ID_COL)
                 if v is not None:
@@ -305,6 +314,9 @@ class DynamicParser(BaseParser):
             "wafersDetected": len(wafer_ids),
             "diePerWafer": self.FIXED_DIE_COUNT,
             "dataRows": row_count,
+            # Rows counted as data that do not look like dies. Used when
+            # ranking templates during vendor auto-detection.
+            "junkRows": junk_rows,
             "format": self.vendor_code,
             "productId": product_id or None,
             "lotId": lot_id or None,

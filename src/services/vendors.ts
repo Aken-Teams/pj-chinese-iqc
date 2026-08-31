@@ -18,6 +18,23 @@ export interface Vendor {
  * Three vendors were sitting in this state unnoticed — a site could see them,
  * pick them, and only discover the gap when the upload failed.
  */
+/**
+ * Can this site actually upload for this vendor?
+ *
+ * A vendor may be visible to a site (a `vendor_domains` link) yet have no
+ * template for it — JJW serves both sites but only 徐州 has a template. Picking
+ * it then fails at upload time with nothing beforehand to warn you.
+ */
+export function canUploadFor(
+  vendor: Vendor, userDomain: string | null | undefined, isAdmin: boolean,
+): boolean {
+  const covered = vendor.formatDomains ?? []
+  if ((vendor.formatCount ?? 0) === 0) return false
+  if (isAdmin) return true                 // admins are not bound to one site
+  if (covered.includes('')) return true    // an unassigned template serves all
+  return !!userDomain && covered.includes(userDomain)
+}
+
 export function sitesMissingTemplate(vendor: Vendor): string[] {
   const covered = vendor.formatDomains ?? []
   if (covered.includes('')) return []   // an unassigned template covers every site

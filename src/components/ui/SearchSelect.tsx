@@ -9,6 +9,12 @@ interface SearchSelectProps {
   disabled?: boolean
   className?: string
   align?: 'left' | 'right'
+  /**
+   * Items that are shown but cannot be picked, mapped to the reason why.
+   * Hiding them instead would leave someone who knows the item exists hunting
+   * for it; showing why it is unavailable tells them what to fix.
+   */
+  unavailable?: Record<string, string>
 }
 
 export default function SearchSelect({
@@ -19,6 +25,7 @@ export default function SearchSelect({
   disabled = false,
   className = '',
   align = 'left',
+  unavailable = {},
 }: SearchSelectProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -78,19 +85,36 @@ export default function SearchSelect({
               className="flex-1 text-[13px] outline-none bg-transparent text-text-primary placeholder:text-text-muted"
             />
           </div>
-          <ul className="max-h-[120px] overflow-y-auto">
+          <ul className="max-h-[180px] overflow-y-auto">
             {filtered.length === 0 ? (
               <li className="px-3 py-2 text-[13px] text-text-muted">無符合結果</li>
             ) : (
-              filtered.map(item => (
-                <li
-                  key={item}
-                  onClick={() => handleSelect(item)}
-                  className={`px-3 py-2 text-[13px] cursor-pointer hover:bg-bg-page ${item === value ? 'bg-bg-page font-semibold text-text-primary' : 'text-text-secondary'}`}
-                >
-                  {item}
-                </li>
-              ))
+              filtered.map(item => {
+                const reason = unavailable[item]
+                if (reason) {
+                  return (
+                    <li
+                      key={item}
+                      title={reason}
+                      className="px-3 py-2 text-[13px] cursor-not-allowed flex items-center gap-3"
+                    >
+                      <span className="text-text-muted/50 flex-1 truncate">{item}</span>
+                      <span className="text-[11px] text-text-muted bg-border-light px-2 py-0.5 shrink-0">
+                        {reason}
+                      </span>
+                    </li>
+                  )
+                }
+                return (
+                  <li
+                    key={item}
+                    onClick={() => handleSelect(item)}
+                    className={`px-3 py-2 text-[13px] cursor-pointer hover:bg-bg-page ${item === value ? 'bg-bg-page font-semibold text-text-primary' : 'text-text-secondary'}`}
+                  >
+                    {item}
+                  </li>
+                )
+              })
             )}
           </ul>
         </div>

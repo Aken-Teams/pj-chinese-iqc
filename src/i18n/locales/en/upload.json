@@ -5,7 +5,7 @@
   "modeBatch": "Batch Upload",
   "dropzone": {
     "title": "Drag & drop CP data files here",
-    "subtitle": "Supports .xlsx and .csv from any fab",
+    "subtitle": "Supports .xlsx, .xlsm, .xls, .csv and .txt from any foundry",
     "browse": "Browse Files",
     "uploading": "Uploading..."
   },
@@ -53,10 +53,15 @@
     "success": "Success",
     "failed": "Failed",
     "wafers": "{{count}} wafers",
-    "rows": "{{count}} rows"
+    "rows": "{{count}} rows",
+    "queued": "Queued",
+    "importing": "Importing…",
+    "pending": "Files to import",
+    "notStarted": "Not started — press Start batch import"
   },
   "error": {
     "uploadFailed": "Upload failed, please try again",
     "confirmFailed": "Import failed, please try again"
-  }
+  },
+  "noTemplateForSite": "No template"
 }

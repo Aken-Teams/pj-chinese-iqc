@@ -59,6 +59,22 @@ export interface BatchUploadResult {
   lotCode?: string
   waferCount?: number
   totalRows?: number
+  /** Which supplier the file was read as. With auto-detect on this is not
+   *  knowable from the file name, so it is the batch list's main label. */
+  vendor?: string | null
+  vendorName?: string | null
+}
+
+/**
+ * Import one file. The endpoint takes a list, but sending files one at a time
+ * is what makes the batch screen show live progress: a single 20-file request
+ * returns nothing until the last file lands, which reads as a hung page.
+ */
+export async function batchUploadOne(
+  file: File, vendor: string, lang: string = 'zh-TW',
+): Promise<BatchUploadResult> {
+  const [result] = await batchUpload([file], vendor, lang)
+  return result ?? { fileName: file.name, success: false, error: 'No response' }
 }
 
 export async function batchUpload(files: File[], vendor: string, lang: string = 'zh-TW'): Promise<BatchUploadResult[]> {
