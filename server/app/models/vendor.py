@@ -43,8 +43,10 @@ class VendorFormat(Base):
     format_name = Column(String(100))
     header_row = Column(Integer, nullable=False)
     data_start_row = Column(Integer, nullable=False)
-    lower_limit_row = Column(Integer, nullable=False)
-    upper_limit_row = Column(Integer, nullable=False)
+    # Optional: a format may genuinely have no spec-limit rows, and a template
+    # under construction has not chosen them yet.
+    lower_limit_row = Column(Integer, nullable=True)
+    upper_limit_row = Column(Integer, nullable=True)
     electrical_start_col = Column(Integer, nullable=False)
     # Nullable since the 2026-08 site survey: of six real vendor formats only two
     # carry a per-row wafer id column. See `wafer_id_source` below.

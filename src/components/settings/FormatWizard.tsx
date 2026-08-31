@@ -64,6 +64,21 @@ const CELL_ROLES = [
 
 const LOW_CONFIDENCE = 0.7
 
+/** Field key -> i18n label, for messages that name a field. */
+const FIELD_LABEL: Record<string, string> = Object.fromEntries(
+  [...ROW_ROLES, ...COL_ROLES].map((r) => [r.key, r.labelKey]),
+)
+
+function colIndex(text: string): number | null {
+  const s = text.trim().toUpperCase()
+  if (!s) return null
+  if (/^\d+$/.test(s)) return Number(s) || null
+  if (!/^[A-Z]{1,3}$/.test(s)) return null
+  let n = 0
+  for (const ch of s) n = n * 26 + (ch.charCodeAt(0) - 64)
+  return n
+}
+
 function colName(n: number): string {
   let s = ''
   let v = n
@@ -117,6 +132,11 @@ export default function FormatWizard({
   const [dry, setDry] = useState<DryRunResponse | null>(null)
   const [useAi, setUseAi] = useState(true)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  // The field a grid click will land on. Set by clicking a field row, so
+  // the panel and the sheet drive each other in both directions.
+  const [focused, setFocused] = useState<string | null>(null)
+  const [showSamples, setShowSamples] = useState(false)
 
   const [selection, setSelection] = useState<Selection | null>(null)
   const [infer, setInfer] = useState<{ role: InferRole; result: InferResult } | null>(null)
@@ -228,6 +248,17 @@ export default function FormatWizard({
     setFilenameOptions({ role, options: await inferFromFilename(detected.fileName, role) })
   }
 
+  /** Put the clicked row/column into whichever field is armed. */
+  const assignFocused = (sel: Selection) => {
+    if (!focused) return
+    const wantsColumn = COL_ROLES.some((c) => c.key === focused)
+    const value = sel.kind === 'row' ? sel.row
+      : sel.kind === 'col' ? sel.col
+        : wantsColumn ? sel.col : sel.row
+    setField({ [focused]: value } as Draft)
+    setFocused(null)
+  }
+
   /** Which roles land on each row / column / cell, for the grid overlay. */
   const marks = useMemo(() => {
     const rows = new Map<number, Tone>()
@@ -264,38 +295,89 @@ export default function FormatWizard({
   if (!detected) {
     return (
       <Shell title={t('wizard.title')} onClose={onClose}>
-        <div className="p-8 flex flex-col items-center gap-5">
-          <p className="text-sm text-text-secondary text-center max-w-lg">
-            {t('wizard.introText')}
-          </p>
-          <label className="flex items-center gap-2.5 px-6 py-3 bg-accent text-white
-                            font-heading text-[13px] uppercase tracking-[1px] cursor-pointer
-                            hover:opacity-90 transition-opacity">
-            {busy === 'detect'
-              ? <Loader2 size={16} className="animate-spin" />
-              : <Upload size={16} />}
-            {busy === 'detect' ? t('wizard.detecting') : t('wizard.chooseFile')}
+        <div className="p-7 flex flex-col gap-5">
+          <div className="flex justify-center">
+            <StepRail active={0} t={t} />
+          </div>
+
+          {/* Dropping a file is the fastest path, so the drop target is the
+              main affordance and the file picker sits inside it. */}
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragging(false)
+              const f = e.dataTransfer.files?.[0]
+              if (f) void runDetect(f)
+            }}
+            className={`relative flex flex-col items-center justify-center gap-3 px-6 py-12
+                        border-2 border-dashed transition-colors cursor-pointer ${
+              busy === 'detect' ? 'border-accent bg-accent/5 cursor-wait'
+                : dragging ? 'border-accent bg-accent/10'
+                  : 'border-border-light hover:border-accent hover:bg-accent/5'}`}
+          >
+            {busy === 'detect' ? (
+              <>
+                <Loader2 size={30} className="text-accent animate-spin" />
+                <span className="font-heading text-[15px] uppercase tracking-[1px] text-accent">
+                  {t('wizard.detecting')}
+                </span>
+                <span className="text-[13px] text-text-muted">{t('wizard.detectingHint')}</span>
+              </>
+            ) : (
+              <>
+                <Upload size={30} className={dragging ? 'text-accent' : 'text-text-muted'} />
+                <span className="font-heading text-[16px] uppercase tracking-[1px]
+                                 text-text-primary">
+                  {t('wizard.dropHere')}
+                </span>
+                <span className="text-[13px] text-text-muted">{t('wizard.orClick')}</span>
+                <span className="flex flex-wrap justify-center gap-1.5 mt-1">
+                  {['.xlsx', '.xlsm', '.xls', '.csv', '.txt'].map((ext) => (
+                    <span key={ext} className="px-2 py-0.5 bg-bg-page text-text-muted
+                                               text-[12px] font-mono rounded">{ext}</span>
+                  ))}
+                </span>
+              </>
+            )}
             <input type="file" className="hidden" accept=".xlsx,.xlsm,.xls,.csv,.txt"
+                   disabled={busy === 'detect'}
                    onChange={(e) => { const f = e.target.files?.[0]; if (f) void runDetect(f) }} />
           </label>
-          <label className="flex items-center gap-2 text-xs text-text-tertiary cursor-pointer">
-            <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} />
-            {t('wizard.useAi')}
+
+          <p className="text-[13.5px] text-text-secondary leading-relaxed">
+            {t('wizard.introText')}
+          </p>
+
+          <label className="flex items-start gap-2.5 px-3 py-2.5 border border-border-light
+                            cursor-pointer hover:border-accent transition-colors">
+            <input type="checkbox" checked={useAi} className="mt-0.5"
+                   onChange={(e) => setUseAi(e.target.checked)} />
+            <span className="flex flex-col gap-0.5">
+              <span className="text-[13.5px] text-text-primary flex items-center gap-1.5">
+                <Cpu size={14} className="text-accent" /> {t('wizard.useAi')}
+              </span>
+              <span className="text-[12.5px] text-text-muted leading-snug">
+                {t('wizard.useAiHint')}
+              </span>
+            </span>
           </label>
-          <p className="text-[11px] text-text-muted">.xlsx / .xlsm / .xls / .csv / .txt</p>
 
           {samples.length > 0 && (
-            <div className="w-full max-w-lg border-t border-border-light pt-4 flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-[11px] font-heading uppercase
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-[12px] font-heading uppercase
                               tracking-[1.5px] text-text-muted">
-                <FileClock size={13} /> {t('wizard.savedSamples')}
+                <FileClock size={14} /> {t('wizard.savedSamples')}
               </div>
               {samples.map((s) => (
                 <button key={s.id} onClick={() => void reopenSample(s)}
-                        className="flex items-center gap-2 text-left px-3 py-2 border
-                                   border-border-light hover:border-accent transition-colors">
-                  <span className="text-[12px] flex-1 truncate">{s.fileName}</span>
-                  <span className="text-[10px] text-text-muted shrink-0">
+                        className="flex items-center gap-2.5 text-left px-3 py-2 border
+                                   border-border-light hover:border-accent
+                                   hover:bg-accent/5 transition-colors group">
+                  <FileClock size={14} className="text-text-muted group-hover:text-accent shrink-0" />
+                  <span className="text-[13px] flex-1 truncate">{s.fileName}</span>
+                  <span className="text-[11.5px] text-text-muted shrink-0">
                     {s.uploadedBy ? `${s.uploadedBy} · ` : ''}{s.uploadedAt}
                   </span>
                 </button>
@@ -317,6 +399,7 @@ export default function FormatWizard({
       <div className="flex flex-col lg:flex-row min-h-0 flex-1">
         {/* left: the sheet */}
         <div className="flex-1 min-w-0 flex flex-col border-r border-border-light">
+          <div className="px-4 pt-3 pb-1"><StepRail active={1} t={t} compact /></div>
           <div className="px-4 py-2 border-b border-border-light flex items-center gap-3 flex-wrap">
             <span className="text-[12px] text-text-muted">{t('wizard.clickHint')}</span>
             <div className="ml-auto flex items-center gap-2">
@@ -410,116 +493,145 @@ export default function FormatWizard({
           </div>
         </div>
 
-        {/* right: what the click means */}
-        <div className="w-full lg:w-[400px] shrink-0 overflow-auto max-h-[80vh] p-4 flex flex-col gap-4">
+        {/* right: every field, editable */}
+        <div className="w-full lg:w-[430px] shrink-0 overflow-auto max-h-[80vh] p-4 flex flex-col gap-4">
           {detected.stats && <StatsBar stats={detected.stats} t={t} />}
 
-          {detected.warnings.map((w, i) => <Banner key={i} tone="warn">{w}</Banner>)}
-
-          {/* the selection drives everything below */}
-          {!selection && (
-            <div className="border border-dashed border-border-light px-3 py-6 text-center">
-              <p className="text-[12px] text-text-muted">{t('wizard.nothingSelected')}</p>
-            </div>
-          )}
-
-          {selection?.kind === 'row' && (
-            <Section title={t('wizard.rowIs', { row: selection.row })}>
-              <div className="flex flex-wrap gap-1.5">
-                {ROW_ROLES.map((role) => (
-                  <RoleButton key={role.key} tone={role.tone}
-                              active={draft[role.key as keyof VendorFormat] === selection.row}
-                              label={t(role.labelKey)}
-                              onClick={() => setField({ [role.key]: selection.row } as Draft)} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {selection?.kind === 'col' && (
-            <Section title={t('wizard.colIs', { col: colName(selection.col) })}>
-              <div className="flex flex-wrap gap-1.5">
-                {COL_ROLES.map((role) => (
-                  <RoleButton key={role.key} tone={role.tone}
-                              active={draft[role.key as keyof VendorFormat] === selection.col}
-                              label={t(role.labelKey)}
-                              onClick={() => setField({ [role.key]: selection.col } as Draft)} />
-                ))}
-                <RoleButton tone="rose"
-                            active={draft.wafer_id_source === 'column'
-                              && draft.wafer_id_col === selection.col}
-                            label={t('wizard.roleWaferCol')}
-                            onClick={() => setField({
-                              wafer_id_source: 'column', wafer_id_col: selection.col,
-                              wafer_id_cell: null, wafer_id_label: null, wafer_id_pattern: null,
-                            })} />
-              </div>
-            </Section>
-          )}
-
+          {/* What a click on the sheet means, when there is one. Kept above the
+              field list so the answer appears where the user is looking. */}
           {selection?.kind === 'cell' && (
             <Section title={t('wizard.cellIs', {
               ref: `${colName(selection.col)}${selection.row}`,
               value: String(selectedValue ?? '').slice(0, 40) || '—',
             })}>
-              <div className="flex flex-wrap gap-1.5">
-                {CELL_ROLES.map((role) => (
-                  <RoleButton key={role.role} tone={role.tone}
-                              active={infer?.role === role.role}
-                              label={t(role.labelKey)}
-                              onClick={() => void askInfer(role.role)} />
-                ))}
-              </div>
-              {infer && (
-                <div className="flex flex-col gap-1.5 mt-2">
-                  {infer.result.options.length === 0 && (
-                    <p className="text-[11px] text-text-muted">{t('wizard.noOptions')}</p>
-                  )}
-                  {infer.result.options.map((o) => (
-                    <OptionRow key={o.key} option={o}
-                               onPick={() => { setField(o.fields as Draft); setInfer(null) }} />
-                  ))}
-                </div>
-              )}
-            </Section>
-          )}
-
-          {/* file-name fallback: only worth offering when the sheet gave nothing */}
-          {(!draft.product_id_cell && !draft.product_id_col && !draft.product_id_label) && (
-            <Section title={t('wizard.filenameFallback')}>
-              <p className="text-[11px] text-text-muted mb-1.5">{t('wizard.filenameHint')}</p>
-              <div className="flex gap-1.5">
-                <RoleButton tone="fuchsia" label={t('wizard.fromFilenameProduct')}
-                            onClick={() => void askFilename('product')} />
-                <RoleButton tone="lime" label={t('wizard.fromFilenameLot')}
-                            onClick={() => void askFilename('lot')} />
-              </div>
-              {filenameOptions && (
-                <div className="flex flex-col gap-1.5 mt-2">
-                  {filenameOptions.options.length === 0
-                    ? <p className="text-[11px] text-text-muted">{t('wizard.noOptions')}</p>
-                    : filenameOptions.options.map((o) => (
-                      <OptionRow key={o.key} option={o}
-                                 onPick={() => { setField(o.fields as Draft); setFilenameOptions(null) }} />
+              {focused ? (
+                <button
+                  onClick={() => { assignFocused(selection); setSelection(null) }}
+                  className="w-full text-left px-3 py-2 border border-accent bg-accent/5
+                             text-[13px] text-accent hover:bg-accent/10 transition-colors">
+                  {t('wizard.assignTo', { field: t(FIELD_LABEL[focused]) })}
+                </button>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CELL_ROLES.map((role) => (
+                      <RoleButton key={role.role} tone={role.tone}
+                                  active={infer?.role === role.role}
+                                  label={t(role.labelKey)}
+                                  onClick={() => void askInfer(role.role)} />
                     ))}
-                </div>
+                  </div>
+                  {infer && (
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      {infer.result.options.length === 0 && (
+                        <p className="text-[12px] text-text-muted">{t('wizard.noOptions')}</p>
+                      )}
+                      {infer.result.options.map((o) => (
+                        <OptionRow key={o.key} option={o}
+                                   onPick={() => { setField(o.fields as Draft); setInfer(null); setSelection(null) }} />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </Section>
           )}
 
-          <CurrentMapping draft={draft} evidence={evidence} isWeak={isWeak} t={t} />
+          {(selection?.kind === 'row' || selection?.kind === 'col') && focused && (
+            <Section title={selection.kind === 'row'
+              ? t('wizard.rowIs', { row: selection.row })
+              : t('wizard.colIs', { col: colName(selection.col) })}>
+              <button
+                onClick={() => { assignFocused(selection); setSelection(null) }}
+                className="w-full text-left px-3 py-2 border border-accent bg-accent/5
+                           text-[13px] text-accent hover:bg-accent/10 transition-colors">
+                {t('wizard.assignTo', { field: t(FIELD_LABEL[focused]) })}
+              </button>
+            </Section>
+          )}
+
+          {(selection?.kind === 'row' || selection?.kind === 'col') && !focused && (
+            <Section title={selection.kind === 'row'
+              ? t('wizard.rowIs', { row: selection.row })
+              : t('wizard.colIs', { col: colName(selection.col) })}>
+              <div className="flex flex-wrap gap-1.5">
+                {(selection.kind === 'row' ? ROW_ROLES : COL_ROLES).map((role) => (
+                  <RoleButton key={role.key} tone={role.tone}
+                              active={draft[role.key as keyof VendorFormat] ===
+                                (selection.kind === 'row' ? selection.row : selection.col)}
+                              label={t(role.labelKey)}
+                              onClick={() => setField({
+                                [role.key]: selection.kind === 'row' ? selection.row : selection.col,
+                              } as Draft)} />
+                ))}
+                {selection.kind === 'col' && (
+                  <RoleButton tone="rose"
+                              active={draft.wafer_id_source === 'column'
+                                && draft.wafer_id_col === selection.col}
+                              label={t('wizard.roleWaferCol')}
+                              onClick={() => setField({
+                                wafer_id_source: 'column', wafer_id_col: selection.col,
+                                wafer_id_cell: null, wafer_id_label: null, wafer_id_pattern: null,
+                              })} />
+                )}
+              </div>
+            </Section>
+          )}
+
+          {/* The whole mapping, editable. Everything the parser needs is listed
+              here whether it was detected or not, so a gap is visible as an
+              empty required field rather than only as a failed dry run. */}
+          <Section title={t('wizard.mappingTitle')}>
+            <p className="text-[12px] text-text-muted -mt-1">{t('wizard.mappingHint')}</p>
+            <div className="flex flex-col gap-1 mt-1">
+              {ROW_ROLES.map((r) => (
+                <FieldRow key={r.key} kind="row" tone={r.tone}
+                          label={t(r.labelKey)} required={'required' in r ? r.required : false}
+                          value={draft[r.key as keyof VendorFormat] as number | null}
+                          candidate={evidence[r.key] ?? null} weak={isWeak(r.key)}
+                          focused={focused === r.key}
+                          onFocus={() => setFocused(focused === r.key ? null : r.key)}
+                          onChange={(v) => setField({ [r.key]: v } as Draft)} t={t} />
+              ))}
+              {COL_ROLES.map((c) => (
+                <FieldRow key={c.key} kind="col" tone={c.tone}
+                          label={t(c.labelKey)} required={'required' in c ? c.required : false}
+                          value={draft[c.key as keyof VendorFormat] as number | null}
+                          candidate={evidence[c.key] ?? null} weak={isWeak(c.key)}
+                          focused={focused === c.key}
+                          onFocus={() => setFocused(focused === c.key ? null : c.key)}
+                          onChange={(v) => setField({ [c.key]: v } as Draft)} t={t} />
+              ))}
+            </div>
+          </Section>
+
+          <WaferSourceEditor draft={draft} grid={grid} fileName={detected.fileName}
+                             onChange={setField} t={t} />
+
+          <MetaEditor draft={draft} grid={grid} onChange={setField}
+                      onAskFilename={askFilename} filenameOptions={filenameOptions}
+                      onPickFilename={(o) => { setField(o.fields as Draft); setFilenameOptions(null) }}
+                      t={t} />
+
+          {detected.warnings.map((w, i) => <Banner key={i} tone="warn">{w}</Banner>)}
 
           <Collapse title={t('wizard.advanced')} open={showAdvanced}
                     onToggle={() => setShowAdvanced((v) => !v)}>
             <AdvancedFields draft={draft} onChange={setField} t={t} />
           </Collapse>
 
-          {formatId ? (
-            <Collapse title={t('wizard.history')} open={showHistory}
-                      onToggle={() => setShowHistory((v) => !v)} icon={<History size={12} />}>
-              <RevisionList revisions={revisions} t={t} />
-            </Collapse>
-          ) : null}
+          <Collapse title={t('wizard.history')} open={showHistory}
+                    onToggle={() => setShowHistory((v) => !v)} icon={<History size={12} />}>
+            {formatId
+              ? <RevisionList revisions={revisions} t={t} />
+              : <p className="text-[12px] text-text-muted pt-1">{t('wizard.historyAfterSave')}</p>}
+          </Collapse>
+
+          <Collapse title={t('wizard.savedSamples')} open={showSamples}
+                    onToggle={() => setShowSamples((v) => !v)} icon={<FileClock size={12} />}>
+            <SampleList samples={samples} current={detected.fileToken}
+                        onOpen={(s) => void reopenSample(s)} t={t} />
+          </Collapse>
         </div>
       </div>
 
@@ -573,6 +685,39 @@ function Shell({ title, onClose, wide, children }: {
   )
 }
 
+/** Three-step rail, so it is obvious that uploading is not the whole job. */
+function StepRail({ active, t, compact }: {
+  active: number
+  t: (k: string, o?: Record<string, unknown>) => string
+  compact?: boolean
+}) {
+  const steps = [t('wizard.step1'), t('wizard.step2'), t('wizard.step3')]
+  return (
+    <div className="flex items-center gap-2">
+      {steps.map((label, i) => (
+        <div key={label} className="flex items-center gap-2">
+          <span className={`flex items-center gap-1.5 ${
+            i === active ? 'text-accent' : i < active ? 'text-text-tertiary' : 'text-text-muted'}`}>
+            <span className={`w-[21px] h-[21px] flex items-center justify-center text-[11px]
+                              font-bold rounded-full shrink-0 ${
+              i === active ? 'bg-accent text-white'
+                : i < active ? 'bg-text-tertiary/20 text-text-tertiary'
+                  : 'border border-current'}`}>
+              {i + 1}
+            </span>
+            {(!compact || i === active) && (
+              <span className="font-heading text-[13px] uppercase tracking-[1px]">{label}</span>
+            )}
+          </span>
+          {i < steps.length - 1 && (
+            <span className={`w-8 h-px ${i < active ? 'bg-text-tertiary/40' : 'bg-border-light'}`} />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
@@ -618,6 +763,24 @@ function RoleButton({ tone, label, active, onClick }: {
 
 /** One reading of the clicked cell. The preview value is the headline, because
  *  that is what people recognise — not the source type behind it. */
+function TextField({ label, value, onChange, placeholder, hint }: {
+  label: string; value: string; onChange: (v: string) => void
+  placeholder?: string; hint?: string
+}) {
+  return (
+    <label className="flex flex-col gap-1 mt-2">
+      <span className="text-[12px] text-text-tertiary">{label}</span>
+      <input
+        value={value} placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="border border-border-light px-2 py-1.5 text-[13px] font-mono bg-bg-page
+                   focus:border-accent outline-none"
+      />
+      {hint && <span className="text-[11px] text-text-muted leading-snug">{hint}</span>}
+    </label>
+  )
+}
+
 function OptionRow({ option, onPick }: { option: InferOption; onPick: () => void }) {
   return (
     <button onClick={onPick}
@@ -644,84 +807,294 @@ function StatsBar({ stats, t }: {
   return (
     <div className="border border-border-light bg-bg-page px-3 py-2 flex items-center gap-3 flex-wrap">
       <Sparkles size={13} className="text-accent shrink-0" />
-      <span className="text-[11px] text-text-secondary">
+      <span className="text-[12.5px] text-text-secondary">
         {t('wizard.statsRules', { n: stats.ruleFields })}
       </span>
-      <span className="text-[11px] text-text-secondary flex items-center gap-1">
+      <span className="text-[12.5px] text-text-secondary flex items-center gap-1">
         <Cpu size={11} />
         {t('wizard.statsAi', { n: stats.aiFields, calls: stats.aiCalls })}
       </span>
-      <span className="text-[11px] text-text-muted ml-auto">
+      <span className="text-[12px] text-text-muted ml-auto">
         {(stats.elapsedMs / 1000).toFixed(1)}s
-        {stats.detectModel ? ` · ${stats.detectModel}` : ''}
+        {stats.detectModel ? ` · ${t('wizard.localModel')}` : ''}
       </span>
       {stats.aiCalls === 0 && (
-        <p className="w-full text-[10px] text-text-muted">{t('wizard.statsNoAiNeeded')}</p>
+        <p className="w-full text-[11.5px] text-text-muted">{t('wizard.statsNoAiNeeded')}</p>
       )}
     </div>
   )
 }
 
-/** Read-only summary: what the template currently says, and why. */
-function CurrentMapping({ draft, evidence, isWeak, t }: {
-  draft: Draft
-  evidence: Record<string, Candidate | null>
-  isWeak: (key: string) => boolean
+/** One mapping field: editable directly, or armed for a click on the sheet. */
+function FieldRow({ kind, tone, label, required, value, candidate, weak,
+                    focused, onFocus, onChange, t }: {
+  kind: 'row' | 'col'
+  tone: Tone
+  label: string
+  required?: boolean
+  value: number | null | undefined
+  candidate: Candidate | null
+  weak: boolean
+  focused: boolean
+  onFocus: () => void
+  onChange: (v: number | null) => void
   t: (k: string, o?: Record<string, unknown>) => string
 }) {
-  const rows: { label: string; value: string; key: string; tone: Tone; required?: boolean }[] = []
-  for (const r of ROW_ROLES) {
-    rows.push({ label: t(r.labelKey), key: r.key, tone: r.tone,
-                required: 'required' in r ? r.required : false,
-                value: draft[r.key as keyof VendorFormat] == null
-                  ? '' : `第 ${draft[r.key as keyof VendorFormat]} 列` })
+  const unset = value === null || value === undefined
+  const bad = (required && unset) || weak
+  const shown = unset ? '' : kind === 'col' ? colName(Number(value)) : String(value)
+  return (
+    <div className={`border px-2.5 py-2 transition-colors ${
+      focused ? 'border-accent bg-accent/5'
+        : bad ? 'border-error/50 bg-error/5' : 'border-border-light'}`}>
+      <div className="flex items-center gap-2">
+        <button onClick={onFocus} title={t('wizard.armField')}
+                className={`w-2.5 h-2.5 shrink-0 ${TONE[tone].chip}`} />
+        <button onClick={onFocus}
+                className="text-[13px] text-text-secondary flex-1 truncate text-left
+                           hover:text-accent cursor-pointer">
+          {label}
+          {required && <span className="text-error ml-1">*</span>}
+        </button>
+        <input
+          value={shown}
+          onChange={(e) => {
+            const raw = e.target.value.trim()
+            if (!raw) return onChange(null)
+            onChange(kind === 'col' ? colIndex(raw) : (Number(raw) || null))
+          }}
+          placeholder={kind === 'col' ? 'F' : '—'}
+          className={`w-[62px] border px-1.5 py-1 text-[13px] font-mono text-right
+                      bg-bg-page outline-none focus:border-accent ${
+            bad ? 'border-error/50' : 'border-border-light'}`}
+        />
+      </div>
+      {focused && (
+        <p className="text-[11px] text-accent mt-1">{t('wizard.armedHint2')}</p>
+      )}
+      {!focused && bad && unset && (
+        <p className="text-[11px] text-error mt-1">{t('wizard.requiredMissing')}</p>
+      )}
+      {!focused && candidate && !unset && (
+        <p className={`text-[11px] mt-1 flex items-start gap-1 ${
+          weak ? 'text-error' : 'text-text-muted'}`}>
+          {candidate.source === 'ai' && <Cpu size={10} className="mt-0.5 shrink-0" />}
+          <span className="truncate">{candidate.evidence}</span>
+          <b className="shrink-0">{Math.round(candidate.confidence * 100)}%</b>
+        </p>
+      )}
+    </div>
+  )
+}
+
+const WAFER_MODES = ['column', 'cell', 'label', 'filename', 'single'] as const
+
+/** The one field the file often cannot supply. Each way of providing it gets
+ *  its own input and shows the value it would read, so "not set" is actionable
+ *  rather than just a warning. */
+function WaferSourceEditor({ draft, grid, fileName, onChange, t }: {
+  draft: Draft
+  grid: GridPreview | null
+  fileName: string
+  onChange: (patch: Draft) => void
+  t: (k: string, o?: Record<string, unknown>) => string
+}) {
+  const mode = draft.wafer_id_source ?? null
+  const clear: Draft = {
+    wafer_id_col: null, wafer_id_cell: null,
+    wafer_id_label: null, wafer_id_pattern: null,
   }
-  for (const c of COL_ROLES) {
-    const v = draft[c.key as keyof VendorFormat]
-    rows.push({ label: t(c.labelKey), key: c.key, tone: c.tone,
-                required: 'required' in c ? c.required : false,
-                value: v == null ? '' : `${colName(Number(v))} 欄` })
+
+  const cellValue = (() => {
+    const rc = parseCellRef(draft.wafer_id_cell)
+    if (!rc || !grid) return null
+    return grid.rows[rc[0] - 1]?.[rc[1] - 1] ?? null
+  })()
+
+  const applyPattern = (raw: string | null): string => {
+    if (!raw) return ''
+    const p = draft.wafer_id_pattern
+    if (!p) return raw
+    try {
+      const m = new RegExp(p).exec(raw)
+      return m ? (m[1] ?? m[0]) : raw
+    } catch {
+      return raw
+    }
   }
-  const source = draft.wafer_id_source
-  const waferValue = !source ? ''
-    : source === 'column' ? `${colName(Number(draft.wafer_id_col ?? 0))} 欄`
-      : source === 'cell' ? String(draft.wafer_id_cell ?? '')
-        : source === 'label' ? `「${draft.wafer_id_label ?? ''}」`
-          : t(`wizard.src_${source}`)
-  rows.push({ label: t('wizard.roleWafer'), key: 'wafer_id_source', tone: 'rose',
-              required: true, value: waferValue })
+
+  const preview = mode === 'cell' ? applyPattern(cellValue)
+    : mode === 'filename' ? applyPattern(fileName.replace(/\.[^.]+$/, ''))
+      : mode === 'single' ? fileName.replace(/\.[^.]+$/, '')
+        : mode === 'column' && draft.wafer_id_col
+          ? t('wizard.perRowValue', { col: colName(Number(draft.wafer_id_col)) })
+          : ''
 
   return (
-    <Section title={t('wizard.currentMapping')}>
-      <div className="flex flex-col gap-0.5">
-        {rows.map((r) => {
-          const weak = isWeak(r.key)
-          const unset = !r.value
-          const bad = weak || (r.required && unset)
-          const cand = evidence[r.key]
-          return (
-            <div key={r.key}
-                 className={`flex items-start gap-2 px-2 py-1.5 border ${
-                   bad ? 'border-error/50 bg-error/5' : 'border-transparent'}`}>
-              <span className={`w-2 h-2 mt-1.5 shrink-0 ${TONE[r.tone].chip}`} />
-              <span className="text-[11px] text-text-secondary flex-1 truncate">{r.label}</span>
-              <div className="text-right shrink-0 max-w-[190px]">
-                <span className={`text-[11px] font-mono ${bad ? 'text-error' : 'text-text-primary'}`}>
-                  {r.value || t('wizard.unset')}
-                </span>
-                {cand && (
-                  <div className="text-[9px] text-text-muted leading-tight flex items-center gap-1 justify-end">
-                    {cand.source === 'ai' && <Cpu size={9} />}
-                    <span className="truncate">{cand.evidence}</span>
-                    <b>{Math.round(cand.confidence * 100)}%</b>
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        })}
+    <Section title={t('wizard.roleWafer')}>
+      {!mode && (
+        <p className="text-[12px] text-error -mt-1">{t('wizard.waferNotFound')}</p>
+      )}
+      <div className="flex flex-wrap gap-1.5">
+        {WAFER_MODES.map((m) => (
+          <button key={m}
+                  onClick={() => onChange({ ...clear, wafer_id_source: m })}
+                  className={`px-2.5 py-1.5 text-[12px] border transition-colors ${
+                    mode === m ? 'border-accent bg-accent/10 text-accent'
+                      : 'border-border-light text-text-secondary hover:border-accent'}`}>
+            {t(`wizard.src_${m}`)}
+          </button>
+        ))}
       </div>
+      {mode && <p className="text-[11.5px] text-text-muted">{t(`wizard.srcHint_${mode}`)}</p>}
+
+      {mode === 'column' && (
+        <TextField label={t('wizard.waferColumn')} placeholder="A"
+                   value={draft.wafer_id_col ? colName(Number(draft.wafer_id_col)) : ''}
+                   onChange={(v) => onChange({ wafer_id_col: colIndex(v) })} />
+      )}
+      {mode === 'cell' && (
+        <TextField label={t('wizard.cellAddress')} placeholder="B4"
+                   hint={t('wizard.cellAddressHint')}
+                   value={(draft.wafer_id_cell as string) ?? ''}
+                   onChange={(v) => onChange({ wafer_id_cell: v || null })} />
+      )}
+      {mode === 'label' && (
+        <TextField label={t('wizard.labelText')} placeholder="Wafer number"
+                   hint={t('wizard.labelTextHint')}
+                   value={(draft.wafer_id_label as string) ?? ''}
+                   onChange={(v) => onChange({ wafer_id_label: v || null })} />
+      )}
+      {mode === 'filename' && (
+        <TextField label={t('wizard.pattern')} placeholder="号(\\d+)$"
+                   hint={t('wizard.filenamePatternHint', { name: fileName })}
+                   value={(draft.wafer_id_pattern as string) ?? ''}
+                   onChange={(v) => onChange({ wafer_id_pattern: v || null })} />
+      )}
+      {(mode === 'cell' || mode === 'label') && (
+        <TextField label={t('wizard.patternOptional')} placeholder="-(\\d+)$"
+                   hint={t('wizard.patternHint')}
+                   value={(draft.wafer_id_pattern as string) ?? ''}
+                   onChange={(v) => onChange({ wafer_id_pattern: v || null })} />
+      )}
+
+      {mode && (
+        <div className="mt-1 px-2.5 py-1.5 bg-bg-page border border-border-light">
+          <span className="text-[11px] text-text-muted">{t('wizard.willRead')}</span>
+          <span className="ml-2 font-mono text-[13px] text-text-primary">
+            {preview || t('wizard.nothingYet')}
+          </span>
+        </div>
+      )}
     </Section>
+  )
+}
+
+/** Product and lot: show what is currently configured, in words, and offer the
+ *  file-name route when the sheet does not carry the value. */
+function MetaEditor({ draft, grid, onChange, onAskFilename, filenameOptions,
+                     onPickFilename, t }: {
+  draft: Draft
+  grid: GridPreview | null
+  onChange: (patch: Draft) => void
+  onAskFilename: (role: 'product' | 'lot') => void
+  filenameOptions: { role: 'product' | 'lot'; options: InferOption[] } | null
+  onPickFilename: (o: InferOption) => void
+  t: (k: string, o?: Record<string, unknown>) => string
+}) {
+  const describe = (prefix: 'product_id' | 'lot_id') => {
+    const cell = draft[`${prefix}_cell` as keyof VendorFormat] as string | null
+    const col = draft[`${prefix}_col` as keyof VendorFormat] as number | null
+    const label = draft[`${prefix}_label` as keyof VendorFormat] as string | null
+    const fromName = draft[`${prefix}_filename_pattern` as keyof VendorFormat] as string | null
+    if (fromName) return t('wizard.fromFileName')
+    if (cell) {
+      const rc = parseCellRef(cell)
+      const v = rc && grid ? grid.rows[rc[0] - 1]?.[rc[1] - 1] : null
+      return `${cell}${v ? ` → ${v}` : ''}`
+    }
+    if (label) return `「${label}」`
+    if (col) return t('wizard.perRowValue', { col: colName(Number(col)) })
+    return ''
+  }
+
+  return (
+    <Section title={t('wizard.metaTitle')}>
+      {(['product', 'lot'] as const).map((role) => {
+        const prefix = role === 'product' ? 'product_id' : 'lot_id'
+        const desc = describe(prefix)
+        return (
+          <div key={role} className={`border px-2.5 py-2 flex flex-col gap-1 ${
+            desc ? 'border-border-light' : 'border-amber-500/40 bg-amber-500/5'}`}>
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 shrink-0 ${
+                role === 'product' ? TONE.fuchsia.chip : TONE.lime.chip}`} />
+              <span className="text-[13px] text-text-secondary flex-1">
+                {t(role === 'product' ? 'wizard.cellIsProduct' : 'wizard.cellIsLot')}
+              </span>
+              <span className="font-mono text-[12px] text-text-primary truncate max-w-[150px]">
+                {desc || t('wizard.unset')}
+              </span>
+            </div>
+            <div className="flex gap-1.5">
+              <button onClick={() => onAskFilename(role)}
+                      className="text-[11.5px] px-2 py-1 border border-border-light
+                                 text-text-tertiary hover:border-accent hover:text-accent">
+                {t('wizard.useFileName')}
+              </button>
+              {desc && (
+                <button onClick={() => onChange({
+                  [`${prefix}_cell`]: null, [`${prefix}_col`]: null,
+                  [`${prefix}_label`]: null, [`${prefix}_filename_pattern`]: null,
+                } as Draft)}
+                        className="text-[11.5px] px-2 py-1 border border-border-light
+                                   text-text-tertiary hover:border-error hover:text-error">
+                  {t('wizard.clearField')}
+                </button>
+              )}
+            </div>
+            {filenameOptions?.role === role && (
+              <div className="flex flex-col gap-1.5 mt-1">
+                {filenameOptions.options.length === 0
+                  ? <p className="text-[12px] text-text-muted">{t('wizard.noOptions')}</p>
+                  : filenameOptions.options.map((o) => (
+                    <OptionRow key={o.key} option={o} onPick={() => onPickFilename(o)} />
+                  ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </Section>
+  )
+}
+
+function SampleList({ samples, current, onOpen, t }: {
+  samples: SavedSample[]
+  current: string
+  onOpen: (s: SavedSample) => void
+  t: (k: string, o?: Record<string, unknown>) => string
+}) {
+  if (samples.length === 0) {
+    return <p className="text-[12px] text-text-muted pt-1">{t('wizard.noSamplesYet')}</p>
+  }
+  return (
+    <div className="flex flex-col gap-1.5 pt-1">
+      {samples.map((s) => (
+        <button key={s.id} onClick={() => onOpen(s)} disabled={s.fileToken === current}
+                className={`flex items-center gap-2 text-left px-2.5 py-2 border
+                            transition-colors ${
+                  s.fileToken === current
+                    ? 'border-accent/50 bg-accent/5 cursor-default'
+                    : 'border-border-light hover:border-accent'}`}>
+          <FileClock size={13} className="shrink-0 text-text-muted" />
+          <span className="text-[12.5px] flex-1 truncate">{s.fileName}</span>
+          <span className="text-[11px] text-text-muted shrink-0">
+            {s.fileToken === current ? t('wizard.currentSample') : s.uploadedAt}
+          </span>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -731,23 +1104,25 @@ function AdvancedFields({ draft, onChange, t }: {
   draft: Draft; onChange: (patch: Draft) => void
   t: (k: string, o?: Record<string, unknown>) => string
 }) {
-  const text: [keyof VendorFormat, string][] = [
-    ['wafer_id_cell', t('wizard.cellAddress')],
-    ['wafer_id_label', t('wizard.labelText')],
-    ['wafer_id_pattern', t('wizard.pattern')],
-    ['product_id_cell', t('wizard.roleProductCell')],
-    ['product_id_label', t('wizard.productLabel')],
-    ['product_id_pattern', t('wizard.productPattern')],
-    ['product_id_filename_pattern', t('wizard.productFilenamePattern')],
-    ['lot_id_cell', t('wizard.roleLotCell')],
-    ['lot_id_label', t('wizard.lotLabel')],
-    ['lot_id_pattern', t('wizard.lotPattern')],
-    ['lot_id_filename_pattern', t('wizard.lotFilenamePattern')],
+  // Each field carries a worked example, because "regex" is not something the
+  // people configuring this should be expected to compose from nothing.
+  const text: [keyof VendorFormat, string, string][] = [
+    ['wafer_id_cell', t('wizard.cellAddress'), 'B4'],
+    ['wafer_id_label', t('wizard.labelText'), 'Wafer number'],
+    ['wafer_id_pattern', t('wizard.pattern'), String.raw`-(\d+)$`],
+    ['product_id_cell', t('wizard.roleProductCell'), '5,2'],
+    ['product_id_label', t('wizard.productLabel'), 'Device Name'],
+    ['product_id_pattern', t('wizard.productPattern'), '^([^.]+)'],
+    ['product_id_filename_pattern', t('wizard.productFilenamePattern'), '型号([A-Za-z0-9]+)'],
+    ['lot_id_cell', t('wizard.roleLotCell'), '4,2'],
+    ['lot_id_label', t('wizard.lotLabel'), 'Lot number'],
+    ['lot_id_pattern', t('wizard.lotPattern'), String.raw`^(.+)-\d+$`],
+    ['lot_id_filename_pattern', t('wizard.lotFilenamePattern'), String.raw`批号([A-Za-z0-9.\-]+)`],
   ]
   return (
     <div className="flex flex-col gap-2 pt-1">
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] text-text-tertiary">{t('wizard.waferSource')}</span>
+        <span className="text-[12px] text-text-tertiary">{t('wizard.waferSource')}</span>
         <select value={(draft.wafer_id_source as string) ?? ''}
                 onChange={(e) => onChange({
                   wafer_id_source: (e.target.value || undefined) as VendorFormat['wafer_id_source'],
@@ -759,13 +1134,16 @@ function AdvancedFields({ draft, onChange, t }: {
           ))}
         </select>
       </label>
-      {text.map(([key, label]) => (
+      {text.map(([key, label, example]) => (
         <label key={key} className="flex flex-col gap-1">
-          <span className="text-[10px] text-text-tertiary">{label}</span>
-          <input value={(draft[key] as string) ?? ''}
+          <span className="text-[12px] text-text-tertiary">{label}</span>
+          <input value={(draft[key] as string) ?? ''} placeholder={example}
                  onChange={(e) => onChange({ [key]: e.target.value || null } as Draft)}
-                 className="border border-border-light px-2 py-1 text-[11px] font-mono
+                 className="border border-border-light px-2 py-1.5 text-[12.5px] font-mono
                             bg-bg-page focus:border-accent outline-none" />
+          <span className="text-[11px] text-text-muted">
+            {t('wizard.example')}: <code className="font-mono">{example}</code>
+          </span>
         </label>
       ))}
     </div>

@@ -32,12 +32,21 @@ XUZHOU_DIR = os.path.join(DATA_ROOT, "IQC", "extracted")
 
 
 def _fix(name: str) -> str:
-    """The sample archive was unzipped with the wrong codepage, so the CJK file
-    names on disk are GBK bytes decoded as Big5. Recover them for matching."""
+    """Recover a name that was unzipped with the wrong codepage.
+
+    The 無錫 archive arrived as GBK bytes decoded as Big5. Files that have
+    since been renamed are already correct, so the transform is only applied
+    when it actually turns the name into something recognisable — running it
+    on a good name would corrupt it.
+    """
+    markers = ("供应商", "型号", "批号", "供應商", "型號", "批號")
+    if any(m in name for m in markers):
+        return name
     try:
-        return name.encode("big5", "ignore").decode("gbk", "ignore")
+        recovered = name.encode("big5", "ignore").decode("gbk", "ignore")
     except Exception:
         return name
+    return recovered if any(m in recovered for m in markers) else name
 
 
 def _find(keyword: str):

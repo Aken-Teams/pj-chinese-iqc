@@ -27,7 +27,9 @@ class DynamicParser(BaseParser):
     """Parser driven by a VendorFormat configuration row."""
 
     def __init__(self, vendor_code: str, header_row: int, data_start_row: int,
-                 lower_limit_row: int, upper_limit_row: int,
+                 lower_limit_row: int | None = None,
+                 upper_limit_row: int | None = None,
+                 *,
                  electrical_start_col: int, wafer_id_col: int | None = None,
                  bin_col: int = 1,
                  x_coord_col: int | None = None, y_coord_col: int | None = None,
@@ -324,10 +326,15 @@ class DynamicParser(BaseParser):
         cp_specs = []
         for pname, col in zip(param_names, param_cols):
             unit = grid.cell(self.UNIT_ROW, col) if self.UNIT_ROW else None
+            # A format with no limit rows simply yields no limits.
+            lower = (to_float(grid.cell(self.LOWER_LIMIT_ROW, col))
+                     if self.LOWER_LIMIT_ROW else None)
+            upper = (to_float(grid.cell(self.UPPER_LIMIT_ROW, col))
+                     if self.UPPER_LIMIT_ROW else None)
             cp_specs.append(ParsedCpSpec(
                 param_name=pname,
-                lower_limit=to_float(grid.cell(self.LOWER_LIMIT_ROW, col)),
-                upper_limit=to_float(grid.cell(self.UPPER_LIMIT_ROW, col)),
+                lower_limit=lower,
+                upper_limit=upper,
                 unit=str(unit).strip() if unit is not None else None,
             ))
 

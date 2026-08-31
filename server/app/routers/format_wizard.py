@@ -353,6 +353,19 @@ def save_template(req: SaveTemplateRequest,
     layout = {k: v for k, v in req.template.model_dump().items() if k != "format_name"}
     name = req.template.format_name or "未命名模板"
 
+    # These four decide whether the template can parse anything at all. Checked
+    # here so an incomplete draft comes back as a message naming the gap rather
+    # than as a database constraint violation surfacing as a 500.
+    required = {
+        "header_row": "標題行", "data_start_row": "資料起始行",
+        "electrical_start_col": "電性起始欄", "bin_col": "BIN 欄",
+    }
+    absent = [label for key, label in required.items() if not layout.get(key)]
+    if absent:
+        raise HTTPException(400, "尚未設定：%s" % "、".join(absent))
+    if layout.get("wafer_id_source") == "column" and not layout.get("wafer_id_col"):
+        raise HTTPException(400, "片號來源為「欄位」時必須指定片號欄")
+
     if req.format_id:
         fmt = db.query(VendorFormat).filter(VendorFormat.id == req.format_id).first()
         if not fmt:
@@ -384,7 +397,11 @@ def save_template(req: SaveTemplateRequest,
             sheet_selector=req.template.sheet_selector,
             uploaded_by=user.id))
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as exc:  # noqa: BLE001 — surfaced as a message, not a 500
+        db.rollback()
+        raise HTTPException(400, "儲存失敗：%s" % str(exc)[:200])
     db.refresh(fmt)
     return {"id": fmt.id, "action": action, "changes": _diff(previous, after)}
 

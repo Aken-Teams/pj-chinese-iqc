@@ -227,6 +227,14 @@ def delete_format(vendor_id: int, fmt_id: int, db: Session = Depends(get_db)):
     ).first()
     if not fmt:
         raise HTTPException(404, "Format not found")
+
+    # Kept samples and revisions both reference the template, so they have to go
+    # first or the foreign keys reject the delete.
+    db.query(VendorFormatSample).filter(
+        VendorFormatSample.vendor_format_id == fmt_id).delete(synchronize_session=False)
+    db.query(VendorFormatRevision).filter(
+        VendorFormatRevision.vendor_format_id == fmt_id).delete(synchronize_session=False)
+
     db.delete(fmt)
     db.commit()
     return {"success": True}

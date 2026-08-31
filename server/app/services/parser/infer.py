@@ -70,11 +70,38 @@ def _escape(text: str) -> str:
     return re.escape(text)
 
 
+# Values that are not numbers but are still data, never labels: clock times,
+# dates, percentages. Anchoring on one of these produced a template whose
+# "label" was 01:31:04 PM — stable within one file, meaningless across files.
+_DATA_LOOKING = re.compile(
+    r"^\d{1,4}\s*[:/\-.]\s*\d{1,2}"      # 01:31:04, 10/07/2022, 2022-10-07
+    r"|^\d+(\.\d+)?\s*%$"                 # 80.11%
+    r"|^[\d\s:/.\-]+$"                    # anything that is only digits/separators
+)
+
+
+def _looks_like_label(text: str) -> bool:
+    """A label names a field; a value is what sits beside it.
+
+    Ending in a colon is the strongest signal. Failing that, a label has to
+    contain letters and stay short — which keeps timestamps, IDs and measured
+    values from being used as anchors.
+    """
+    s = text.strip()
+    if not s or _DATA_LOOKING.match(s):
+        return False
+    if s.endswith((":", "：")):
+        return True
+    return bool(re.search(r"[A-Za-z\u4e00-\u9fff]", s)) and len(s) <= 24
+
+
 def _find_label(grid: Grid, row: int, col: int) -> tuple[Optional[str], Optional[int]]:
-    """Nearest text cell to the left that reads like a label rather than data."""
+    """Nearest cell to the left that reads like a label rather than data."""
     for c in range(col - 1, max(0, col - _LABEL_SEARCH_COLS), -1):
         v = grid.cell(row, c)
-        if isinstance(v, str) and v.strip() and parse_measure(v).value is None:
+        if (isinstance(v, str) and v.strip()
+                and parse_measure(v).value is None
+                and _looks_like_label(v)):
             return v.strip(), c
     return None, None
 
