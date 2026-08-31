@@ -30,6 +30,7 @@ export interface Conflict {
 export interface DetectResponse {
   fileToken: string
   fileName: string
+  stats: DetectStats | null
   preview: GridPreview
   fields: Record<string, Candidate | null>
   warnings: string[]
@@ -118,4 +119,112 @@ export function downloadTemplate(name: string, template: Partial<VendorFormat>):
   a.download = `${name || 'vendor-format'}.json`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+/** What actually ran during detection, so a fast result isn't mistaken for a skipped one. */
+export interface DetectStats {
+  ruleFields: number
+  aiFields: number
+  aiCalls: number
+  verifyRan: boolean
+  elapsedMs: number
+  detectModel: string | null
+}
+
+/** One reading of a clicked cell. `preview` is the value it would produce — that
+ *  is what the user picks by, instead of choosing a source type or writing a regex. */
+export interface InferOption {
+  key: string
+  label: string
+  preview: string
+  fields: Record<string, unknown>
+  recommended: boolean
+  note: string
+}
+
+export interface InferResult {
+  cellValue: string
+  row: number
+  col: number
+  inDataRegion: boolean
+  labelText: string | null
+  options: InferOption[]
+}
+
+export type InferRole = 'wafer' | 'product' | 'lot'
+
+export async function inferFromCell(
+  fileToken: string,
+  row: number,
+  col: number,
+  role: InferRole,
+  opts: { sheet?: string; dataStartRow?: number | null } = {},
+): Promise<InferResult> {
+  return apiFetch('/format-wizard/infer', {
+    method: 'POST',
+    body: JSON.stringify({
+      file_token: fileToken, row, col, role,
+      sheet: opts.sheet ?? null, data_start_row: opts.dataStartRow ?? null,
+    }),
+  })
+}
+
+/** Options for reading the product/lot out of the file name — offered only when
+ *  the file's own contents carry nothing. */
+export async function inferFromFilename(
+  fileName: string, role: 'product' | 'lot',
+): Promise<InferOption[]> {
+  return apiFetch('/format-wizard/infer-filename', {
+    method: 'POST',
+    body: JSON.stringify({ file_name: fileName, role }),
+  })
+}
+
+export interface SavedSample {
+  id: number
+  fileName: string
+  fileToken: string
+  sheetSelector: string | null
+  uploadedBy: string | null
+  uploadedAt: string
+}
+
+export interface RevisionChange {
+  field: string
+  from: unknown
+  to: unknown
+}
+
+export interface Revision {
+  id: number
+  action: string
+  changedBy: string | null
+  changedAt: string
+  note: string | null
+  changes: RevisionChange[]
+}
+
+export async function saveTemplate(payload: {
+  vendor_id: number
+  template: Partial<VendorFormat>
+  file_token?: string | null
+  file_name?: string | null
+  format_id?: number | null
+  site?: string
+  note?: string | null
+}): Promise<{ id: number; action: string; changes: RevisionChange[] }> {
+  return apiFetch('/format-wizard/save', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** Sample files kept for a template — the way back into the preview without
+ *  hunting for the original file, which the 無錫 users cannot reliably do. */
+export async function getSamples(formatId: number): Promise<SavedSample[]> {
+  return apiFetch(`/format-wizard/samples/${formatId}`)
+}
+
+export async function getRevisions(formatId: number): Promise<Revision[]> {
+  return apiFetch(`/format-wizard/revisions/${formatId}`)
 }

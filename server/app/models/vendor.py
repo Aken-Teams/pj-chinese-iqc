@@ -87,6 +87,13 @@ class VendorFormat(Base):
     # Cpk and yield trends all break apart.
     product_id_pattern = Column(String(200), nullable=True)
     lot_id_pattern = Column(String(200), nullable=True)
+    # Last-resort extraction from the FILE NAME, tried only when the file's own
+    # contents yield nothing. Three 無錫 vendors (天狼芯, 禾纳, 新洁能) record a
+    # tester program name inside the file but never the model — that appears
+    # only in the file name. Because it is a fallback, vendors whose files do
+    # carry the model are under no naming obligation at all.
+    product_id_filename_pattern = Column(String(200), nullable=True)
+    lot_id_filename_pattern = Column(String(200), nullable=True)
 
     # Some formats split the header across two rows: one naming the electrical
     # parameters, another naming the id columns (东部高科: r10 ITEM NAME +
@@ -115,3 +122,42 @@ class VendorFormat(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     vendor = relationship("Vendor", back_populates="formats")
+
+
+class VendorFormatSample(Base):
+    """A sample CP file kept alongside the template it was built from.
+
+    Without this the wizard is write-only: after saving, the only way back into
+    the preview is to find and upload the same file again — and for the 無錫
+    files, whose names arrive mojibake, users cannot reliably find them.
+    """
+    __tablename__ = "vendor_format_samples"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    vendor_format_id = Column(Integer, ForeignKey("vendor_formats.id"),
+                              nullable=False, index=True)
+    # Name as uploaded, for display; and the sanitised name on disk.
+    file_name = Column(String(255), nullable=False)
+    stored_name = Column(String(255), nullable=False)
+    sheet_selector = Column(String(100))
+    uploaded_by = Column(Integer, ForeignKey("users.id"))
+    uploaded_at = Column(DateTime, server_default=func.now())
+
+
+class VendorFormatRevision(Base):
+    """One saved version of a template, for history and diffing.
+
+    A template is the thing that decides whether an upload parses at all, so a
+    wrong edit is expensive and needs to be traceable and reversible.
+    """
+    __tablename__ = "vendor_format_revisions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    vendor_format_id = Column(Integer, ForeignKey("vendor_formats.id"),
+                              nullable=False, index=True)
+    # Full field snapshot after the change; diffs are computed between rows.
+    snapshot = Column(JSON, nullable=False)
+    action = Column(String(20), nullable=False, default="update")  # create|update
+    changed_by = Column(Integer, ForeignKey("users.id"))
+    changed_at = Column(DateTime, server_default=func.now())
+    note = Column(String(200))

@@ -32,6 +32,7 @@ class GridPreview(BaseModel):
 class DetectResponse(BaseModel):
     fileToken: str            # pass back to dry-run; a bare name under uploads/
     fileName: str
+    stats: "DetectStats | None" = None
     preview: GridPreview
     fields: dict[str, CandidateOut | None]
     warnings: list[str] = []
@@ -95,3 +96,85 @@ class DryRunResponse(BaseModel):
     # Things that parsed but look wrong — an empty result, no limits at all,
     # an implausible wafer count. Surfaced so nobody saves a broken template.
     issues: list[str] = []
+
+
+class InferOptionOut(BaseModel):
+    """One reading of a clicked cell, with the value it would produce.
+
+    The preview is the point: people choose by recognising a real value, not by
+    understanding anchors and capture groups.
+    """
+    key: str
+    label: str
+    preview: str
+    fields: dict
+    recommended: bool = False
+    note: str = ""
+
+
+class InferRequest(BaseModel):
+    file_token: str
+    row: int
+    col: int
+    # wafer | product | lot
+    role: str = "wafer"
+    sheet: str | None = None
+    data_start_row: int | None = None
+
+
+class InferResponse(BaseModel):
+    cellValue: str
+    row: int
+    col: int
+    inDataRegion: bool
+    labelText: str | None = None
+    options: list[InferOptionOut] = []
+
+
+class FilenameInferRequest(BaseModel):
+    file_name: str
+    role: str = "product"
+
+
+class DetectStats(BaseModel):
+    """What actually ran, so a fast result does not look like a skipped one."""
+    ruleFields: int = 0
+    aiFields: int = 0
+    aiCalls: int = 0
+    verifyRan: bool = False
+    elapsedMs: int = 0
+    detectModel: str | None = None
+
+
+class SampleOut(BaseModel):
+    id: int
+    fileName: str
+    fileToken: str
+    sheetSelector: str | None = None
+    uploadedBy: str | None = None
+    uploadedAt: str
+
+
+class RevisionOut(BaseModel):
+    id: int
+    action: str
+    changedBy: str | None = None
+    changedAt: str
+    note: str | None = None
+    # Field-level differences against the previous revision.
+    changes: list[dict] = []
+
+
+class SaveTemplateRequest(BaseModel):
+    """Persist a wizard result: the template, its sample file, and a note."""
+    vendor_id: int
+    template: TemplateDraft
+    file_token: str | None = None
+    file_name: str | None = None
+    format_id: int | None = None      # update when given, else create
+    site: str = ""
+    note: str | None = None
+
+
+# DetectStats is declared below DetectResponse; resolve the forward ref.
+DetectResponse.model_rebuild()

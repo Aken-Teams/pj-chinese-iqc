@@ -43,6 +43,8 @@ class DynamicParser(BaseParser):
                  lot_id_label: str | None = None,
                  product_id_pattern: str | None = None,
                  lot_id_pattern: str | None = None,
+                 product_id_filename_pattern: str | None = None,
+                 lot_id_filename_pattern: str | None = None,
                  id_header_row: int | None = None,
                  unit_row: int | None = None,
                  sheet_selector: str | None = None,
@@ -74,6 +76,8 @@ class DynamicParser(BaseParser):
         self.LOT_ID_LABEL = lot_id_label or None
         self.PRODUCT_ID_PATTERN = product_id_pattern or None
         self.LOT_ID_PATTERN = lot_id_pattern or None
+        self.PRODUCT_ID_FILENAME_PATTERN = product_id_filename_pattern or None
+        self.LOT_ID_FILENAME_PATTERN = lot_id_filename_pattern or None
         self.ID_HEADER_ROW = id_header_row
         self.UNIT_ROW = unit_row
         self.SHEET_SELECTOR = sheet_selector or None
@@ -113,6 +117,8 @@ class DynamicParser(BaseParser):
             lot_id_label=g("lot_id_label"),
             product_id_pattern=g("product_id_pattern"),
             lot_id_pattern=g("lot_id_pattern"),
+            product_id_filename_pattern=g("product_id_filename_pattern"),
+            lot_id_filename_pattern=g("lot_id_filename_pattern"),
             id_header_row=g("id_header_row"),
             unit_row=g("unit_row"),
             sheet_selector=g("sheet_selector"),
@@ -157,17 +163,23 @@ class DynamicParser(BaseParser):
         return [str(grid.cell(self.HEADER_ROW, c)).strip() for c in cols]
 
     @staticmethod
-    def _refine(value, pattern: str | None) -> str:
-        """Apply an optional regex to an extracted string; group 1 wins."""
+    def _refine(value, pattern: str | None, strict: bool = False) -> str:
+        """Apply an optional regex to an extracted string; group 1 wins.
+
+        `strict` returns "" when the pattern does not match, instead of the raw
+        text. Cell contents are meaningful on their own, so a failed pattern
+        there falls back to the value; a FILE NAME is not — without a match,
+        "nothing.csv" would become the product code for every such file.
+        """
         s = "" if value is None else str(value).strip()
         if not s or not pattern:
             return s
         try:
             m = re.search(pattern, s)
         except re.error:
-            return s
+            return "" if strict else s
         if not m:
-            return s
+            return "" if strict else s
         return (m.group(1) if m.groups() else m.group(0)).strip()
 
     def _apply_pattern(self, value) -> str:
@@ -206,14 +218,33 @@ class DynamicParser(BaseParser):
         return self._apply_pattern(raw)
 
     def _meta_value(self, grid: Grid, cell_ref, label, col,
-                    pattern: str | None = None) -> str | None:
+                    pattern: str | None = None,
+                    filename_pattern: str | None = None,
+                    filepath: str | None = None) -> str | None:
         """Resolve one metadata field, most specific source first:
-        fixed cell -> label anchor -> first data row of a column.
+        fixed cell -> label anchor -> data column -> the FILE NAME.
 
         `pattern` trims the raw text — 世界先进's LOT ID cell reads
         "H2XR46.1-01", and keeping the wafer suffix would split one lot into
         five single-wafer lots.
+
+        The file name is a genuine last resort, reached only when the contents
+        gave nothing. That ordering is what keeps a naming convention off the
+        vendors whose files already state their model.
         """
+        # An explicitly configured file-name pattern is a deliberate choice, so
+        # it is tried first: 天狼芯 / 禾纳 / 新洁能 do carry *something* in the
+        # sheet — a tester program name — but never the model, which lives only
+        # in the file name. Content still runs as the fallback, so a file that
+        # arrives without the expected name degrades to the program name rather
+        # than to nothing. Templates with no file-name pattern (most of them)
+        # never look at the name at all.
+        if filename_pattern and filepath:
+            stem = os.path.splitext(os.path.basename(filepath))[0]
+            from_name = self._refine(stem, filename_pattern, strict=True)
+            if from_name:
+                return from_name
+
         raw = None
         if cell_ref:
             raw = grid.cell(*cell_ref)
@@ -221,9 +252,7 @@ class DynamicParser(BaseParser):
             raw = grid.label_value(label)
         if raw is None and col:
             raw = grid.cell(self.DATA_START_ROW, col)
-        if raw is None:
-            return None
-        return self._refine(raw, pattern) or None
+        return (self._refine(raw, pattern) if raw is not None else "") or None
 
     def _row_is_blank(self, grid: Grid, row: int, param_cols: list[int]) -> bool:
         """A row counts as blank when it carries no id and no measurement."""
@@ -262,12 +291,13 @@ class DynamicParser(BaseParser):
             elif file_wafer:
                 wafer_ids.add(file_wafer)
 
-        product_id = self._meta_value(grid, self.PRODUCT_ID_CELL,
-                                      self.PRODUCT_ID_LABEL, self.PRODUCT_ID_COL,
-                                      self.PRODUCT_ID_PATTERN)
-        lot_id = self._meta_value(grid, self.LOT_ID_CELL,
-                                  self.LOT_ID_LABEL, self.LOT_ID_COL,
-                                  self.LOT_ID_PATTERN)
+        product_id = self._meta_value(
+            grid, self.PRODUCT_ID_CELL, self.PRODUCT_ID_LABEL,
+            self.PRODUCT_ID_COL, self.PRODUCT_ID_PATTERN,
+            self.PRODUCT_ID_FILENAME_PATTERN, filepath)
+        lot_id = self._meta_value(
+            grid, self.LOT_ID_CELL, self.LOT_ID_LABEL, self.LOT_ID_COL,
+            self.LOT_ID_PATTERN, self.LOT_ID_FILENAME_PATTERN, filepath)
 
         return {
             "wafersDetected": len(wafer_ids),
@@ -301,12 +331,13 @@ class DynamicParser(BaseParser):
                 unit=str(unit).strip() if unit is not None else None,
             ))
 
-        product_id = self._meta_value(grid, self.PRODUCT_ID_CELL,
-                                      self.PRODUCT_ID_LABEL, self.PRODUCT_ID_COL,
-                                      self.PRODUCT_ID_PATTERN)
-        lot_id = self._meta_value(grid, self.LOT_ID_CELL,
-                                  self.LOT_ID_LABEL, self.LOT_ID_COL,
-                                  self.LOT_ID_PATTERN)
+        product_id = self._meta_value(
+            grid, self.PRODUCT_ID_CELL, self.PRODUCT_ID_LABEL,
+            self.PRODUCT_ID_COL, self.PRODUCT_ID_PATTERN,
+            self.PRODUCT_ID_FILENAME_PATTERN, filepath)
+        lot_id = self._meta_value(
+            grid, self.LOT_ID_CELL, self.LOT_ID_LABEL, self.LOT_ID_COL,
+            self.LOT_ID_PATTERN, self.LOT_ID_FILENAME_PATTERN, filepath)
 
         file_wafer = (self._file_wafer_id(grid, filepath)
                       if self.WAFER_ID_SOURCE != "column" else None)

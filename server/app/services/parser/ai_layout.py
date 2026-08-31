@@ -136,11 +136,17 @@ def _as_row(value: Any) -> Optional[int]:
     return n if n >= 1 else None
 
 
+# Incremented by every gateway call so a caller can report how much AI ran.
+# A clean file needs none, which looked like the AI had been skipped.
+CALL_COUNTER = {"n": 0}
+
+
 def _ask(model: str, system: str, user: str, *, feature: str,
          user_id: int | None = None) -> Optional[dict]:
     client = _client()
     if client is None:
         return None
+    CALL_COUNTER["n"] += 1
     try:
         response = client.chat.completions.create(
             model=model, temperature=0,
@@ -270,6 +276,7 @@ def detect_layout_full(grid: Grid, use_ai: bool = True,
 
     Returns (detection, disagreements).
     """
+    CALL_COUNTER["n"] = 0
     detection = detect_layout(grid)
     if not use_ai or not detection.fields.get("data_start_row"):
         return detection, []

@@ -12,21 +12,37 @@ by saving it and doing a real upload, so a wrong number was discovered as a
 failed import rather than as a red field in a form.
 """
 import os
+import time
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_db
 from app.models.user import User
+from app.models.vendor import (
+    VendorFormat, VendorFormatRevision, VendorFormatSample,
+)
 from app.schemas.format_wizard import (
     CandidateOut,
     DetectResponse,
+    DetectStats,
     DryRunRequest,
     DryRunResponse,
+    FilenameInferRequest,
     GridPreview,
+    InferRequest,
+    InferResponse,
+    RevisionOut,
+    SampleOut,
+    SaveTemplateRequest,
     SpecPreview,
 )
+from app.services.parser import ai_layout
 from app.services.parser.ai_layout import detect_layout_full
+from app.services.parser.infer import (
+    infer_from_filename, infer_metadata, infer_wafer_id,
+)
 from app.services.parser.dynamic_parser import DynamicParser
 from app.services.parser.grid import SUPPORTED_EXTENSIONS, is_supported, open_grid
 
@@ -132,10 +148,24 @@ async def detect(
     if grid.n_rows == 0:
         raise HTTPException(400, "檔案沒有可讀取的內容")
 
+    started = time.perf_counter()
     detection, conflicts = detect_layout_full(
         grid, use_ai=use_ai, verify=verify, user_id=user.id)
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+
+    populated = [c for c in detection.fields.values() if c]
+    stats = DetectStats(
+        ruleFields=sum(1 for c in populated if c.source == "rule"),
+        aiFields=sum(1 for c in populated if c.source == "ai"),
+        aiCalls=ai_layout.CALL_COUNTER["n"],
+        verifyRan=bool(verify),
+        elapsedMs=elapsed_ms,
+        detectModel=(settings.LLM_DETECT_MODEL.split("/")[-1]
+                     if use_ai and ai_layout.is_configured() else None),
+    )
 
     return DetectResponse(
+        stats=stats,
         fileToken=token,
         fileName=file.filename or token,
         preview=_preview(grid),
@@ -246,3 +276,161 @@ def dry_run(req: DryRunRequest, user: User = Depends(get_current_user)):
         sampleRows=sample,
         issues=issues,
     )
+
+
+# --- click-to-configure -------------------------------------------------
+@router.post("/infer", response_model=InferResponse)
+def infer(req: InferRequest, user: User = Depends(get_current_user)):
+    """Interpret a click in the preview grid.
+
+    Returns concrete readings of the clicked cell, each with the value it would
+    produce, so nobody has to pick a "wafer id source" or write a regex — they
+    recognise the right value and click it.
+    """
+    grid = open_grid(_resolve(req.file_token), sheet_selector=req.sheet or None)
+    if req.role == "wafer":
+        result = infer_wafer_id(grid, req.row, req.col, req.data_start_row)
+    elif req.role in ("product", "lot"):
+        result = infer_metadata(grid, req.row, req.col, req.role, req.data_start_row)
+    else:
+        raise HTTPException(400, "未知的欄位角色：%s" % req.role)
+    return InferResponse(**result.as_dict())
+
+
+@router.post("/infer-filename", response_model=list)
+def infer_filename(req: FilenameInferRequest,
+                   user: User = Depends(get_current_user)):
+    """Options for reading the product / lot out of the file name.
+
+    Offered only when the file's own contents gave nothing, which is what keeps
+    a naming convention off the vendors whose files already state their model.
+    """
+    return [
+        {"key": o.key, "label": o.label, "preview": o.preview,
+         "fields": o.fields, "recommended": o.recommended, "note": o.note}
+        for o in infer_from_filename(req.file_name, req.role)
+    ]
+
+
+# --- save, samples, history --------------------------------------------
+# Everything on VendorFormat that describes the layout. Identity and timestamps
+# are excluded so a revision diff shows only meaningful edits.
+_SNAPSHOT_SKIP = {"id", "vendor_id", "created_at", "updated_at"}
+
+
+def _snapshot(fmt: VendorFormat) -> dict:
+    return {c.name: _jsonable(getattr(fmt, c.name))
+            for c in VendorFormat.__table__.columns
+            if c.name not in _SNAPSHOT_SKIP}
+
+
+def _jsonable(value):
+    if value is None or isinstance(value, (str, int, float, bool, list, dict)):
+        return value
+    return str(value)
+
+
+def _diff(before: dict | None, after: dict) -> list[dict]:
+    before = before or {}
+    out = []
+    for key in sorted(set(before) | set(after)):
+        old, new = before.get(key), after.get(key)
+        if old != new:
+            out.append({"field": key, "from": old, "to": new})
+    return out
+
+
+@router.post("/save")
+def save_template(req: SaveTemplateRequest,
+                  db: Session = Depends(get_db),
+                  user: User = Depends(get_current_user)):
+    """Persist a wizard result, keeping the sample file and a revision entry.
+
+    Saving through the wizard (rather than the plain form) is what links a
+    template to the file it was built from, so the preview can be reopened
+    later without hunting for that file again.
+    """
+    layout = {k: v for k, v in req.template.model_dump().items() if k != "format_name"}
+    name = req.template.format_name or "未命名模板"
+
+    if req.format_id:
+        fmt = db.query(VendorFormat).filter(VendorFormat.id == req.format_id).first()
+        if not fmt:
+            raise HTTPException(404, "找不到模板")
+        action = "update"
+    else:
+        fmt = VendorFormat(vendor_id=req.vendor_id,
+                           domain=(req.site or None) or user.domain)
+        db.add(fmt)
+        action = "create"
+
+    previous = _snapshot(fmt) if action == "update" else None
+    fmt.format_name = name
+    for key, value in layout.items():
+        if hasattr(fmt, key):
+            setattr(fmt, key, value)
+    db.flush()
+
+    after = _snapshot(fmt)
+    db.add(VendorFormatRevision(
+        vendor_format_id=fmt.id, snapshot=after, action=action,
+        changed_by=user.id, note=(req.note or None)))
+
+    if req.file_token:
+        db.add(VendorFormatSample(
+            vendor_format_id=fmt.id,
+            file_name=req.file_name or req.file_token,
+            stored_name=_safe_token(req.file_token),
+            sheet_selector=req.template.sheet_selector,
+            uploaded_by=user.id))
+
+    db.commit()
+    db.refresh(fmt)
+    return {"id": fmt.id, "action": action, "changes": _diff(previous, after)}
+
+
+@router.get("/samples/{format_id}", response_model=list[SampleOut])
+def list_samples(format_id: int, db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
+    """Sample files kept for a template — the way back into the preview."""
+    rows = (db.query(VendorFormatSample, User.name)
+            .outerjoin(User, VendorFormatSample.uploaded_by == User.id)
+            .filter(VendorFormatSample.vendor_format_id == format_id)
+            .order_by(VendorFormatSample.uploaded_at.desc())
+            .limit(20).all())
+    out = []
+    for sample, uploader in rows:
+        # A sample whose file has been cleaned off disk is not offered back.
+        if not os.path.exists(os.path.join(settings.UPLOAD_DIR, sample.stored_name)):
+            continue
+        out.append(SampleOut(
+            id=sample.id, fileName=sample.file_name,
+            fileToken=sample.stored_name, sheetSelector=sample.sheet_selector,
+            uploadedBy=uploader,
+            uploadedAt=(sample.uploaded_at.strftime("%Y-%m-%d %H:%M")
+                        if sample.uploaded_at else "")))
+    return out
+
+
+@router.get("/revisions/{format_id}", response_model=list[RevisionOut])
+def list_revisions(format_id: int, db: Session = Depends(get_db),
+                   user: User = Depends(get_current_user)):
+    """Version history, each entry carrying its diff against the one before."""
+    rows = (db.query(VendorFormatRevision, User.name)
+            .outerjoin(User, VendorFormatRevision.changed_by == User.id)
+            .filter(VendorFormatRevision.vendor_format_id == format_id)
+            .order_by(VendorFormatRevision.changed_at.asc(),
+                      VendorFormatRevision.id.asc())
+            .all())
+    out: list[RevisionOut] = []
+    previous: dict | None = None
+    for revision, author in rows:
+        snapshot = revision.snapshot or {}
+        out.append(RevisionOut(
+            id=revision.id, action=revision.action, changedBy=author,
+            changedAt=(revision.changed_at.strftime("%Y-%m-%d %H:%M")
+                       if revision.changed_at else ""),
+            note=revision.note, changes=_diff(previous, snapshot)))
+        previous = snapshot
+    out.reverse()   # newest first for display
+    return out

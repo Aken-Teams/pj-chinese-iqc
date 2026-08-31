@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.dependencies import get_db, get_current_user, can_see_all_domains, scope_products_by_domain, scope_formats_by_domain
 from app.models.user import User
-from app.models.vendor import Vendor, VendorFormat, VendorDomain
+from app.models.vendor import (
+    Vendor, VendorFormat, VendorDomain,
+    VendorFormatSample, VendorFormatRevision,
+)
 from app.models.product import Product
 from app.models.lot import Lot
 from app.models.wafer import Wafer
@@ -66,6 +69,77 @@ def create_vendor(req: VendorCreate, db: Session = Depends(get_db),
     db.commit()
     db.refresh(vendor)
     return VendorResponse(id=vendor.id, name=vendor.name, code=vendor.code, domains=domains)
+
+
+@router.delete("/{vendor_id}")
+def delete_vendor(vendor_id: int, db: Session = Depends(get_db),
+                  user: User = Depends(get_current_user)):
+    """Delete a vendor, its site links and its format templates.
+
+    Refused while any lot exists for the vendor: CP data is the record of what
+    was actually shipped and reviewed, and removing the vendor would orphan it.
+    The counts come back with the refusal so the caller can say what is in the
+    way rather than just failing.
+
+    A site user may only delete a vendor their own site can see, and never one
+    shared with another site — deleting it there would remove it for everyone.
+    """
+    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(404, "找不到廠商")
+
+    domains = [d.domain for d in
+               db.query(VendorDomain).filter(VendorDomain.vendor_id == vendor_id).all()]
+    if not can_see_all_domains(user):
+        if domains and user.domain not in domains:
+            raise HTTPException(404, "找不到廠商")
+        others = [d for d in domains if d != user.domain]
+        if others:
+            raise HTTPException(
+                400, "此廠商同時屬於其他廠區（%s），請由管理員處理" % "、".join(others))
+
+    products = db.query(Product).filter(Product.vendor_id == vendor_id).all()
+    product_ids = [p.id for p in products]
+    lot_count = (db.query(Lot).filter(Lot.product_id.in_(product_ids)).count()
+                 if product_ids else 0)
+    if lot_count:
+        raise HTTPException(
+            400,
+            "無法刪除：此廠商仍有 %d 筆批次資料（%d 個產品）。"
+            "請先在「歷史查詢」刪除相關批次。" % (lot_count, len(products)))
+
+    format_ids = [f.id for f in
+                  db.query(VendorFormat).filter(VendorFormat.vendor_id == vendor_id).all()]
+    if format_ids:
+        # Samples and revisions reference the templates, so they go first.
+        db.query(VendorFormatSample).filter(
+            VendorFormatSample.vendor_format_id.in_(format_ids)
+        ).delete(synchronize_session=False)
+        db.query(VendorFormatRevision).filter(
+            VendorFormatRevision.vendor_format_id.in_(format_ids)
+        ).delete(synchronize_session=False)
+        db.query(VendorFormat).filter(
+            VendorFormat.vendor_id == vendor_id
+        ).delete(synchronize_session=False)
+
+    # Products with no lots carry only rules/specs, which go with the vendor.
+    removed_products = 0
+    if product_ids:
+        from app.models.review import ReviewRule
+        from app.models.spec import PackagingSpec
+        db.query(ReviewRule).filter(
+            ReviewRule.product_id.in_(product_ids)).delete(synchronize_session=False)
+        db.query(PackagingSpec).filter(
+            PackagingSpec.product_id.in_(product_ids)).delete(synchronize_session=False)
+        removed_products = db.query(Product).filter(
+            Product.vendor_id == vendor_id).delete(synchronize_session=False)
+
+    db.query(VendorDomain).filter(
+        VendorDomain.vendor_id == vendor_id).delete(synchronize_session=False)
+    db.delete(vendor)
+    db.commit()
+    return {"success": True, "deletedFormats": len(format_ids),
+            "deletedProducts": removed_products}
 
 
 @router.get("/products", response_model=list[ProductResponse])

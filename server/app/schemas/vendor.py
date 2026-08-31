@@ -44,8 +44,11 @@ class _LayoutExtras(BaseModel):
     lot_id_label: str | None = None
     product_id_pattern: str | None = None
     lot_id_pattern: str | None = None
+    product_id_filename_pattern: str | None = None
+    lot_id_filename_pattern: str | None = None
 
-    @field_validator("wafer_id_pattern", "product_id_pattern", "lot_id_pattern")
+    @field_validator("wafer_id_pattern", "product_id_pattern", "lot_id_pattern",
+                     "product_id_filename_pattern", "lot_id_filename_pattern")
     @classmethod
     def _pattern_must_compile(cls, v: str | None) -> str | None:
         """Reject a bad regex here rather than at parse time, where it would

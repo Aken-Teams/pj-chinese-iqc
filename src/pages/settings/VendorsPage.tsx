@@ -9,6 +9,7 @@ import {
   createVendorFormat,
   updateVendorFormat,
   deleteVendorFormat,
+  deleteVendor,
   type Vendor,
   type VendorFormat,
 } from '@/services/vendors'
@@ -201,6 +202,7 @@ function FormatRow({
   const [saving, setSaving] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const tv = (k: string) => t(`vendors.${k}`)
 
@@ -223,6 +225,34 @@ function FormatRow({
     { key: 'product_id_cell', labelKey: 'productIdCell', helpKey: 'helpProductIdCell' },
     { key: 'lot_id_cell', labelKey: 'lotIdCell', helpKey: 'helpLotIdCell' },
   ]
+
+  // Descriptors added after the 2026-08 vendor survey. They were only editable
+  // in the wizard, so a template using them (禾纳's label-anchored wafer id, for
+  // instance) read as unconfigured here — WAFER ID 列 blank with no hint why.
+  const advancedNumFields: { key: keyof FormatDraft; labelKey: string }[] = [
+    { key: 'id_header_row', labelKey: 'wizard.roleIdHeaderRow' },
+    { key: 'unit_row', labelKey: 'wizard.roleUnitRow' },
+  ]
+  const advancedTextFields: { key: keyof FormatDraft; labelKey: string }[] = [
+    { key: 'wafer_id_cell', labelKey: 'wizard.cellAddress' },
+    { key: 'wafer_id_label', labelKey: 'wizard.labelText' },
+    { key: 'wafer_id_pattern', labelKey: 'wizard.pattern' },
+    { key: 'product_id_label', labelKey: 'wizard.productLabel' },
+    { key: 'product_id_pattern', labelKey: 'wizard.productPattern' },
+    { key: 'product_id_filename_pattern', labelKey: 'wizard.productFilenamePattern' },
+    { key: 'lot_id_label', labelKey: 'wizard.lotLabel' },
+    { key: 'lot_id_pattern', labelKey: 'wizard.lotPattern' },
+    { key: 'lot_id_filename_pattern', labelKey: 'wizard.lotFilenamePattern' },
+    { key: 'sheet_selector', labelKey: 'wizard.sheetSelector' },
+    { key: 'text_delimiter', labelKey: 'wizard.textDelimiter' },
+  ]
+
+  // Badge on the collapsed section, so a template configured through the wizard
+  // advertises that it holds settings this form is not showing.
+  const advancedCount = [
+    ...advancedNumFields.map((f) => f.key),
+    ...advancedTextFields.map((f) => f.key),
+  ].filter((k) => draft[k] !== null && draft[k] !== undefined && draft[k] !== '').length
 
   async function save() {
     setSaving(true)
@@ -306,7 +336,10 @@ function FormatRow({
 
       {wizardOpen && (
         <FormatWizard
+          vendorId={vendorId}
           vendorCode={vendorCode}
+          formatId={fmt?.id ?? null}
+          site={siteFilter}
           onClose={() => setWizardOpen(false)}
           onApply={(tpl) => {
             // The wizard only fills in what it resolved; anything it could not
@@ -314,6 +347,7 @@ function FormatRow({
             setDraft((d) => ({ ...d, ...tpl }) as FormatDraft)
             setWizardOpen(false)
           }}
+          onSaved={() => { setWizardOpen(false); onSaved(draft as VendorFormat) }}
         />
       )}
 
@@ -367,6 +401,91 @@ function FormatRow({
         ))}
       </div>
 
+      {/* Descriptors the wizard writes. Hidden behind a toggle because the
+          click-driven wizard is the intended path, but shown here so a template
+          never looks unconfigured just because this form did not render it. */}
+      <div className="border-t border-border-light pt-3">
+        <button
+          onClick={() => setShowAdvanced((v) => !v)}
+          className="flex items-center gap-1.5 text-xs font-semibold text-text-muted
+                     uppercase tracking-[1px] hover:text-accent cursor-pointer"
+        >
+          {showAdvanced ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+          {t('wizard.advanced')}
+          {advancedCount > 0 && (
+            <span className="ml-1 px-1.5 bg-accent/15 text-accent text-[10px]">
+              {advancedCount}
+            </span>
+          )}
+        </button>
+
+        {showAdvanced && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5 mt-3">
+            <div className="flex gap-2 items-center">
+              <label className="text-xs font-semibold text-text-muted uppercase
+                                tracking-[1px] w-36 shrink-0">
+                {t('wizard.waferSource')}
+              </label>
+              <select
+                className="bg-bg-card border border-border-light px-2 py-1.5 text-sm
+                           text-text-primary outline-none focus:border-accent"
+                value={draft.wafer_id_source ?? ''}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    wafer_id_source: (e.target.value || undefined) as
+                      VendorFormat['wafer_id_source'],
+                  }))
+                }
+              >
+                <option value="">{t('wizard.unset')}</option>
+                {(['column', 'cell', 'label', 'filename', 'single'] as const).map((s) => (
+                  <option key={s} value={s}>{t(`wizard.src_${s}`)}</option>
+                ))}
+              </select>
+            </div>
+            {advancedNumFields.map(({ key, labelKey }) => (
+              <div key={key} className="flex gap-2 items-center">
+                <label className="text-xs font-semibold text-text-muted uppercase
+                                  tracking-[1px] w-36 shrink-0">{t(labelKey)}</label>
+                <input
+                  type="number"
+                  className="w-24 bg-bg-card border border-border-light px-2 py-1.5 text-sm
+                             text-text-primary outline-none focus:border-accent"
+                  value={(draft[key] as number | null | undefined) ?? ''}
+                  onChange={(e) =>
+                    setDraft((d) => ({
+                      ...d,
+                      [key]: e.target.value === '' ? null : Number(e.target.value),
+                    }))
+                  }
+                  placeholder="—"
+                />
+              </div>
+            ))}
+            {advancedTextFields.map(({ key, labelKey }) => (
+              <div key={key} className="flex gap-2 items-center">
+                <label className="text-xs font-semibold text-text-muted uppercase
+                                  tracking-[1px] w-36 shrink-0">{t(labelKey)}</label>
+                <input
+                  type="text"
+                  className="flex-1 min-w-0 bg-bg-card border border-border-light px-2 py-1.5
+                             text-sm font-mono text-text-primary outline-none focus:border-accent"
+                  value={(draft[key] as string) ?? ''}
+                  onChange={(e) =>
+                    setDraft((d) => ({
+                      ...d,
+                      [key]: e.target.value === '' ? null : e.target.value,
+                    }))
+                  }
+                  placeholder="—"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Action buttons */}
       <div className="flex gap-2 justify-end">
         <button onClick={cancel} className="flex items-center gap-1.5 px-4 py-1.5 text-sm border border-border-light text-text-secondary hover:text-text-primary cursor-pointer">
@@ -380,12 +499,33 @@ function FormatRow({
   )
 }
 
-function VendorCard({ vendor, siteFilter }: { vendor: Vendor; siteFilter: string }) {
+function VendorCard({ vendor, siteFilter, onDeleted }: {
+  vendor: Vendor; siteFilter: string; onDeleted: () => void
+}) {
   const { t } = useTranslation('settings')
   const [expanded, setExpanded] = useState(false)
   const [formats, setFormats] = useState<VendorFormat[]>([])
   const [loaded, setLoaded] = useState(false)
   const [addingNew, setAddingNew] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function remove() {
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteVendor(vendor.id)
+      onDeleted()
+    } catch (e) {
+      // The server refuses while lots exist and says how many; show that
+      // rather than a generic failure.
+      setDeleteError(e instanceof Error ? e.message : String(e))
+      setConfirmDelete(false)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   async function loadFormats() {
     if (loaded) return
@@ -401,9 +541,10 @@ function VendorCard({ vendor, siteFilter }: { vendor: Vendor; siteFilter: string
 
   return (
     <div className="bg-bg-card border border-border-light">
+      <div className="w-full flex items-center gap-3 pr-4 hover:bg-bg-page transition-colors">
       <button
         onClick={toggle}
-        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-bg-page transition-colors cursor-pointer"
+        className="flex-1 min-w-0 flex items-center gap-3 px-5 py-4 cursor-pointer text-left"
       >
         {expanded ? <ChevronDown size={17} className="text-text-muted" /> : <ChevronRight size={17} className="text-text-muted" />}
         <span className="font-heading text-sm font-bold uppercase tracking-[1px] text-accent">{vendor.code}</span>
@@ -418,6 +559,33 @@ function VendorCard({ vendor, siteFilter }: { vendor: Vendor; siteFilter: string
           </span>
         )}
       </button>
+
+      {confirmDelete ? (
+        <span className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-error">{t('vendors.confirmDelete')}</span>
+          <button onClick={() => void remove()} disabled={deleting}
+                  className="px-2 py-1 text-xs bg-error text-white cursor-pointer disabled:opacity-50">
+            {t('vendors.confirmYes')}
+          </button>
+          <button onClick={() => setConfirmDelete(false)}
+                  className="px-2 py-1 text-xs border border-border-light cursor-pointer">
+            {t('vendors.confirmNo')}
+          </button>
+        </span>
+      ) : (
+        <button onClick={() => { setConfirmDelete(true); setDeleteError(null) }}
+                title={t('vendors.deleteVendor')}
+                className="p-1.5 text-text-muted hover:text-error cursor-pointer shrink-0">
+          <Trash2 size={15} />
+        </button>
+      )}
+      </div>
+
+      {deleteError && (
+        <div className="px-5 py-2 border-t border-error/30 bg-error/5 text-xs text-error">
+          {deleteError}
+        </div>
+      )}
 
       {expanded && (
         <div className="flex flex-col">
@@ -565,7 +733,12 @@ export default function VendorsPage() {
 
       <div className="flex flex-col gap-2">
         {vendors.map((v) => (
-          <VendorCard key={v.id} vendor={v} siteFilter={filterSite} />
+          <VendorCard
+            key={v.id}
+            vendor={v}
+            siteFilter={filterSite}
+            onDeleted={() => setVendors((prev) => prev.filter((x) => x.id !== v.id))}
+          />
         ))}
       </div>
     </div>

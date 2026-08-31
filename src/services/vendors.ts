@@ -41,6 +41,15 @@ export interface VendorFormat {
   wafer_id_pattern?: string | null
   product_id_label?: string | null
   lot_id_label?: string | null
+  /** Refine the extracted value, same convention as wafer_id_pattern.
+   *  世界先进 writes its lot as "H2XR46.1-01"; without stripping the suffix
+   *  every wafer becomes its own single-wafer lot. */
+  product_id_pattern?: string | null
+  lot_id_pattern?: string | null
+  /** Last resort: read from the FILE NAME, tried only when the file's own
+   *  contents yield nothing — so only those files need a naming convention. */
+  product_id_filename_pattern?: string | null
+  lot_id_filename_pattern?: string | null
   /** Second header row naming the id columns, when split from the param row. */
   id_header_row?: number | null
   unit_row?: number | null
@@ -79,6 +88,17 @@ export async function getVendors(site?: string): Promise<Vendor[]> {
 
 export async function createVendor(data: { code: string; name: string }): Promise<Vendor> {
   return apiFetch('/vendors', { method: 'POST', body: JSON.stringify(data) })
+}
+
+/**
+ * Remove a vendor together with its site links and format templates.
+ * Refused by the server while any lot exists for it — CP data is the record of
+ * what shipped, so the vendor cannot be removed out from under it.
+ */
+export async function deleteVendor(vendorId: number): Promise<{
+  success: boolean; deletedFormats: number; deletedProducts: number
+}> {
+  return apiFetch(`/vendors/${vendorId}`, { method: 'DELETE' })
 }
 
 export async function getVendorFormats(vendorId: number, site?: string): Promise<VendorFormat[]> {

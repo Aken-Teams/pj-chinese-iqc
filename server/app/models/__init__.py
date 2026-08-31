@@ -1,5 +1,8 @@
 from app.models.user import User
-from app.models.vendor import Vendor, VendorFormat
+from app.models.vendor import (
+    Vendor, VendorFormat, VendorDomain,
+    VendorFormatSample, VendorFormatRevision,
+)
 from app.models.product import Product
 from app.models.lot import Lot
 from app.models.wafer import Wafer
@@ -12,7 +15,8 @@ from app.models.vendor_score import VendorScore
 
 __all__ = [
     "User",
-    "Vendor", "VendorFormat",
+    "Vendor", "VendorFormat", "VendorDomain",
+    "VendorFormatSample", "VendorFormatRevision",
     "Product",
     "Lot",
     "Wafer",
