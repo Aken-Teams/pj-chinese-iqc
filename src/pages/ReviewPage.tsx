@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ChevronRight, Loader2, FileText, AlertTriangle, Layers, X, Check } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
+import InfoHint from '@/components/ui/InfoHint'
 import { getLotResults, getReviewMatrix, executeReview, executeBatchReview, type LotReviewSummary, type ReviewMatrix } from '@/services/review'
 import { getHistory, type HistoryRow, type LotFilter } from '@/services/history'
 
@@ -231,6 +232,12 @@ export default function ReviewPage() {
   return (
     <div className="p-12">
       <PageHeader
+        titleAfter={
+          <InfoHint
+            title={t('specSource.title')}
+            lines={t('specSource.lines', { returnObjects: true }) as string[]}
+          />
+        }
         title={t('title')}
         actions={
           <>

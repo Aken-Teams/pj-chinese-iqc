@@ -74,5 +74,14 @@
     "nextWaferShort": "Next Wafer",
     "noData": "No data available."
   },
-  "lotLabel": "Lot"
+  "lotLabel": "Lot",
+  "specSource": {
+    "title": "Which spec does this page read?",
+    "lines": [
+      "Yields come from each die's measurement checked against the Q1 / Q2 / Q3 limits in Review Rules.",
+      "Where Q1 has no rule, the CP file's own limits are used instead.",
+      "— Edit under Settings → Review Rules",
+      "— Packaging specs from Spec Management are not used here"
+    ]
+  }
 }

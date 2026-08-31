@@ -7,8 +7,8 @@
   "pkgSpec": "Package Test Spec (Target)",
   "lot": "Lot",
   "reviewRule": "Review Rule",
-  "ruleStandard": "Standard (\u00b110%)",
-  "ruleStrict": "Strict (\u00b15%)",
+  "ruleStandard": "Standard (±10%)",
+  "ruleStrict": "Strict (±5%)",
   "compare": "Compare",
   "comparing": "Comparing...",
   "selectLot": "-- Select Lot --",
@@ -19,8 +19,8 @@
   "noFtSpecs": "No packaging test specs found for this lot's product. Upload FT specs first.",
   "emptyHint": "Select a lot and click Compare to see CP vs FT spec comparison.",
   "noSpecsTitle": "No packaging specs for this product",
-  "noSpecsHint": "Spec comparison requires packaging specs. Configure them in Settings \u003e Packaging Specs.",
-  "configureSpecsBtn": "Configure Packaging Specs \u2192",
+  "noSpecsHint": "Spec comparison requires packaging specs. Configure them in Settings > Packaging Specs.",
+  "configureSpecsBtn": "Configure Packaging Specs →",
   "table": {
     "parameter": "Parameter",
     "cpLower": "CP Lower",
@@ -29,5 +29,15 @@
     "ftUpper": "FT Upper",
     "margin": "Margin",
     "result": "Result"
+  },
+  "specSource": {
+    "title": "Which two specs does this compare?",
+    "lines": [
+      "Left: the limits carried by the CP file itself, read per lot at upload.",
+      "Right: the packaging spec set per product under Spec Management.",
+      "It compares the two sets of limits, not the die measurements.",
+      "— Edit under Settings → Spec Management",
+      "— Unrelated to CP Review's Q1 / Q2 / Q3"
+    ]
   }
 }

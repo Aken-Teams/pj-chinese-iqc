@@ -7,8 +7,8 @@
   "pkgSpec": "封装测规 (目标)",
   "lot": "批次",
   "reviewRule": "审核规则",
-  "ruleStandard": "标准 (\u00b110%)",
-  "ruleStrict": "严格 (\u00b15%)",
+  "ruleStandard": "标准 (±10%)",
+  "ruleStrict": "严格 (±5%)",
   "compare": "比较",
   "comparing": "比较中...",
   "selectLot": "-- 选择批次 --",
@@ -19,8 +19,8 @@
   "noFtSpecs": "该产品尚无封装测试规格，请先上传 FT 规格。",
   "emptyHint": "选择批次并点击比较，查看 CP 与 FT 规格对比。",
   "noSpecsTitle": "此产品尚未建立封装规格",
-  "noSpecsHint": "规格比对需要先在「设定 \u003e 封装规格」建立数据",
-  "configureSpecsBtn": "前往封装规格设定 \u2192",
+  "noSpecsHint": "规格比对需要先在「设定 > 封装规格」建立数据",
+  "configureSpecsBtn": "前往封装规格设定 →",
   "table": {
     "parameter": "参数",
     "cpLower": "CP 下限",
@@ -29,5 +29,15 @@
     "ftUpper": "FT 上限",
     "margin": "余量",
     "result": "结果"
+  },
+  "specSource": {
+    "title": "这个画面比哪两份规格？",
+    "lines": [
+      "左边：CP 档案自带的上下限（随批次而来，上传时自动读取）。",
+      "右边：「测规管理」里的封装测规（依产品设置）。",
+      "比的是两组上下限谁宽谁严，不会用到 die 的实测值。",
+      "— 设置 → 测规管理 可以修改",
+      "— 跟 CP 审核的 Q1 / Q2 / Q3 无关"
+    ]
   }
 }

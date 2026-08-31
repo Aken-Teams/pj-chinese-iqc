@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Loader2, FileText, FileWarning } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
+import InfoHint from '@/components/ui/InfoHint'
 import { getHistory, type HistoryRow, type LotFilter } from '@/services/history'
 
 const EMPTY_FILTER: LotFilter = { vendor: '', product: '', lot: '' }
@@ -93,6 +94,12 @@ export default function ComparePage() {
   return (
     <div className="p-12">
       <PageHeader
+        titleAfter={
+          <InfoHint
+            title={t('specSource.title')}
+            lines={t('specSource.lines', { returnObjects: true }) as string[]}
+          />
+        }
         title={t('title')}
         actions={
           <div className="flex gap-2">
