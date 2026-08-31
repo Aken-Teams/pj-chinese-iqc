@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # rejects; verification is off by default for this internal gateway.
     AD_VERIFY_SSL: bool = False
 
+    # Password for the bootstrap admin account, used only when that account is
+    # created on an empty database. Left blank, a random one is generated and
+    # logged once — never hardcoded, since this file is in the repository.
+    ADMIN_PASSWORD: str = ""
+
     # App
     SECRET_KEY: str = "iqc-system-secret-key-change-in-production"
     UPLOAD_DIR: str = str(Path(__file__).resolve().parent.parent / "uploads")
