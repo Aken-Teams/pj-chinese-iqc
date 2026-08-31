@@ -12,7 +12,6 @@ class Settings(BaseSettings):
 
     # AI
     DEEPSEEK_API_KEY: str = ""
-    OPENAI_KEY: str = ""
 
     # AI token pricing (per 1,000,000 tokens) for the admin usage console's
     # cost estimate. Defaults follow DeepSeek deepseek-chat list pricing (USD);

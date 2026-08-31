@@ -2,7 +2,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, get_optional_user, assert_lot_visible, scope_lots_by_domain
+from app.dependencies import get_db, get_current_user, assert_lot_visible
 from app.models.ai import AiAnomaly, AiReviewSummary
 from app.models.user import User
 from app.models.wafer import Wafer
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 def generate_summary(
     req: ReviewSummaryRequest,
     db: Session = Depends(get_db),
-    current: User | None = Depends(get_optional_user),
+    current: User = Depends(get_current_user),
 ):
     lot = db.query(Lot).filter(Lot.id == req.lot_id).first()
     if not lot:
@@ -58,7 +58,7 @@ def generate_summary(
         electrical_params=e_params,
         bin_distribution=bins,
         lang=req.lang,
-        user_id=current.id if current else None,
+        user_id=current.id,
         lot_db_id=lot.id,
         wafer_db_id=wafer.id,
     )
@@ -87,7 +87,7 @@ def generate_summary(
 
 @router.get("/review-summary/{lot_id}/{wafer_id}", response_model=ReviewSummaryResponse)
 def get_summary(lot_id: int, wafer_id: str, lang: str = "zh-TW", db: Session = Depends(get_db),
-                current: User | None = Depends(get_optional_user)):
+                current: User = Depends(get_current_user)):
     lot = db.query(Lot).filter(Lot.id == lot_id).first()
     if lot:
         assert_lot_visible(lot, current)
@@ -120,7 +120,7 @@ def list_anomalies(
     severity: str = "",
     resolved: bool | None = None,
     db: Session = Depends(get_db),
-    current: User | None = Depends(get_optional_user),
+    current: User = Depends(get_current_user),
 ):
     query = db.query(AiAnomaly)
     if lot_id is not None:
@@ -128,7 +128,7 @@ def list_anomalies(
         if lot:
             assert_lot_visible(lot, current)
         query = query.filter(AiAnomaly.lot_id == lot_id)
-    elif current and current.role != "admin":
+    elif current.role != "admin":
         # No specific lot → a site user only sees anomalies from their own lots.
         query = query.join(Lot, AiAnomaly.lot_id == Lot.id).filter(Lot.domain == current.domain)
     if lang:
@@ -159,7 +159,7 @@ def list_anomalies(
 def detect_anomalies(
     req: AnomalyDetectRequest,
     db: Session = Depends(get_db),
-    current: User | None = Depends(get_optional_user),
+    current: User = Depends(get_current_user),
 ):
     lot = db.query(Lot).filter(Lot.id == req.lot_id).first()
     if not lot:
@@ -203,7 +203,7 @@ def detect_anomalies(
         params_stats=params_stats,
         wafer_count=wafer_count,
         lang=req.lang,
-        user_id=current.id if current else None,
+        user_id=current.id,
         lot_db_id=lot.id,
     )
 
@@ -246,7 +246,7 @@ def detect_anomalies(
 
 @router.patch("/anomalies/{anomaly_id}/resolve")
 def resolve_anomaly(anomaly_id: int, db: Session = Depends(get_db),
-                    current: User | None = Depends(get_optional_user)):
+                    current: User = Depends(get_current_user)):
     anomaly = db.query(AiAnomaly).filter(AiAnomaly.id == anomaly_id).first()
     if not anomaly:
         raise HTTPException(404, "Anomaly not found")

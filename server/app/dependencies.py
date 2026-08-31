@@ -98,8 +98,13 @@ def assert_lot_visible(lot, user: Optional[User]) -> None:
 
 def get_optional_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
     """Best-effort current user from the Bearer token; returns None instead of
-    raising when absent/invalid. Used to attribute AI usage to a user without
-    making the AI endpoints hard-require auth."""
+    raising when absent/invalid.
+
+    Only for the upload *preview* step, which needs the caller's domain to pick
+    which site templates to try but must still respond when the token is stale.
+    Do NOT use this to gate data access: the domain-scoping helpers treat a None
+    user as "sees everything", so an endpoint reading lots/wafers must depend on
+    `get_current_user` instead."""
     auth = request.headers.get("Authorization", "")
     if not auth.lower().startswith("bearer "):
         return None

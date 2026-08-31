@@ -99,9 +99,8 @@ MYSQL_DB=db_pj_chinese_iqc
 MYSQL_USER=root
 MYSQL_PASSWORD=your_password
 
-# AI（DeepSeek 或 OpenAI 相容 API）
+# AI（DeepSeek）
 DEEPSEEK_API_KEY=sk-...
-OPENAI_KEY=sk-...          # 選填，直接使用 OpenAI 時填入
 
 # 安全性
 SECRET_KEY=請修改此金鑰於正式環境
@@ -152,12 +151,17 @@ cd server && alembic revision -m "描述變更內容"
 
 ## AI 設定說明
 
-系統使用 OpenAI 相容 API 執行以下兩項功能：
+系統以 DeepSeek（`deepseek-chat`）執行以下兩項功能：
 
 - **審核摘要** — 逐 Wafer 電性參數分析（依批次 + Wafer + 語言分別快取）
 - **異常偵測** — SPC 離群值與變異模式分析（依批次 + 語言分別快取）
 
-在 `.env` 中填入 `DEEPSEEK_API_KEY` 或 `OPENAI_KEY`，後端依有效金鑰自動選擇供應商。
+在 `.env` 中填入 `DEEPSEEK_API_KEY` 即可。實作使用 OpenAI 官方 SDK，但 `base_url`
+固定指向 `https://api.deepseek.com`（見 `server/app/services/ai_service.py`），
+目前沒有切換其他供應商的機制。
+
+兩項功能都必須登入後才能呼叫，每次呼叫的 token 用量會記錄到 `ai_token_usage`，
+可在「AI 用量」頁（管理員限定）檢視。
 
 AI 結果依語言獨立快取，切換 UI 語言時若該語言無快取，會自動觸發重新分析。
 
