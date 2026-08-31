@@ -230,8 +230,11 @@ export default function ReviewDetailPage() {
             )
           })}
         </svg>
+        {/* Not width-limited to the map: the sentence explains why the map
+            looks the way it does, and breaking it across three lines under a
+            wafer made it read as a warning rather than a note. */}
         {mapPlot.sparse && (
-          <p className="max-w-[380px] text-[11px] leading-snug text-text-muted">
+          <p className="whitespace-nowrap text-[11px] text-text-muted">
             {t('map.sampled', { count: dieCount })}
           </p>
         )}
