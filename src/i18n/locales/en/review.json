@@ -86,12 +86,12 @@
   },
   "judge": {
     "title": "Judgement",
-    "systemSays": "System says",
+    "systemSays": "System",
     "confirmed": "Confirmed",
     "confirmBy": "Confirmed by {{who}} on {{when}}",
     "notConfirmed": "Not confirmed",
     "confirmAction": "Confirm",
-    "withdraw": "Withdraw",
+    "withdraw": "Withdraw confirmation",
     "note": "Note (optional)",
     "cancel": "Cancel",
     "save": "Save",
@@ -100,6 +100,7 @@
     "PASS": "Pass",
     "WARN": "Warning",
     "HOLD": "Hold",
-    "notReviewed": "This lot has not been reviewed yet — the verdict above is a live reading. Run 執行審核 to fill the Q1 / Q2 columns."
+    "notReviewed": "This lot has not been reviewed yet — the verdict above is a live reading. Run 執行審核 to fill the Q1 / Q2 columns.",
+    "overridden": "Overridden (was {{from}})"
   }
 }
