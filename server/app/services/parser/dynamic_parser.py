@@ -41,6 +41,8 @@ class DynamicParser(BaseParser):
                  wafer_id_pattern: str | None = None,
                  product_id_label: str | None = None,
                  lot_id_label: str | None = None,
+                 product_id_pattern: str | None = None,
+                 lot_id_pattern: str | None = None,
                  id_header_row: int | None = None,
                  unit_row: int | None = None,
                  sheet_selector: str | None = None,
@@ -70,6 +72,8 @@ class DynamicParser(BaseParser):
         self.WAFER_ID_PATTERN = wafer_id_pattern or None
         self.PRODUCT_ID_LABEL = product_id_label or None
         self.LOT_ID_LABEL = lot_id_label or None
+        self.PRODUCT_ID_PATTERN = product_id_pattern or None
+        self.LOT_ID_PATTERN = lot_id_pattern or None
         self.ID_HEADER_ROW = id_header_row
         self.UNIT_ROW = unit_row
         self.SHEET_SELECTOR = sheet_selector or None
@@ -107,6 +111,8 @@ class DynamicParser(BaseParser):
             wafer_id_pattern=g("wafer_id_pattern"),
             product_id_label=g("product_id_label"),
             lot_id_label=g("lot_id_label"),
+            product_id_pattern=g("product_id_pattern"),
+            lot_id_pattern=g("lot_id_pattern"),
             id_header_row=g("id_header_row"),
             unit_row=g("unit_row"),
             sheet_selector=g("sheet_selector"),
@@ -150,6 +156,20 @@ class DynamicParser(BaseParser):
     def _param_names(self, grid: Grid, cols: list[int]) -> list[str]:
         return [str(grid.cell(self.HEADER_ROW, c)).strip() for c in cols]
 
+    @staticmethod
+    def _refine(value, pattern: str | None) -> str:
+        """Apply an optional regex to an extracted string; group 1 wins."""
+        s = "" if value is None else str(value).strip()
+        if not s or not pattern:
+            return s
+        try:
+            m = re.search(pattern, s)
+        except re.error:
+            return s
+        if not m:
+            return s
+        return (m.group(1) if m.groups() else m.group(0)).strip()
+
     def _apply_pattern(self, value) -> str:
         """Refine an extracted id with the configured regex.
 
@@ -185,22 +205,25 @@ class DynamicParser(BaseParser):
             raw = os.path.splitext(os.path.basename(filepath))[0]
         return self._apply_pattern(raw)
 
-    def _meta_value(self, grid: Grid, cell_ref, label, col) -> str | None:
+    def _meta_value(self, grid: Grid, cell_ref, label, col,
+                    pattern: str | None = None) -> str | None:
         """Resolve one metadata field, most specific source first:
-        fixed cell -> label anchor -> first data row of a column."""
+        fixed cell -> label anchor -> first data row of a column.
+
+        `pattern` trims the raw text — 世界先进's LOT ID cell reads
+        "H2XR46.1-01", and keeping the wafer suffix would split one lot into
+        five single-wafer lots.
+        """
+        raw = None
         if cell_ref:
-            v = grid.cell(*cell_ref)
-            if v is not None:
-                return str(v).strip()
-        if label:
-            v = grid.label_value(label)
-            if v is not None:
-                return str(v).strip()
-        if col:
-            v = grid.cell(self.DATA_START_ROW, col)
-            if v is not None:
-                return str(v).strip()
-        return None
+            raw = grid.cell(*cell_ref)
+        if raw is None and label:
+            raw = grid.label_value(label)
+        if raw is None and col:
+            raw = grid.cell(self.DATA_START_ROW, col)
+        if raw is None:
+            return None
+        return self._refine(raw, pattern) or None
 
     def _row_is_blank(self, grid: Grid, row: int, param_cols: list[int]) -> bool:
         """A row counts as blank when it carries no id and no measurement."""
@@ -240,9 +263,11 @@ class DynamicParser(BaseParser):
                 wafer_ids.add(file_wafer)
 
         product_id = self._meta_value(grid, self.PRODUCT_ID_CELL,
-                                      self.PRODUCT_ID_LABEL, self.PRODUCT_ID_COL)
+                                      self.PRODUCT_ID_LABEL, self.PRODUCT_ID_COL,
+                                      self.PRODUCT_ID_PATTERN)
         lot_id = self._meta_value(grid, self.LOT_ID_CELL,
-                                  self.LOT_ID_LABEL, self.LOT_ID_COL)
+                                  self.LOT_ID_LABEL, self.LOT_ID_COL,
+                                  self.LOT_ID_PATTERN)
 
         return {
             "wafersDetected": len(wafer_ids),
@@ -277,9 +302,11 @@ class DynamicParser(BaseParser):
             ))
 
         product_id = self._meta_value(grid, self.PRODUCT_ID_CELL,
-                                      self.PRODUCT_ID_LABEL, self.PRODUCT_ID_COL)
+                                      self.PRODUCT_ID_LABEL, self.PRODUCT_ID_COL,
+                                      self.PRODUCT_ID_PATTERN)
         lot_id = self._meta_value(grid, self.LOT_ID_CELL,
-                                  self.LOT_ID_LABEL, self.LOT_ID_COL)
+                                  self.LOT_ID_LABEL, self.LOT_ID_COL,
+                                  self.LOT_ID_PATTERN)
 
         file_wafer = (self._file_wafer_id(grid, filepath)
                       if self.WAFER_ID_SOURCE != "column" else None)

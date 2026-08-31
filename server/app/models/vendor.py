@@ -80,6 +80,13 @@ class VendorFormat(Base):
     # the metadata block shifts (variable-length Bias sections, etc).
     product_id_label = Column(String(100), nullable=True)
     lot_id_label = Column(String(100), nullable=True)
+    # Regexes refining the extracted metadata, same convention as
+    # wafer_id_pattern (group 1 wins). 世界先进 writes its LOT ID as
+    # "H2XR46.1-01" — the lot plus the wafer suffix — so without stripping the
+    # suffix every wafer becomes its own single-wafer lot and lot-level review,
+    # Cpk and yield trends all break apart.
+    product_id_pattern = Column(String(200), nullable=True)
+    lot_id_pattern = Column(String(200), nullable=True)
 
     # Some formats split the header across two rows: one naming the electrical
     # parameters, another naming the id columns (东部高科: r10 ITEM NAME +
