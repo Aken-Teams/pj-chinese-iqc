@@ -31,5 +31,14 @@
     "wafers": "Wafers",
     "avgYield": "Avg Yield",
     "status": "Status"
+  },
+  "filter": {
+    "vendor": "Vendor",
+    "product": "Product",
+    "lot": "Lot",
+    "allVendors": "All vendors",
+    "allProducts": "All products",
+    "allLots": "All lots",
+    "clear": "Clear"
   }
 }

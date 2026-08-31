@@ -16,10 +16,61 @@ from app.schemas.history import HistoryResponse, HistoryRow
 router = APIRouter(prefix="/api", tags=["history"])
 
 
+@router.get("/lots/filter-options")
+def lot_filter_options(
+    vendor: str = Query("", description="Narrow products and lots to this vendor"),
+    product: str = Query("", description="Narrow lots to this product"),
+    site: str = Query("", description="AD site (廠區) filter — admin only"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Options for the 廠商 → 型號 → 批號 filters, each narrowed by the ones above.
+
+    Returned together in one call rather than three: the lists are small, and a
+    request per level made the selects flicker as they refilled one after the
+    other. Every list is scoped to the caller's site, so a 無錫 user is never
+    offered a 徐州 product.
+    """
+    base = (
+        db.query(Lot)
+        .join(Product, Lot.product_id == Product.id)
+        .join(Vendor, Product.vendor_id == Vendor.id)
+    )
+    base = scope_lots_by_domain(base, user)
+    if site and can_see_all_domains(user):
+        base = base.filter(Lot.domain == site)
+
+    vendors = [
+        {"code": code, "name": name}
+        for code, name in base.with_entities(Vendor.code, Vendor.name)
+        .distinct().order_by(Vendor.code).all()
+    ]
+
+    by_vendor = base.filter(Vendor.code == vendor) if vendor else base
+    products = [
+        code for (code,) in by_vendor.with_entities(Product.product_code)
+        .distinct().order_by(Product.product_code).all()
+    ]
+
+    # A product chosen under a different vendor would silently empty the lot
+    # list, so only apply it when it actually belongs to the current vendor.
+    by_product = (
+        by_vendor.filter(Product.product_code == product)
+        if product and product in products else by_vendor
+    )
+    lots = [
+        code for (code,) in by_product.with_entities(Lot.lot_id)
+        .distinct().order_by(Lot.lot_id).all() if code
+    ]
+
+    return {"vendors": vendors, "products": products, "lots": lots}
+
+
 @router.get("/lots", response_model=HistoryResponse)
 def list_lots(
     vendor: str = Query("", description="Vendor code filter"),
     product: str = Query("", description="Product code filter"),
+    lot: str = Query("", description="Exact lot number filter"),
     status: str = Query("", description="Status filter"),
     search: str = Query("", description="Free-text search over lot / product / vendor"),
     site: str = Query("", description="AD site (廠區) filter — admin only"),
@@ -41,6 +92,8 @@ def list_lots(
         query = query.filter(Vendor.code == vendor)
     if product:
         query = query.filter(Product.product_code == product)
+    if lot:
+        query = query.filter(Lot.lot_id == lot)
     if status:
         query = query.filter(Lot.status == status.lower())
     if search:

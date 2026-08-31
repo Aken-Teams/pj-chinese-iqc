@@ -1,13 +1,16 @@
-import { useState, useEffect, useCallback, Fragment } from 'react'
+import { useState, useEffect, useCallback, Fragment, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ChevronRight, Loader2, FileText, AlertTriangle, Layers, X, Check } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
 import { getLotResults, getReviewMatrix, executeReview, executeBatchReview, type LotReviewSummary, type ReviewMatrix } from '@/services/review'
-import { getHistory, type HistoryRow } from '@/services/history'
+import { getHistory, type HistoryRow, type LotFilter } from '@/services/history'
+
+const EMPTY_FILTER: LotFilter = { vendor: '', product: '', lot: '' }
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
 import LotSearchSelect from '@/components/ui/LotSearchSelect'
+import LotFilterBar, { FilterField } from '@/components/ui/LotFilterBar'
 import { useAuthStore } from '@/store/authStore'
 
 type WaferStatus = 'PASS' | 'WARN' | 'FAIL'
@@ -51,6 +54,7 @@ export default function ReviewPage() {
   const location = useLocation()
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [lots, setLots] = useState<HistoryRow[]>([])
+  const [filter, setFilter] = useState<LotFilter>(EMPTY_FILTER)
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
   // Held separately from `lots` so the not-reviewed banner survives even after a
   // server-side search replaces the list with a subset that excludes it.
@@ -68,12 +72,16 @@ export default function ReviewPage() {
   const [batchRunning, setBatchRunning] = useState(false)
   const [batchDone, setBatchDone] = useState<{ reviewed: number; failed: number } | null>(null)
 
+  const restoredRef = useRef(false)
   useEffect(() => {
     const restoredLotId: number | undefined = location.state?.lotId
-    getHistory({ pageSize: 50 })
+    getHistory({ ...filter, pageSize: 50 })
       .then(res => {
         setLots(res.items)
-        const restored = restoredLotId ? res.items.find(l => l.id === restoredLotId) : undefined
+        const restored = restoredRef.current || !restoredLotId
+          ? undefined
+          : res.items.find(l => l.id === restoredLotId)
+        restoredRef.current = true
         if (restored) {
           setSelectedLot(restored)
           loadResults(restored.id)
@@ -83,15 +91,15 @@ export default function ReviewPage() {
       })
       .catch(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [filter])
 
   // Server-side lot search: fetch from the API as the user types so the picker
   // reaches every lot, not just the initial page. Debounced inside the select.
   const handleLotSearch = useCallback((query: string) => {
-    getHistory({ search: query, pageSize: 50 })
+    getHistory({ ...filter, search: query, pageSize: 50 })
       .then(res => setLots(res.items))
       .catch(() => { /* keep the current list on a failed search */ })
-  }, [])
+  }, [filter])
 
   // Review is run manually via the "執行審核" button — selecting a lot only
   // loads whatever results already exist. Un-reviewed lots show N/A yields and
@@ -315,18 +323,22 @@ export default function ReviewPage() {
         <div className="mt-4 bg-badge-fail text-error text-sm px-4 py-2.5 font-medium">{error}</div>
       )}
 
-      {/* Lot Selection */}
-      <LotSearchSelect
-        lots={lots}
-        selectedLotId={selectedLotId}
-        selectedLot={selectedLot}
-        placeholder={t('selectLot')}
-        onSelect={(lot) => { setSelectedLot(lot); loadResults(lot.id) }}
-        onSearch={handleLotSearch}
-        notReviewedLabel={t('notReviewedBadge')}
-        showSite={isAdmin}
-        className="mt-7 w-[440px]"
-      />
+      {/* Filter down to a lot, then pick it — all on one line */}
+      <LotFilterBar value={filter} onChange={setFilter} className="mt-7">
+        <FilterField label={t('lotLabel')}>
+          <LotSearchSelect
+            lots={lots}
+            selectedLotId={selectedLotId}
+            selectedLot={selectedLot}
+            placeholder={t('selectLot')}
+            onSelect={(lot) => { setSelectedLot(lot); loadResults(lot.id) }}
+            onSearch={handleLotSearch}
+            notReviewedLabel={t('notReviewedBadge')}
+            showSite={isAdmin}
+            className="w-[400px]"
+          />
+        </FilterField>
+      </LotFilterBar>
 
       {/* Not-reviewed warning — explains why Q yields are N/A */}
       {notReviewed && (

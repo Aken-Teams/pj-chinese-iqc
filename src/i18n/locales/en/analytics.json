@@ -6,7 +6,7 @@
   "spc": {
     "title": "SPC Control Chart",
     "mean": "Mean",
-    "sigma2": "\u00b12\u03c3",
+    "sigma2": "±2σ",
     "uclLcl": "UCL/LCL",
     "zoom": "Zoom"
   },
@@ -32,5 +32,7 @@
   "noAnomalies": "No anomalies detected",
   "noCorrelation": "Not enough parameters for correlation",
   "spcChartTitle": "SPC Control Chart — {{param}}",
-  "distributionTitle": "Distribution — {{param}}"
+  "distributionTitle": "Distribution — {{param}}",
+  "lotLabel": "Lot",
+  "param": "Parameter"
 }

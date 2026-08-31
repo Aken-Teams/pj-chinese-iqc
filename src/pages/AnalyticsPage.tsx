@@ -2,8 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Sparkles, TriangleAlert, CircleX, Maximize2, X } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
-import { getHistory, type HistoryRow } from '@/services/history'
+import { getHistory, type HistoryRow, type LotFilter } from '@/services/history'
+
+const EMPTY_FILTER: LotFilter = { vendor: '', product: '', lot: '' }
 import LotSearchSelect from '@/components/ui/LotSearchSelect'
+import LotFilterBar, { FilterField } from '@/components/ui/LotFilterBar'
 import SearchSelect from '@/components/ui/SearchSelect'
 import {
   getParamNames,
@@ -291,6 +294,7 @@ export default function AnalyticsPage() {
   const { t, i18n } = useTranslation('analytics')
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [lots, setLots] = useState<HistoryRow[]>([])
+  const [filter, setFilter] = useState<LotFilter>(EMPTY_FILTER)
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
   const [selectedLot, setSelectedLot] = useState<HistoryRow | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
@@ -311,18 +315,18 @@ export default function AnalyticsPage() {
   const [corrHover, setCorrHover] = useState<{ ri: number; ci: number; x: number; y: number } | null>(null)
 
   useEffect(() => {
-    getHistory({ pageSize: 50 })
+    getHistory({ ...filter, pageSize: 50 })
       .then(res => {
         setLots(res.items)
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [])
+  }, [filter])
 
   // Server-side lot search so the picker reaches every lot, not just the first page.
   const handleLotSearch = useCallback((query: string) => {
-    getHistory({ search: query, pageSize: 50 }).then(res => setLots(res.items)).catch(() => {})
-  }, [])
+    getHistory({ ...filter, search: query, pageSize: 50 }).then(res => setLots(res.items)).catch(() => {})
+  }, [filter])
 
   const loadAnomalies = useCallback(async (lotId: number, lang: string) => {
     setAnomalyLoading(true)
@@ -391,33 +395,34 @@ export default function AnalyticsPage() {
 
   return (
     <div className="p-9 pl-11 flex flex-col gap-6">
-      <PageHeader
-        title={t('title')}
-        actions={
-          <div className="flex items-center gap-3">
-            <LotSearchSelect
-              lots={lots}
-              selectedLotId={selectedLotId}
-              placeholder={t('selectLot')}
-              onSelect={(lot) => { setSelectedLot(lot); handleLotChange(lot.id, lot.productId, lot.domain ?? '') }}
-              onSearch={handleLotSearch}
-              selectedLot={selectedLot}
-              showSite={isAdmin}
-              className="w-[280px]"
-              align="right"
-            />
-            <SearchSelect
-              items={params}
-              value={selectedParam}
-              onChange={handleParamChange}
-              placeholder={t('noParams')}
-              disabled={params.length === 0}
-              className="w-[200px]"
-              align="right"
-            />
-          </div>
-        }
-      />
+      <PageHeader title={t('title')} />
+
+      {/* Every control on one line: the filters narrow the picker, and the
+          picker decides which parameters the last select can offer. */}
+      <LotFilterBar value={filter} onChange={setFilter}>
+        <FilterField label={t('lotLabel')}>
+          <LotSearchSelect
+            lots={lots}
+            selectedLotId={selectedLotId}
+            placeholder={t('selectLot')}
+            onSelect={(lot) => { setSelectedLot(lot); handleLotChange(lot.id, lot.productId, lot.domain ?? '') }}
+            onSearch={handleLotSearch}
+            selectedLot={selectedLot}
+            showSite={isAdmin}
+            className="w-[260px]"
+          />
+        </FilterField>
+        <FilterField label={t('param')}>
+          <SearchSelect
+            items={params}
+            value={selectedParam}
+            onChange={handleParamChange}
+            placeholder={t('noParams')}
+            disabled={params.length === 0}
+            className="w-[190px]"
+          />
+        </FilterField>
+      </LotFilterBar>
 
       {loading || dataLoading ? (
         <div className="flex justify-center py-16">

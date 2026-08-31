@@ -32,5 +32,7 @@
   "noAnomalies": "未检测到异常",
   "noCorrelation": "参数不足，无法计算相关性",
   "spcChartTitle": "SPC 管制图 — {{param}}",
-  "distributionTitle": "分布图 — {{param}}"
+  "distributionTitle": "分布图 — {{param}}",
+  "lotLabel": "批次",
+  "param": "参数"
 }

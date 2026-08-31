@@ -73,5 +73,6 @@
     "prevWaferShort": "上一片",
     "nextWaferShort": "下一片",
     "noData": "無資料"
-  }
+  },
+  "lotLabel": "批次"
 }

@@ -24,9 +24,41 @@ export interface HistoryResponse {
   totalPages: number
 }
 
+/** The 廠商 → 型號 → 批號 selection driving the cascading filters. */
+export interface LotFilter {
+  vendor: string
+  product: string
+  lot: string
+}
+
+export interface LotFilterOptions {
+  vendors: { code: string; name: string }[]
+  products: string[]
+  lots: string[]
+}
+
+/**
+ * Options for each filter level, already narrowed by the levels above and
+ * scoped to the caller's site. One call rather than three: the lists are small,
+ * and staggered responses made the selects refill one after another.
+ */
+export async function getLotFilterOptions(params: {
+  vendor?: string
+  product?: string
+  site?: string
+}): Promise<LotFilterOptions> {
+  const qs = new URLSearchParams()
+  if (params.vendor) qs.set('vendor', params.vendor)
+  if (params.product) qs.set('product', params.product)
+  if (params.site) qs.set('site', params.site)
+  const q = qs.toString()
+  return apiFetch(`/lots/filter-options${q ? `?${q}` : ''}`)
+}
+
 export async function getHistory(params?: {
   vendor?: string
   product?: string
+  lot?: string
   status?: string
   search?: string
   site?: string
@@ -38,6 +70,7 @@ export async function getHistory(params?: {
   const searchParams = new URLSearchParams()
   if (params?.vendor) searchParams.set('vendor', params.vendor)
   if (params?.product) searchParams.set('product', params.product)
+  if (params?.lot) searchParams.set('lot', params.lot)
   if (params?.status) searchParams.set('status', params.status)
   if (params?.search) searchParams.set('search', params.search)
   if (params?.site) searchParams.set('site', params.site)

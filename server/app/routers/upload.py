@@ -241,19 +241,50 @@ def _persist_result(result, db: Session, err: dict | None = None, domain: str | 
         db.add(product)
         db.flush()
 
-    lot = Lot(
-        lot_id=result.lot_id,
-        mark_lot_id=result.mark_lot_id,
-        product_id=product.id,
-        test_program=result.test_program,
-        file_name=result.lot_id,
-        status="pending",
-        domain=domain,
-    )
-    db.add(lot)
-    db.flush()
+    # Several vendors (新潔能, 禾納, 天狼芯) ship one file per wafer, so a single
+    # lot arrives as N uploads. Creating a lot per file split one 5-wafer lot
+    # into five 1-wafer lots: the picker showed five identical rows and every
+    # yield figure was computed over one wafer. Same site + same product + same
+    # lot number is the same lot, so later files join the existing one.
+    #
+    # A lot with no readable number cannot be identified, so it always gets its
+    # own row rather than collecting unrelated uploads together.
+    lot = None
+    if result.lot_id:
+        lot = (
+            db.query(Lot)
+            .filter(
+                Lot.lot_id == result.lot_id,
+                Lot.product_id == product.id,
+                Lot.domain == domain,
+            )
+            .order_by(Lot.id)
+            .first()
+        )
 
+    merged_into_existing = lot is not None
+    if lot is None:
+        lot = Lot(
+            lot_id=result.lot_id,
+            mark_lot_id=result.mark_lot_id,
+            product_id=product.id,
+            test_program=result.test_program,
+            file_name=result.lot_id,
+            status="pending",
+            domain=domain,
+        )
+        db.add(lot)
+        db.flush()
+
+    # Limits are per lot, not per file. Keep the first file's and only fill in
+    # parameters the earlier files did not carry.
+    known_params = {
+        r[0] for r in db.query(CpSpec.param_name).filter(CpSpec.lot_id == lot.id).all()
+    }
     for spec in result.cp_specs:
+        if spec.param_name in known_params:
+            continue
+        known_params.add(spec.param_name)
         db.add(CpSpec(
             lot_id=lot.id,
             param_name=spec.param_name,
@@ -262,7 +293,20 @@ def _persist_result(result, db: Session, err: dict | None = None, domain: str | 
             unit=spec.unit,
         ))
 
+    # Re-uploading a file already in the lot must not double its dies, so a
+    # wafer id already present is replaced rather than added alongside.
+    existing_wafers = {
+        w.wafer_id: w for w in db.query(Wafer).filter(Wafer.lot_id == lot.id).all()
+    }
+    added_wafers = 0
+
     for pw in result.wafers:
+        prior = existing_wafers.get(pw.wafer_id)
+        if prior is not None:
+            db.delete(prior)
+            db.flush()
+        else:
+            added_wafers += 1
         wafer = Wafer(
             lot_id=lot.id,
             wafer_id=pw.wafer_id,
@@ -298,12 +342,21 @@ def _persist_result(result, db: Session, err: dict | None = None, domain: str | 
         if ev_rows:
             db.execute(ElectricalValue.__table__.insert(), ev_rows)
 
+    # Appending wafers invalidates any review already run on this lot.
+    if merged_into_existing and added_wafers:
+        lot.status = "pending"
+
+    db.flush()
+    lot_wafers = db.query(Wafer).filter(Wafer.lot_id == lot.id).count()
     db.commit()
     return {
         "success": True,
         "lotId": lot.id,
         "lotCode": lot.lot_id,
-        "waferCount": len(result.wafers),
+        # The lot's wafer count, not the file's: after a merge the second
+        # number is what the user needs to see.
+        "waferCount": lot_wafers,
+        "mergedIntoExisting": merged_into_existing,
         "totalRows": result.total_rows,
         # Echoed back so a batch row can say which supplier the file was read
         # as. With auto-detect on, that is the one thing the uploader cannot

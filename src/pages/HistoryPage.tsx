@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import PageHeader from '@/components/layout/PageHeader'
 import { Download, Search, Loader2, FileText } from 'lucide-react'
 import SearchSelect from '@/components/ui/SearchSelect'
-import { getHistory, type HistoryRow, type HistoryResponse } from '@/services/history'
+import { getHistory, getLotFilterOptions, type HistoryRow, type HistoryResponse } from '@/services/history'
 import { getVendors, getProducts, type Product } from '@/services/vendors'
 import { downloadCsv } from '@/utils/exportCsv'
 import { printToPdf } from '@/utils/exportPdf'
@@ -107,6 +107,7 @@ export default function HistoryPage() {
   const [vendor, setVendor] = useState('')
   const [filterSite, setFilterSite] = useState('')
   const [product, setProduct] = useState('')
+  const [lot, setLot] = useState('')
   const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -114,11 +115,30 @@ export default function HistoryPage() {
   const [allItems, setAllItems] = useState<HistoryRow[]>([])
   const [vendorCodes, setVendorCodes] = useState<string[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [lotOptions, setLotOptions] = useState<string[]>([])
 
   useEffect(() => {
     getVendors(isAdmin ? filterSite : undefined).then((list) => setVendorCodes(list.map((v) => v.code))).catch(() => {})
     getProducts(isAdmin ? filterSite : undefined).then(setProducts).catch(() => {})
   }, [filterSite, isAdmin])
+
+  // Lot numbers for the current vendor/product, from the server: they come
+  // from the lots themselves, so there is no client-side list to narrow.
+  useEffect(() => {
+    let stale = false
+    getLotFilterOptions({
+      vendor, product, site: isAdmin ? filterSite : undefined,
+    })
+      .then((res) => { if (!stale) setLotOptions(res.lots) })
+      .catch(() => {})
+    return () => { stale = true }
+  }, [vendor, product, filterSite, isAdmin])
+
+  // A lot that no longer exists under the narrowed vendor/product would filter
+  // everything away, so drop it when it falls out of the options.
+  useEffect(() => {
+    if (lot && lotOptions.length && !lotOptions.includes(lot)) setLot('')
+  }, [lot, lotOptions])
 
   // Product-model dropdown options, scoped by the selected site and vendor.
   const productOptions = (() => {
@@ -129,7 +149,7 @@ export default function HistoryPage() {
   })()
 
   const buildParams = () => ({
-    vendor, product, status,
+    vendor, product, lot, status,
     site: isAdmin ? (filterSite || undefined) : undefined,
     fromDate: fromDate || undefined, toDate: toDate || undefined,
   })
@@ -163,7 +183,7 @@ export default function HistoryPage() {
 
   // Live filtering: reload whenever any filter (or page) changes — no need to
   // click 搜尋. Filter changes reset the page to 1 in their onChange handlers.
-  useEffect(() => { loadData(page) }, [page, vendor, filterSite, product, status, fromDate, toDate])
+  useEffect(() => { loadData(page) }, [page, vendor, filterSite, product, lot, status, fromDate, toDate])
 
   const handleSearch = () => { setPage(1); loadData(1) }
 
@@ -231,7 +251,7 @@ export default function HistoryPage() {
             <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('table.site')}</label>
             <Select
               value={filterSite}
-              onChange={(v) => { setFilterSite(v); setVendor(''); setProduct(''); setPage(1) }}
+              onChange={(v) => { setFilterSite(v); setVendor(''); setProduct(''); setLot(''); setPage(1) }}
               options={siteOptions(t('allSites'))}
             />
           </div>
@@ -241,7 +261,7 @@ export default function HistoryPage() {
           <SearchSelect
             items={[t('allVendors'), ...vendorCodes]}
             value={vendor || t('allVendors')}
-            onChange={(v) => { setVendor(v === t('allVendors') ? '' : v); setProduct(''); setPage(1) }}
+            onChange={(v) => { setVendor(v === t('allVendors') ? '' : v); setProduct(''); setLot(''); setPage(1) }}
           />
         </div>
         <div className="w-[180px] flex flex-col gap-1.5">
@@ -249,7 +269,15 @@ export default function HistoryPage() {
           <SearchSelect
             items={[t('allProducts'), ...productOptions]}
             value={product || t('allProducts')}
-            onChange={(v) => { setProduct(v === t('allProducts') ? '' : v); setPage(1) }}
+            onChange={(v) => { setProduct(v === t('allProducts') ? '' : v); setLot(''); setPage(1) }}
+          />
+        </div>
+        <div className="w-[200px] flex flex-col gap-1.5">
+          <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('filter.lot')}</label>
+          <SearchSelect
+            items={[t('filter.allLots'), ...lotOptions]}
+            value={lot || t('filter.allLots')}
+            onChange={(v) => { setLot(v === t('filter.allLots') ? '' : v); setPage(1) }}
           />
         </div>
         <div className="w-[140px] flex flex-col gap-1.5">

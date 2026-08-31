@@ -73,5 +73,6 @@
     "prevWaferShort": "Prev Wafer",
     "nextWaferShort": "Next Wafer",
     "noData": "No data available."
-  }
+  },
+  "lotLabel": "Lot"
 }

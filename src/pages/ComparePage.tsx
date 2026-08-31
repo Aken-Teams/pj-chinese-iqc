@@ -3,8 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Loader2, FileText, FileWarning } from 'lucide-react'
 import PageHeader from '@/components/layout/PageHeader'
-import { getHistory, type HistoryRow } from '@/services/history'
+import { getHistory, type HistoryRow, type LotFilter } from '@/services/history'
+
+const EMPTY_FILTER: LotFilter = { vendor: '', product: '', lot: '' }
 import LotSearchSelect from '@/components/ui/LotSearchSelect'
+import LotFilterBar, { FilterField } from '@/components/ui/LotFilterBar'
 import SearchSelect from '@/components/ui/SearchSelect'
 import { compareSpecs, type SpecCompareResponse } from '@/services/specs'
 import { downloadCsv } from '@/utils/exportCsv'
@@ -15,6 +18,7 @@ export default function ComparePage() {
   const { t } = useTranslation('compare')
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [lots, setLots] = useState<HistoryRow[]>([])
+  const [filter, setFilter] = useState<LotFilter>(EMPTY_FILTER)
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null)
   const [selectedLot, setSelectedLot] = useState<HistoryRow | null>(null)
   const [rule, setRule] = useState('standard')
@@ -24,17 +28,17 @@ export default function ComparePage() {
 
   // Server-side lot search so the picker reaches every lot, not just the first page.
   const handleLotSearch = useCallback((query: string) => {
-    getHistory({ search: query, pageSize: 50 }).then(res => setLots(res.items)).catch(() => {})
-  }, [])
+    getHistory({ ...filter, search: query, pageSize: 50 }).then(res => setLots(res.items)).catch(() => {})
+  }, [filter])
 
   useEffect(() => {
-    getHistory({ pageSize: 50 })
+    getHistory({ ...filter, pageSize: 50 })
       .then(res => {
         setLots(res.items)
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [])
+  }, [filter])
 
   const handleCompare = async () => {
     if (selectedLotId === null) return
@@ -111,12 +115,9 @@ export default function ComparePage() {
         }
       />
 
-      {/* Selector Row */}
-      <div className="flex gap-4 items-end mt-7">
-        <div className="flex-1 flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">
-            {t('lot')}
-          </label>
+      {/* Selector Row — filters and the pickers they narrow, on one line */}
+      <LotFilterBar value={filter} onChange={setFilter} className="mt-7">
+        <FilterField label={t('lot')} className="flex-1 min-w-[260px]">
           {loading ? (
             <div className="h-[38px] flex items-center">
               <Loader2 size={16} className="animate-spin text-accent" />
@@ -133,7 +134,7 @@ export default function ComparePage() {
               className="w-full"
             />
           )}
-        </div>
+        </FilterField>
         <div className="w-[200px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">
             {t('reviewRule')}
@@ -151,7 +152,7 @@ export default function ComparePage() {
         >
           {comparing ? t('comparing') : t('compare')}
         </button>
-      </div>
+      </LotFilterBar>
 
       {/* Results */}
       {comparing ? (

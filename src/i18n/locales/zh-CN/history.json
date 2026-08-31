@@ -31,5 +31,14 @@
     "wafers": "Wafer 数",
     "avgYield": "平均良率",
     "status": "状态"
+  },
+  "filter": {
+    "vendor": "厂商",
+    "product": "型号",
+    "lot": "批号",
+    "allVendors": "全部厂商",
+    "allProducts": "全部型号",
+    "allLots": "全部批号",
+    "clear": "清除筛选"
   }
 }
