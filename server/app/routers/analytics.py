@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.dependencies import get_db, get_current_user, assert_lot_visible, scope_lots_by_domain, can_see_all_domains
 from app.models.user import User
 from app.services.boxplot import summarise
+from app.services.cross_lot_ai import summarise_cross_lot
 from app.models.wafer import Wafer
 from app.models.lot import Lot
 from app.models.vendor import Vendor
@@ -537,3 +538,30 @@ def cross_lot_analysis(
         "boxes": boxes,
         "spc": spc,
     }
+
+
+@router.post("/cross-lot/summary")
+def cross_lot_summary(
+    lot_ids: str = Query("", description="Comma-separated lot ids"),
+    param_name: str = Query("", description="Parameter the boxes and chart cover"),
+    lang: str = Query("zh-TW"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Have the on-premise model read the comparison already on screen.
+
+    Built from the same call the page renders, so the summary can never describe
+    a different set of lots than the charts beside it.
+    """
+    payload = cross_lot_analysis(lot_ids=lot_ids, param_name=param_name,
+                                 db=db, user=user)
+    if not payload.get("trend"):
+        raise HTTPException(400, "No lots to summarise")
+    try:
+        text, model = summarise_cross_lot(payload, param_name, lang)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc))
+    except Exception as exc:  # noqa: BLE001 — the gateway is external
+        raise HTTPException(502, "LLM request failed: %s" % str(exc)[:200])
+    return {"summary": text, "model": model,
+            "lotCount": len(payload["trend"]), "paramName": param_name}

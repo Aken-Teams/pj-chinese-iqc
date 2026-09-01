@@ -8,6 +8,8 @@ import MultiSelect, { type MultiSelectItem } from '@/components/ui/MultiSelect'
 import TrendChart from '@/components/analysis/TrendChart'
 import BoxPlotChart from '@/components/analysis/BoxPlotChart'
 import SpcChart from '@/components/analysis/SpcChart'
+import ChartPanel from '@/components/analysis/ChartPanel'
+import AiReading from '@/components/analysis/AiReading'
 import { getCandidateLots, getCrossLot,
          type CandidateLot, type CrossLotResponse } from '@/services/crossLot'
 import { getThresholds } from '@/services/review'
@@ -208,45 +210,51 @@ export default function CrossLotPage() {
         <div className="bg-badge-fail px-4 py-2.5 text-sm font-medium text-error">{error}</div>
       )}
 
-      {/* The control chart first: it answers whether the process is behaving,
-          which is the question 議題四 asked. The yield trend below answers
-          whether each lot was accepted, which is a different one. */}
-      <section className="bg-bg-card p-6">
-        <div className="mb-3 flex flex-wrap items-baseline gap-3">
-          <h3 className="font-heading font-bold">{t('spc.title')}</h3>
-          <span className="text-[12px] text-text-muted">{t('spc.desc')}</span>
-        </div>
-        {shown?.spc
-          ? <SpcChart spc={shown.spc} paramName={param} unit={shown.boxes[0]?.unit} />
-          : <p className="py-10 text-center text-sm text-text-muted">{t('spc.tooFew')}</p>}
-      </section>
+      {/* Both of these answer questions about the selected parameter, so they
+          sit side by side and change together — switching parameter used to
+          mean scrolling between them to see the effect. */}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <ChartPanel title={t('spc.title')} desc={t('spc.desc')}>
+          {shown?.spc
+            ? <SpcChart spc={shown.spc} paramName={param} unit={shown.boxes[0]?.unit} />
+            : <p className="py-10 text-center text-sm text-text-muted">{t('spc.tooFew')}</p>}
+        </ChartPanel>
 
-      <section className="bg-bg-card p-6">
-        <div className="mb-3 flex flex-wrap items-baseline gap-3">
-          <h3 className="font-heading font-bold">{t('trend.title')}</h3>
-          <span className="text-[12px] text-text-muted">{t('trend.desc')}</span>
-          {mixedProducts && (
-            <span className="text-[12px] text-warning">
-              {t('trend.mixedProducts', { count: (shown?.products ?? []).length })}
-            </span>
-          )}
-          {uploadTimeOnly > 0 && (
-            <span className="text-[12px] text-warning">
-              {t('trend.noTestDate', { count: uploadTimeOnly })}
-            </span>
-          )}
-        </div>
+        <ChartPanel title={t('box.title')} desc={t('box.desc')}>
+          <BoxPlotChart boxes={shown?.boxes ?? []} paramName={param} />
+        </ChartPanel>
+      </div>
+
+      {/* Below the two the requirements name: this one does not read the
+          parameter selector, and it answers acceptance rather than process
+          behaviour. Kept compact — it is context for the charts above. */}
+      <ChartPanel
+        title={t('trend.title')}
+        desc={t('trend.desc')}
+        notes={
+          <>
+            {mixedProducts && (
+              <span className="text-[12px] text-warning">
+                {t('trend.mixedProducts', { count: (shown?.products ?? []).length })}
+              </span>
+            )}
+            {uploadTimeOnly > 0 && (
+              <span className="text-[12px] text-warning">
+                {t('trend.noTestDate', { count: uploadTimeOnly })}
+              </span>
+            )}
+          </>
+        }
+      >
         <TrendChart points={shown?.trend ?? []}
                     passMin={thresholds?.passMin} warnMin={thresholds?.warnMin} />
-      </section>
+      </ChartPanel>
 
-      <section className="bg-bg-card p-6">
-        <div className="mb-3 flex flex-wrap items-baseline gap-3">
-          <h3 className="font-heading font-bold">{t('box.title')}</h3>
-          <span className="text-[12px] text-text-muted">{t('box.desc')}</span>
-        </div>
-        <BoxPlotChart boxes={shown?.boxes ?? []} paramName={param} />
-      </section>
+      {/* Below the charts, not above: the reading is an interpretation of what
+          is already on screen, and putting it first would invite reading the
+          conclusion without the evidence. */}
+      <AiReading lotIds={active} paramName={param} />
+
     </div>
   )
 }

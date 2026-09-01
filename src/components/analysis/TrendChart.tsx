@@ -35,7 +35,7 @@ export default function TrendChart({ points, passMin, warnMin }: TrendChartProps
   }
 
   const W = 900
-  const H = 300
+  const H = 210
   const PAD = { top: 20, right: 62, bottom: 48, left: 58 }
   const plotW = W - PAD.left - PAD.right
   const plotH = H - PAD.top - PAD.bottom

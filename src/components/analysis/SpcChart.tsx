@@ -39,7 +39,7 @@ export default function SpcChart({ spc, paramName, unit }: SpcChartProps) {
   }
 
   const W = 900
-  const H = 300
+  const H = 360
   const PAD = { top: 18, right: 74, bottom: 46, left: 68 }
   const plotW = W - PAD.left - PAD.right
   const plotH = H - PAD.top - PAD.bottom

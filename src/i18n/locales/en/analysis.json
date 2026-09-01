@@ -73,5 +73,19 @@
       "run": "7 points one side",
       "trend": "6 points trending"
     }
+  },
+  "panel": {
+    "expand": "Expand",
+    "close": "Close"
+  },
+  "ai": {
+    "title": "AI reading",
+    "desc": "The on-premise model reads the statistics above and says which lot moved and whether it matters",
+    "run": "Analyse",
+    "again": "Regenerate",
+    "empty": "Pick lots and a parameter, then press Analyse.",
+    "running": "Analysing…",
+    "failed": "Analysis failed: {{error}}",
+    "disclaimer": "AI output is advisory — the data and a person's judgement decide."
   }
 }

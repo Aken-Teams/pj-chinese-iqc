@@ -103,3 +103,25 @@ export async function getCrossLot(
   if (paramName) qs.set('param_name', paramName)
   return apiFetch(`/analytics/cross-lot?${qs.toString()}`)
 }
+
+export interface CrossLotSummary {
+  summary: string
+  model: string
+  lotCount: number
+  paramName: string
+}
+
+/**
+ * Ask the on-premise model to read the comparison currently on screen.
+ *
+ * Built server-side from the same query the charts use, so the words can never
+ * describe a different set of lots than the pictures beside them.
+ */
+export async function getCrossLotSummary(
+  lotIds: number[], paramName: string, lang: string,
+): Promise<CrossLotSummary> {
+  const qs = new URLSearchParams({
+    lot_ids: lotIds.join(','), param_name: paramName, lang,
+  })
+  return apiFetch(`/analytics/cross-lot/summary?${qs.toString()}`, { method: 'POST' })
+}
