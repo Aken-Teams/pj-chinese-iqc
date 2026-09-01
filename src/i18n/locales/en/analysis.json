@@ -59,5 +59,19 @@
       "— The time axis is the test date from the CP file, not the upload time; a * after a lot means its file carried none",
       "— To look inside a single lot, use Analytics & AI"
     ]
+  },
+  "spc": {
+    "title": "SPC control chart",
+    "desc": "One point per wafer in test order; limits derived from the data, not from a yield target",
+    "tooFew": "Pick a parameter and at least two wafers to draw a control chart.",
+    "mean": "Mean",
+    "value": "Value",
+    "inControl": "In control",
+    "rule": {
+      "ucl": "Above UCL",
+      "lcl": "Below LCL",
+      "run": "7 points one side",
+      "trend": "6 points trending"
+    }
   }
 }

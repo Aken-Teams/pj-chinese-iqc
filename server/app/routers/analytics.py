@@ -490,6 +490,43 @@ def cross_lot_analysis(
                 **stats,
             })
 
+    # The control chart 議題四 asked for: one point per wafer in test order, with
+    # the limits derived from the data rather than from a yield threshold. The
+    # rules it flags — beyond 3σ, seven points one side of the mean, six points
+    # trending — are the ones on the requirement's own legend, and the engine
+    # already implemented them for the single-product chart.
+    spc = None
+    if param_name:
+        wafer_order = []
+        for lot in lots:
+            for w in sorted(by_lot.get(lot.id, []), key=lambda x: (x.wafer_id or "", x.id)):
+                wafer_order.append((lot, w))
+        means = dict(
+            db.query(DieData.wafer_id, func.avg(ElectricalValue.value))
+            .join(ElectricalValue, ElectricalValue.die_id == DieData.id)
+            .filter(DieData.wafer_id.in_([w.id for _l, w in wafer_order]),
+                    DieData.bin == 1,
+                    ElectricalValue.param_name == param_name,
+                    ElectricalValue.value.isnot(None))
+            .group_by(DieData.wafer_id).all()
+        ) if wafer_order else {}
+
+        series, labels = [], []
+        for lot, w in wafer_order:
+            value = means.get(w.id)
+            if value is None:
+                continue
+            key = "%s#%s" % (lot.lot_id, w.wafer_id)
+            series.append((key, float(value)))
+            stamp = lot.test_date or lot.upload_time
+            labels.append({
+                "key": key, "lot": lot.lot_id, "wafer": w.wafer_id,
+                "date": stamp.isoformat() if stamp else None,
+            })
+        if len(series) >= 2:
+            spc = calculate_spc(series)
+            spc["labels"] = labels
+
     return {
         "paramName": param_name,
         "params": params,
@@ -498,4 +535,5 @@ def cross_lot_analysis(
         "products": sorted({pc for _v, pc in (describe(l) for l in lots) if pc}),
         "trend": trend,
         "boxes": boxes,
+        "spc": spc,
     }

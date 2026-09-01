@@ -49,6 +49,24 @@ export interface BoxPlot {
   unit: string | null
 }
 
+export interface SpcPoint {
+  waferId: string
+  value: number
+  isOoc: boolean
+  oocReason: string | null
+}
+
+/** X-bar control chart over the chosen lots, in test order. */
+export interface SpcSeries {
+  dataPoints: SpcPoint[]
+  labels: { key: string; lot: string; wafer: string; date: string | null }[]
+  grandMean: number
+  ucl: number
+  lcl: number
+  sigma2Upper: number
+  sigma2Lower: number
+}
+
 export interface CrossLotResponse {
   paramName: string
   params: string[]
@@ -57,6 +75,8 @@ export interface CrossLotResponse {
   products: string[]
   trend: TrendPoint[]
   boxes: BoxPlot[]
+  /** Null until a parameter is chosen, or when fewer than two wafers carry it. */
+  spc: SpcSeries | null
 }
 
 export async function getCandidateLots(opts: {

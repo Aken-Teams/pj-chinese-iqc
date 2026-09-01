@@ -7,6 +7,7 @@ import SearchSelect from '@/components/ui/SearchSelect'
 import MultiSelect, { type MultiSelectItem } from '@/components/ui/MultiSelect'
 import TrendChart from '@/components/analysis/TrendChart'
 import BoxPlotChart from '@/components/analysis/BoxPlotChart'
+import SpcChart from '@/components/analysis/SpcChart'
 import { getCandidateLots, getCrossLot,
          type CandidateLot, type CrossLotResponse } from '@/services/crossLot'
 import { getThresholds } from '@/services/review'
@@ -67,25 +68,6 @@ export default function CrossLotPage() {
     return () => { stale = true }
   }, [])
 
-  useEffect(() => {
-    // Clearing the last tick leaves the previous response in state; `shown`
-    // below discards it during render instead, because setting state
-    // synchronously inside an effect starts a second render pass.
-    if (!chosen.length) return
-    let stale = false
-    // Deferred past the render that scheduled this effect: setting state in the
-    // effect body starts a second pass before the browser paints the first.
-    const spinner = window.setTimeout(() => { setLoading(true); setError('') }, 0)
-    getCrossLot(chosen, param)
-      .then((res) => {
-        if (stale) return
-        setData(res)
-        if (res.params.length && !res.params.includes(param)) setParam(res.params[0])
-      })
-      .catch((e) => { if (!stale) setError(e instanceof Error ? e.message : String(e)) })
-      .finally(() => { if (!stale) setLoading(false) })
-    return () => { stale = true; window.clearTimeout(spinner) }
-  }, [chosen, param])
 
   const all = useMemo(() => candidates ?? [], [candidates])
 
@@ -127,19 +109,40 @@ export default function CrossLotPage() {
     [all, vendor, product, lotFilter, fromDate, toDate],
   )
 
-  // The filters define the pool; the selection lives inside it. Left alone, a
-  // lot chosen before a filter was applied stays in the charts while the filters
-  // say otherwise — which is how "已選 6 個批次" survived narrowing to one lot.
-  useEffect(() => {
+  // The filters define the pool and the selection lives inside it, so a lot
+  // chosen before a filter was applied drops out of the comparison rather than
+  // staying in the charts while the filters say otherwise — that is how
+  // "已選 6 個批次" survived narrowing all the way down to one lot.
+  //
+  // Derived rather than pruned in state, so relaxing a filter brings the earlier
+  // choices back instead of silently discarding them.
+  const active = useMemo(() => {
     const visible = new Set(options.map((o) => Number(o.value)))
-    setChosen((prev) => {
-      const kept = prev.filter((id) => visible.has(id))
-      return kept.length === prev.length ? prev : kept
-    })
-  }, [options])
+    return chosen.filter((id) => visible.has(id))
+  }, [options, chosen])
+
+  useEffect(() => {
+    // Clearing the last tick leaves the previous response in state; `shown`
+    // below discards it during render instead, because setting state
+    // synchronously inside an effect starts a second render pass.
+    if (!active.length) return
+    let stale = false
+    // Deferred past the render that scheduled this effect: setting state in the
+    // effect body starts a second pass before the browser paints the first.
+    const spinner = window.setTimeout(() => { setLoading(true); setError('') }, 0)
+    getCrossLot(active, param)
+      .then((res) => {
+        if (stale) return
+        setData(res)
+        if (res.params.length && !res.params.includes(param)) setParam(res.params[0])
+      })
+      .catch((e) => { if (!stale) setError(e instanceof Error ? e.message : String(e)) })
+      .finally(() => { if (!stale) setLoading(false) })
+    return () => { stale = true; window.clearTimeout(spinner) }
+  }, [active, param])
 
   // Nothing ticked means nothing to show, whatever the last response held.
-  const shown = chosen.length ? data : null
+  const shown = active.length ? data : null
   const uploadTimeOnly = (shown?.trend ?? []).filter((p) => !p.dateIsTestDate).length
   const mixedProducts = (shown?.products ?? []).length > 1
 
@@ -174,7 +177,7 @@ export default function CrossLotPage() {
         <Field label={t('pick.title')}>
           <MultiSelect
             items={options}
-            value={chosen.map(String)}
+            value={active.map(String)}
             onChange={(next) => setChosen(next.map(Number))}
             placeholder={t('pick.none')}
             summary={(n) => t('pick.chosen', { count: n })}
@@ -204,6 +207,19 @@ export default function CrossLotPage() {
       {error && (
         <div className="bg-badge-fail px-4 py-2.5 text-sm font-medium text-error">{error}</div>
       )}
+
+      {/* The control chart first: it answers whether the process is behaving,
+          which is the question 議題四 asked. The yield trend below answers
+          whether each lot was accepted, which is a different one. */}
+      <section className="bg-bg-card p-6">
+        <div className="mb-3 flex flex-wrap items-baseline gap-3">
+          <h3 className="font-heading font-bold">{t('spc.title')}</h3>
+          <span className="text-[12px] text-text-muted">{t('spc.desc')}</span>
+        </div>
+        {shown?.spc
+          ? <SpcChart spc={shown.spc} paramName={param} unit={shown.boxes[0]?.unit} />
+          : <p className="py-10 text-center text-sm text-text-muted">{t('spc.tooFew')}</p>}
+      </section>
 
       <section className="bg-bg-card p-6">
         <div className="mb-3 flex flex-wrap items-baseline gap-3">
