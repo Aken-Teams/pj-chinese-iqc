@@ -45,7 +45,11 @@
     "median": "中位数",
     "mean": "平均",
     "stdev": "标准差",
-    "outliers": "离群"
+    "outliers": "离群",
+    "range": "范围",
+    "meanSd": "平均 ± 标准差",
+    "spec": "规格",
+    "footer": "{{n}} 笔测量 · 离群 {{outliers}}"
   },
   "hint": {
     "title": "这个画面看什么？",

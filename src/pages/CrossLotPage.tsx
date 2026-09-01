@@ -58,20 +58,14 @@ export default function CrossLotPage() {
 
   useEffect(() => {
     let stale = false
-    getCandidateLots({ vendor, product, fromDate, toDate })
+    getCandidateLots()
       .then((list) => {
         if (stale) return
         setCandidates(list)
-        // Pre-select the newest few so the page shows something on arrival
-        // without committing the user to a set they did not choose.
-        setChosen((prev) => {
-          const stillThere = prev.filter((id) => list.some((l) => l.lotId === id))
-          return stillThere.length ? stillThere : list.slice(0, 6).map((l) => l.lotId)
-        })
       })
       .catch(() => { if (!stale) setCandidates([]) })
     return () => { stale = true }
-  }, [vendor, product, fromDate, toDate])
+  }, [])
 
   useEffect(() => {
     // Clearing the last tick leaves the previous response in state; `shown`
@@ -93,33 +87,56 @@ export default function CrossLotPage() {
     return () => { stale = true; window.clearTimeout(spinner) }
   }, [chosen, param])
 
+  const all = useMemo(() => candidates ?? [], [candidates])
+
+  // Every option the data offers, never narrowed by the current selection —
+  // a list that shrinks to the one thing already picked cannot be undone.
   const vendors = useMemo(
-    () => [...new Set((candidates ?? []).map((l) => l.vendor).filter(Boolean))] as string[],
-    [candidates],
+    () => [...new Set(all.map((l) => l.vendor).filter(Boolean))] as string[],
+    [all],
   )
   const products = useMemo(
-    () => [...new Set((candidates ?? []).map((l) => l.product))],
-    [candidates],
+    () => [...new Set(all.filter((l) => !vendor || l.vendor === vendor)
+      .map((l) => l.product))].sort(),
+    [all, vendor],
   )
   const lotNumbers = useMemo(
-    () => [...new Set((candidates ?? []).map((l) => l.lot))].sort(),
-    [candidates],
+    () => [...new Set(all
+      .filter((l) => (!vendor || l.vendor === vendor) && (!product || l.product === product))
+      .map((l) => l.lot))].sort(),
+    [all, vendor, product],
   )
 
   const options: MultiSelectItem[] = useMemo(
-    () => (candidates ?? [])
+    () => all
+      .filter((l) => !vendor || l.vendor === vendor)
+      .filter((l) => !product || l.product === product)
       .filter((l) => !lotFilter || l.lot === lotFilter)
+      .filter((l) => !fromDate || (l.date ?? '') >= fromDate)
+      .filter((l) => !toDate || (l.date ?? '') <= `${toDate}T23:59:59`)
+      // Same shape as the lot picker on the review and compare screens —
+      // vendor / product / lot and a verdict. The date and wafer count are on
+      // the charts already, and repeating them here made the list hard to scan.
       .map((l) => ({
         value: String(l.lotId),
-        label: l.lot,
-        hint: `${l.vendor} / ${l.product} · ${(l.date ?? '').slice(0, 10)}`
-          + `${l.dateIsTestDate ? '' : ' *'} · ${l.waferCount} 片`,
+        label: `${l.vendor} / ${l.product} / ${l.lot}`,
         badge: l.judgement ?? undefined,
         badgeClass: VERDICT_STYLE[l.judgement ?? ''] ?? '',
-        keywords: `${l.vendor} ${l.product}`,
+        keywords: (l.date ?? '').slice(0, 10),
       })),
-    [candidates, lotFilter],
+    [all, vendor, product, lotFilter, fromDate, toDate],
   )
+
+  // The filters define the pool; the selection lives inside it. Left alone, a
+  // lot chosen before a filter was applied stays in the charts while the filters
+  // say otherwise — which is how "已選 6 個批次" survived narrowing to one lot.
+  useEffect(() => {
+    const visible = new Set(options.map((o) => Number(o.value)))
+    setChosen((prev) => {
+      const kept = prev.filter((id) => visible.has(id))
+      return kept.length === prev.length ? prev : kept
+    })
+  }, [options])
 
   // Nothing ticked means nothing to show, whatever the last response held.
   const shown = chosen.length ? data : null
@@ -141,33 +158,19 @@ export default function CrossLotPage() {
 
       <div className="flex flex-wrap items-end gap-3 bg-bg-card px-4 py-3">
         <Field label={t('filter.vendor')}>
-          <SearchSelect items={vendors} value={vendor} onChange={setVendor}
+          <SearchSelect items={vendors} value={vendor}
+                        onChange={(v) => { setVendor(v); setProduct(''); setLotFilter('') }}
                         placeholder={t('filter.allVendors')} className="w-[118px]" />
         </Field>
         <Field label={t('filter.product')}>
-          <SearchSelect items={products} value={product} onChange={setProduct}
+          <SearchSelect items={products} value={product}
+                        onChange={(v) => { setProduct(v); setLotFilter('') }}
                         placeholder={t('filter.allProducts')} className="w-[150px]" />
         </Field>
         <Field label={t('filter.lot')}>
           <SearchSelect items={lotNumbers} value={lotFilter} onChange={setLotFilter}
                         placeholder={t('filter.allLots')} className="w-[150px]" />
         </Field>
-        <Field label={t('filter.from')}>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
-                 className="w-[132px] border border-border-light bg-bg-page px-2 py-2 text-[13px] outline-none focus:border-accent/60" />
-        </Field>
-        <Field label={t('filter.to')}>
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
-                 className="w-[145px] border border-border-light bg-bg-page px-2 py-2 text-[13px] outline-none focus:border-accent/60" />
-        </Field>
-        <Field label={t('filter.param')}>
-          <SearchSelect items={data?.params ?? []} value={param} onChange={setParam}
-                        placeholder={t('filter.pickParam')}
-                        disabled={!data?.params.length} className="w-[160px]" />
-        </Field>
-        {/* The comparison set itself, in the same row as the filters that
-            narrow it — which lots are in scope is the thing most likely to be
-            misread, so it is picked in plain sight rather than inferred. */}
         <Field label={t('pick.title')}>
           <MultiSelect
             items={options}
@@ -181,6 +184,19 @@ export default function CrossLotPage() {
             searchPlaceholder={t('pick.search')}
             className="w-[210px]"
           />
+        </Field>
+        <Field label={t('filter.param')}>
+          <SearchSelect items={data?.params ?? []} value={param} onChange={setParam}
+                        placeholder={t('filter.pickParam')}
+                        disabled={!data?.params.length} className="w-[160px]" />
+        </Field>
+        <Field label={t('filter.from')}>
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+                 className="w-[132px] border border-border-light bg-bg-page px-2 py-2 text-[13px] outline-none focus:border-accent/60" />
+        </Field>
+        <Field label={t('filter.to')}>
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+                 className="w-[145px] border border-border-light bg-bg-page px-2 py-2 text-[13px] outline-none focus:border-accent/60" />
         </Field>
         {loading && <Loader2 size={16} className="mb-2 animate-spin text-accent" />}
       </div>

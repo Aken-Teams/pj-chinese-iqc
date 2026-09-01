@@ -45,7 +45,11 @@
     "median": "Median",
     "mean": "Mean",
     "stdev": "Std dev",
-    "outliers": "Outliers"
+    "outliers": "Outliers",
+    "range": "Range",
+    "meanSd": "Mean ± SD",
+    "spec": "Spec",
+    "footer": "{{n}} measurements · {{outliers}} outliers"
   },
   "hint": {
     "title": "What this page shows",

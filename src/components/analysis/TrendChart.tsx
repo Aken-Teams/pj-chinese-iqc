@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ChartTooltip from './ChartTooltip'
 import type { TrendPoint } from '@/services/crossLot'
@@ -28,7 +28,6 @@ const VERDICT_TONE: Record<string, 'success' | 'warning' | 'error'> = {
 export default function TrendChart({ points, passMin, warnMin }: TrendChartProps) {
   const { t } = useTranslation('analysis')
   const [hover, setHover] = useState<number | null>(null)
-  const wrap = useRef<HTMLDivElement>(null)
 
   const usable = points.filter((p) => p.date && p.bin1Yield !== null)
   if (usable.length < 2) {
@@ -77,7 +76,7 @@ export default function TrendChart({ points, passMin, warnMin }: TrendChartProps
   const slot = plotW / Math.max(pts.length, 1)
 
   return (
-    <div className="relative overflow-x-auto" ref={wrap}>
+    <div className="relative overflow-x-auto">
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ minWidth: 620 }}
            onMouseLeave={() => setHover(null)}>
         {passMin !== undefined && band(passMin * 100, hi, 'var(--color-badge-pass)')}
@@ -120,11 +119,10 @@ export default function TrendChart({ points, passMin, warnMin }: TrendChartProps
         ))}
       </svg>
 
-      {hovered && wrap.current && (
+      {hovered && (
         <ChartTooltip
-          boundsWidth={wrap.current.clientWidth}
-          x={(hovered.x / W) * wrap.current.clientWidth}
-          y={(hovered.y / H) * (wrap.current.clientHeight || H)}
+          xPct={(hovered.x / W) * 100}
+          yPct={(hovered.y / H) * 100}
           title={hovered.lot}
           subtitle={`${hovered.vendor ?? ''} / ${hovered.product ?? ''}`}
           rows={[

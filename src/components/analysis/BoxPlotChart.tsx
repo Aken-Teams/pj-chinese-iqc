@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ChartTooltip from './ChartTooltip'
 import type { BoxPlot } from '@/services/crossLot'
@@ -19,7 +19,6 @@ interface BoxPlotChartProps {
 export default function BoxPlotChart({ boxes, paramName }: BoxPlotChartProps) {
   const { t } = useTranslation('analysis')
   const [hover, setHover] = useState<number | null>(null)
-  const wrap = useRef<HTMLDivElement>(null)
 
   if (!boxes.length) {
     return <p className="py-10 text-center text-sm text-text-muted">{t('box.empty')}</p>
@@ -70,7 +69,7 @@ export default function BoxPlotChart({ boxes, paramName }: BoxPlotChartProps) {
   const hovered = hover !== null ? boxes[hover] : null
 
   return (
-    <div className="relative overflow-x-auto" ref={wrap}>
+    <div className="relative overflow-x-auto">
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ minWidth: 620 }}
            onMouseLeave={() => setHover(null)}>
         {ticks.map((v) => (
@@ -154,29 +153,26 @@ export default function BoxPlotChart({ boxes, paramName }: BoxPlotChartProps) {
         </text>
       </svg>
 
-      {hovered && wrap.current && (
+      {hovered && hover !== null && (
         <ChartTooltip
-          boundsWidth={wrap.current.clientWidth}
-          x={(centre(hover!) / W) * wrap.current.clientWidth}
-          y={(toY(hovered.median) / H) * (wrap.current.clientHeight || H)}
+          xPct={(centre(hover) / W) * 100}
+          yPct={(toY(hovered.median) / H) * 100}
           title={hovered.lot}
           subtitle={`${hovered.vendor ?? ''} / ${hovered.product ?? ''} · ${(hovered.date ?? '').slice(0, 10)}`}
+          // Paired rather than one line per statistic: ten rows made the card
+          // taller than the box it described.
           rows={[
-            { label: t('box.n'), value: String(hovered.n) },
-            { label: t('box.max'), value: fmt(hovered.max) },
-            { label: 'Q3', value: fmt(hovered.q3) },
             { label: t('box.median'), value: fmt(hovered.median) },
-            { label: 'Q1', value: fmt(hovered.q1) },
-            { label: t('box.min'), value: fmt(hovered.min) },
-            { label: t('box.mean'), value: fmt(hovered.mean), tone: 'muted' },
-            { label: t('box.stdev'), value: fmt(hovered.stdev), tone: 'muted' },
-            {
-              label: t('box.outliers'),
-              value: String(hovered.outlierCount),
-              tone: hovered.outlierCount ? 'warning' : 'muted',
-            },
-            { label: 'LSL / USL', value: `${fmt(hovered.lower)} / ${fmt(hovered.upper)}`, tone: 'muted' },
+            { label: 'Q1 – Q3', value: `${fmt(hovered.q1)} – ${fmt(hovered.q3)}` },
+            { label: t('box.range'), value: `${fmt(hovered.min)} – ${fmt(hovered.max)}` },
+            { label: t('box.meanSd'), value: `${fmt(hovered.mean)} ± ${fmt(hovered.stdev)}`, tone: 'muted' },
+            ...(hovered.lower !== null || hovered.upper !== null
+              ? [{ label: t('box.spec'), value: `${fmt(hovered.lower)} – ${fmt(hovered.upper)}`, tone: 'muted' as const }]
+              : []),
           ]}
+          footer={t('box.footer', {
+            n: hovered.n.toLocaleString(), outliers: hovered.outlierCount,
+          })}
         />
       )}
     </div>
