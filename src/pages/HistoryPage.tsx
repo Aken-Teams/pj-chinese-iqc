@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '@/components/layout/PageHeader'
 import { Download, Search, Loader2, FileText } from 'lucide-react'
@@ -109,7 +109,6 @@ export default function HistoryPage() {
   const [product, setProduct] = useState('')
   const [lot, setLot] = useState('')
   const [judgement, setJudgement] = useState('')
-  const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [page, setPage] = useState(1)
@@ -150,7 +149,7 @@ export default function HistoryPage() {
   })()
 
   const buildParams = () => ({
-    vendor, product, lot, judgement, status,
+    vendor, product, lot, judgement,
     site: isAdmin ? (filterSite || undefined) : undefined,
     fromDate: fromDate || undefined, toDate: toDate || undefined,
   })
@@ -184,9 +183,26 @@ export default function HistoryPage() {
 
   // Live filtering: reload whenever any filter (or page) changes — no need to
   // click 搜尋. Filter changes reset the page to 1 in their onChange handlers.
-  useEffect(() => { loadData(page) }, [page, vendor, filterSite, product, lot, judgement, status, fromDate, toDate])
+  useEffect(() => { loadData(page) }, [page, vendor, filterSite, product, lot, judgement, fromDate, toDate])
 
   const handleSearch = () => { setPage(1); loadData(1) }
+
+  // The table lists newest first, which is right for a list and wrong for a
+  // trend — the line would read right-to-left in time. Empty uploads are
+  // dropped because a lot with no wafers plots as 0% and looks like a collapse.
+  const trendItems = useMemo(
+    () => allItems.filter((r) => r.wafers > 0)
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date)),
+    [allItems],
+  )
+
+  // Yields of different products are not comparable, so a single line through
+  // several of them is not a trend. Say so rather than drawing it as one.
+  const trendProducts = useMemo(
+    () => [...new Set(trendItems.map((r) => r.product))],
+    [trendItems],
+  )
 
   const items = data?.items || []
 
@@ -248,7 +264,7 @@ export default function HistoryPage() {
       {/* Filter Row — live filtering (no need to click 搜尋) */}
       <div className="flex flex-wrap gap-4 items-end mt-7">
         {isAdmin && (
-          <div className="w-[140px] flex flex-col gap-1.5">
+          <div className="w-[124px] flex flex-col gap-1.5">
             <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('table.site')}</label>
             <Select
               value={filterSite}
@@ -265,7 +281,7 @@ export default function HistoryPage() {
             onChange={(v) => { setVendor(v === t('allVendors') ? '' : v); setProduct(''); setLot(''); setPage(1) }}
           />
         </div>
-        <div className="w-[180px] flex flex-col gap-1.5">
+        <div className="w-[150px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('product')}</label>
           <SearchSelect
             items={[t('allProducts'), ...productOptions]}
@@ -273,7 +289,7 @@ export default function HistoryPage() {
             onChange={(v) => { setProduct(v === t('allProducts') ? '' : v); setLot(''); setPage(1) }}
           />
         </div>
-        <div className="w-[200px] flex flex-col gap-1.5">
+        <div className="w-[170px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('filter.lot')}</label>
           <SearchSelect
             items={[t('filter.allLots'), ...lotOptions]}
@@ -281,7 +297,7 @@ export default function HistoryPage() {
             onChange={(v) => { setLot(v === t('filter.allLots') ? '' : v); setPage(1) }}
           />
         </div>
-        <div className="w-[140px] flex flex-col gap-1.5">
+        <div className="w-[124px] flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('filter.judgement')}</label>
           <SearchSelect
             items={[t('filter.allJudgements'), t('filter.verdict.PASS'), t('filter.verdict.WARN'),
@@ -294,23 +310,15 @@ export default function HistoryPage() {
             }}
           />
         </div>
-        <div className="w-[140px] flex flex-col gap-1.5">
-          <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('status')}</label>
-          <SearchSelect
-            items={[t('allStatus'), t('reviewed'), t('pending')]}
-            value={status === 'reviewed' ? t('reviewed') : status === 'pending' ? t('pending') : t('allStatus')}
-            onChange={(v) => { setStatus(v === t('reviewed') ? 'reviewed' : v === t('pending') ? 'pending' : ''); setPage(1) }}
-          />
-        </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('fromDate')}</label>
-          <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1) }} className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60" />
+          <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1) }} className="w-[140px] bg-white border border-border-light px-2 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60" />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-bold text-text-tertiary tracking-[1px] uppercase">{t('toDate')}</label>
-          <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1) }} className="bg-white border border-border-light px-3 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60" />
+          <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1) }} className="w-[140px] bg-white border border-border-light px-2 py-2 text-[13px] text-text-primary outline-none focus:border-accent/60" />
         </div>
-        <button onClick={handleSearch} className="bg-accent text-white px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-2">
+        <button onClick={handleSearch} className="self-end bg-accent text-white px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-2">
           <Search size={16} />
           {t('search')}
         </button>
@@ -318,10 +326,17 @@ export default function HistoryPage() {
 
       {/* Yield Trend Chart */}
       <div className="bg-bg-card p-6 mt-5">
-        <h3 className="font-heading font-bold mb-4">{t('trendTitle')}</h3>
+        <div className="mb-4 flex flex-wrap items-baseline gap-3">
+          <h3 className="font-heading font-bold">{t('trendTitle')}</h3>
+          {trendProducts.length > 1 && (
+            <span className="text-[12px] text-warning">
+              {t('trendMixed', { count: trendProducts.length })}
+            </span>
+          )}
+        </div>
         {/* Skip lots with no wafers — they have no real yield and would plunge
             the trend to 0% (failed/empty uploads). */}
-        <YieldTrendChart items={allItems.filter((r) => r.wafers > 0)} />
+        <YieldTrendChart items={trendItems} />
       </div>
 
       {/* History Table */}

@@ -43,11 +43,24 @@ def get_param_names(lot_id: int, db: Session = Depends(get_db), user: User = Dep
 
 
 @router.get("/spc/{product_id}/{param_name}", response_model=SpcResponse)
-def get_spc_chart(product_id: int, param_name: str, site: str = "", db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    """SPC X-bar control chart for a parameter across wafers."""
+def get_spc_chart(product_id: int, param_name: str, site: str = "",
+                  lot_id: int | None = Query(None, description="Restrict to one lot"),
+                  db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """SPC X-bar control chart for a parameter across wafers.
+
+    `lot_id` narrows this to one lot. 分析 & AI is a single-lot screen: the
+    picker at the top chooses a lot, and every chart on the page has to mean the
+    same thing by it. Without this, SPC and the correlation matrix silently
+    spanned the whole product while the distribution and Cpk honoured the
+    choice — one product showed 51 SPC points for a lot holding 25 wafers, with
+    nothing on screen to say so. Cross-lot trends belong on 歷史查詢, where the
+    range is stated.
+    """
     lot_q = scope_lots_by_domain(db.query(Lot.id).filter(Lot.product_id == product_id), user)
     if site and can_see_all_domains(user):  # admin narrowing to one site
         lot_q = lot_q.filter(Lot.domain == site)
+    if lot_id is not None:
+        lot_q = lot_q.filter(Lot.id == lot_id)
     lot_ids = [l.id for l in lot_q.all()]
     if not lot_ids:
         return SpcResponse(param=param_name, dataPoints=[], grandMean=0, ucl=0, lcl=0, sigma2Upper=0, sigma2Lower=0)
@@ -241,13 +254,26 @@ def get_distribution(lot_id: int, param_name: str, db: Session = Depends(get_db)
 
 
 @router.get("/correlation/{product_id}", response_model=CorrelationResponse)
-def get_correlation(product_id: int, site: str = "", db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    """Parameter correlation matrix."""
+def get_correlation(product_id: int, site: str = "",
+                    lot_id: int | None = Query(None, description="Restrict to one lot"),
+                    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Parameter correlation matrix.
+
+    `lot_id` narrows this to one lot. 分析 & AI is a single-lot screen: the
+    picker at the top chooses a lot, and every chart on the page has to mean the
+    same thing by it. Without this, SPC and the correlation matrix silently
+    spanned the whole product while the distribution and Cpk honoured the
+    choice — one product showed 51 SPC points for a lot holding 25 wafers, with
+    nothing on screen to say so. Cross-lot trends belong on 歷史查詢, where the
+    range is stated.
+    """
     import numpy as np
 
     lot_q = scope_lots_by_domain(db.query(Lot.id).filter(Lot.product_id == product_id), user)
     if site and can_see_all_domains(user):  # admin narrowing to one site
         lot_q = lot_q.filter(Lot.domain == site)
+    if lot_id is not None:
+        lot_q = lot_q.filter(Lot.id == lot_id)
     lot_ids = [l.id for l in lot_q.all()]
     if not lot_ids:
         return CorrelationResponse(params=[], matrix=[])

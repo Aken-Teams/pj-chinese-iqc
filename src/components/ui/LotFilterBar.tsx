@@ -60,7 +60,7 @@ export default function LotFilterBar({ value, onChange, children, site, classNam
           value={value.vendor}
           onChange={(vendor) => onChange({ ...value, vendor, product: '', lot: '' })}
           placeholder={t('filter.allVendors')}
-          className="w-[150px]"
+          className="w-[132px]"
         />
       </FilterField>
       <FilterField label={t('filter.product')}>
@@ -69,7 +69,7 @@ export default function LotFilterBar({ value, onChange, children, site, classNam
           value={value.product}
           onChange={(product) => onChange({ ...value, product, lot: '' })}
           placeholder={t('filter.allProducts')}
-          className="w-[190px]"
+          className="w-[170px]"
         />
       </FilterField>
       <FilterField label={t('filter.lot')}>
@@ -78,7 +78,7 @@ export default function LotFilterBar({ value, onChange, children, site, classNam
           value={value.lot}
           onChange={(lot) => onChange({ ...value, lot })}
           placeholder={t('filter.allLots')}
-          className="w-[230px]"
+          className="w-[200px]"
         />
       </FilterField>
       {judgements.length > 0 && (
@@ -91,7 +91,7 @@ export default function LotFilterBar({ value, onChange, children, site, classNam
               onChange({ ...value, judgement: hit ?? '' })
             }}
             placeholder={t('filter.allJudgements')}
-            className="w-[140px]"
+            className="w-[124px]"
           />
         </FilterField>
       )}

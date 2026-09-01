@@ -48,5 +48,6 @@
       "HOLD": "Hold",
       "NONE": "Not judged"
     }
-  }
+  },
+  "trendMixed": "This range spans {{count}} products whose yields are not comparable — pick one product to read the trend."
 }

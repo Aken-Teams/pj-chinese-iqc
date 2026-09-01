@@ -56,8 +56,9 @@ export async function getParamNames(lotId: number): Promise<string[]> {
   return apiFetch(`/analytics/params/${lotId}`)
 }
 
-export async function getSpc(productId: number, paramName: string, site?: string): Promise<SpcResponse> {
-  const qs = site ? `?site=${encodeURIComponent(site)}` : ''
+export async function getSpc(productId: number, paramName: string, site?: string,
+                             lotId?: number): Promise<SpcResponse> {
+  const qs = buildScope(site, lotId)
   return apiFetch(`/analytics/spc/${productId}/${encodeURIComponent(paramName)}${qs}`)
 }
 
@@ -69,9 +70,23 @@ export async function getCpk(lotId: number): Promise<CpkResult[]> {
   return apiFetch(`/analytics/cpk/${lotId}`)
 }
 
-export async function getCorrelation(productId: number, site?: string): Promise<CorrelationResponse> {
-  const qs = site ? `?site=${encodeURIComponent(site)}` : ''
+export async function getCorrelation(productId: number, site?: string,
+                                     lotId?: number): Promise<CorrelationResponse> {
+  const qs = buildScope(site, lotId)
   return apiFetch(`/analytics/correlation/${productId}${qs}`)
+}
+
+/**
+ * These two endpoints are keyed by product but can be pinned to one lot.
+ * 分析 & AI passes a lot so every chart on that page means the same thing by the
+ * picker; 歷史查詢 leaves it off to trend across lots.
+ */
+function buildScope(site?: string, lotId?: number): string {
+  const qs = new URLSearchParams()
+  if (site) qs.set('site', site)
+  if (lotId !== undefined) qs.set('lot_id', String(lotId))
+  const q = qs.toString()
+  return q ? `?${q}` : ''
 }
 
 export async function getAnomalies(lotId?: number, lang?: string): Promise<AnomalyItem[]> {

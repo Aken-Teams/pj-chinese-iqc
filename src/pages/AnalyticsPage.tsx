@@ -361,7 +361,7 @@ export default function AnalyticsPage() {
         setSelectedParam(paramNames[0])
         await loadParamData(lotId, productId, paramNames[0], site)
       }
-      const corrData = await getCorrelation(productId, site).catch(() => ({ params: [], matrix: [] }))
+      const corrData = await getCorrelation(productId, site, lotId).catch(() => ({ params: [], matrix: [] }))
       setCorr(corrData)
     } catch {
       // ignore
@@ -375,7 +375,7 @@ export default function AnalyticsPage() {
 
   const loadParamData = async (lotId: number, productId: number, paramName: string, site: string) => {
     const [spcData, distData] = await Promise.all([
-      getSpc(productId, paramName, site).catch(() => null),
+      getSpc(productId, paramName, site, lotId).catch(() => null),
       getDistribution(lotId, paramName).catch(() => null),
     ])
     setSpc(spcData)
@@ -409,7 +409,7 @@ export default function AnalyticsPage() {
             onSearch={handleLotSearch}
             selectedLot={selectedLot}
             showSite={isAdmin}
-            className="w-[260px]"
+            className="w-[240px]"
           />
         </FilterField>
         <FilterField label={t('param')}>
@@ -419,7 +419,7 @@ export default function AnalyticsPage() {
             onChange={handleParamChange}
             placeholder={t('noParams')}
             disabled={params.length === 0}
-            className="w-[190px]"
+            className="w-[160px]"
           />
         </FilterField>
       </LotFilterBar>
