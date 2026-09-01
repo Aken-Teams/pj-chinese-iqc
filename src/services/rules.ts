@@ -154,11 +154,12 @@ export async function getRuleRevisions(site?: string): Promise<RuleRevision[]> {
  * button, and an unhandled rejection would leave it looking dead.
  */
 export async function exportRules(
-  site?: string,
+  site?: string, lang = 'zh-TW',
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const token = localStorage.getItem('iqc-auth-token')
   const qs = new URLSearchParams()
   if (site) qs.set('site', site)
+  qs.set('lang', lang)
   qs.set('_', String(Date.now()))
   let res: Response
   try {

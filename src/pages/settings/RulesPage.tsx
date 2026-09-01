@@ -810,7 +810,7 @@ function RulesMatrixModal({
 const PAGE_SIZE = 10
 
 export default function RulesPage() {
-  const { t } = useTranslation('settings')
+  const { t, i18n } = useTranslation('settings')
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [rules, setRules] = useState<ReviewRule[]>([])
   const [, setProducts] = useState<Product[]>([])
@@ -829,7 +829,7 @@ export default function RulesPage() {
 
   const handleExport = async () => {
     setExporting(true); setExportError('')
-    const res = await exportRules(isAdmin ? filterSite || undefined : undefined)
+    const res = await exportRules(isAdmin ? filterSite || undefined : undefined, i18n.language)
     setExporting(false)
     if (!res.ok) setExportError(t('rules.exportFailed', { error: res.error }))
   }

@@ -354,6 +354,7 @@ def import_confirm(
 @router.get("/export")
 def export_rules(
     site: str = Query("", description="AD site (廠區); admins may pick, others get their own"),
+    lang: str = Query("zh-TW"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -365,6 +366,18 @@ def export_rules(
     only Q2 — the part the system cannot know.
     """
     domain = site if (site and can_see_all_domains(user)) else user.domain
+    # An admin has no site of their own, so without an explicit one there is
+    # nothing sensible to export: filtering on a NULL domain returns the handful
+    # of pre-separation products rather than a site's ruleset, and exporting
+    # every site at once cannot round-trip — two sites may hold the same product
+    # code, and the importer writes back into one domain.
+    if domain is None:
+        raise HTTPException(
+            400,
+            "請先於上方「廠區」選擇要匯出的廠區。"
+            if lang.startswith("zh") else
+            "Pick a site to export before downloading the template.",
+        )
     data, version = build_rules_workbook(db, domain)
 
     label = {"WXPJ": "無錫", "PJXZ": "徐州"}.get(domain or "", domain or "全部")

@@ -10,8 +10,11 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-MD = 'docs/IQC-操作手冊-v01.md'
-OUT = 'docs/IQC-操作手冊-v01.docx'
+# Version on the command line so an older manual can still be rebuilt:
+#     python docs/build_manual_docx.py v02
+VERSION = sys.argv[1] if len(sys.argv) > 1 else 'v02'
+MD = 'docs/IQC-操作手冊-%s.md' % VERSION
+OUT = 'docs/IQC-操作手冊-%s.docx' % VERSION
 FONT = 'Microsoft JhengHei'
 GRAY = RGBColor(0x88, 0x88, 0x88)
 DARK = RGBColor(0x40, 0x40, 0x40)
@@ -102,6 +105,26 @@ def add_figure(doc, caption):
     r = cjk(cap.add_run(caption)); r.font.size = Pt(9); r.font.color.rgb = GRAY
 
 
+def add_table(doc, rows):
+    """Render a markdown table. The separator row is dropped by the caller."""
+    table = doc.add_table(rows=0, cols=len(rows[0]))
+    table.style = 'Table Grid'
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for i, cells in enumerate(rows):
+        row = table.add_row().cells
+        for j, text in enumerate(cells):
+            row[j].paragraphs[0].clear() if hasattr(row[j].paragraphs[0], 'clear') else None
+            para = row[j].paragraphs[0]
+            add_runs(para, text, size=Pt(9), bold_all=(i == 0))
+            para.paragraph_format.space_after = Pt(2)
+        if i == 0:
+            for cell in row:
+                shd = _el('w:shd'); shd.set(qn('w:val'), 'clear')
+                shd.set(qn('w:fill'), 'EFE9E1')
+                cell._tc.get_or_add_tcPr().append(shd)
+    doc.add_paragraph().paragraph_format.space_after = Pt(6)
+
+
 def main():
     src = io.open(MD, 'r', encoding='utf-8').read().splitlines()
     doc = Document()
@@ -115,9 +138,20 @@ def main():
     h1 = doc.styles['Heading 1']
     h1.font.name = FONT; h1.element.rPr.rFonts.set(qn('w:eastAsia'), FONT)
     h1.font.size = Pt(16); h1.font.color.rgb = RGBColor(0x1F, 0x3A, 0x5F)
+    # Heading 2: the settings chapter has enough sections to need one.
+    h2 = doc.styles['Heading 2']
+    h2.font.name = FONT; h2.element.rPr.rFonts.set(qn('w:eastAsia'), FONT)
+    h2.font.size = Pt(12.5); h2.font.color.rgb = ACCENT
 
     in_cover = True
     skip_toc = False
+    table_rows: list[list[str]] = []
+
+    def flush_table():
+        if table_rows:
+            add_table(doc, list(table_rows))
+            table_rows.clear()
+
     for s in src:
         s = s.rstrip()
         if in_cover:
@@ -136,6 +170,14 @@ def main():
                 doc.add_page_break(); in_cover = False
             continue
 
+        if s.startswith('|'):
+            cells = [c.strip() for c in s.strip('|').split('|')]
+            # The |---|---| separator carries no content.
+            if not all(set(c) <= set('-: ') for c in cells):
+                table_rows.append(cells)
+            continue
+        flush_table()
+
         if s.strip() == '':
             continue
         if s.startswith('## ') and ('目' in s and '錄' in s):
@@ -148,7 +190,9 @@ def main():
             continue
         if skip_toc and s.startswith('- '):
             continue
-        if s.startswith('## '):
+        if s.startswith('### '):
+            cjk(doc.add_heading(level=2).add_run(s[4:].strip()))
+        elif s.startswith('## '):
             cjk(doc.add_heading(level=1).add_run(s[3:].strip()))
         elif s.startswith('**● '):
             p = doc.add_paragraph(); p.paragraph_format.space_before = Pt(8)
@@ -165,6 +209,8 @@ def main():
             r = cjk(p.add_run(s.strip('_'))); r.italic = True; r.font.color.rgb = GRAY
         else:
             add_runs(doc.add_paragraph(), s)
+
+    flush_table()
 
     # Tell Word to recalculate fields (i.e. build the TOC) when the file opens,
     # so the reader doesn't have to press F9 manually.
