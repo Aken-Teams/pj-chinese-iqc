@@ -161,7 +161,13 @@ export default function CrossLotPage() {
         subtitle={t('subtitle')}
       />
 
-      <div className="flex flex-wrap items-end gap-3 bg-bg-card px-4 py-3">
+      {/* Pinned to the top of the scroll area. The charts below need the full
+          width to be readable, which puts the lower ones off-screen — and the
+          parameter selector is exactly what someone wants while looking at
+          them. Sticky keeps both: wide charts and a selector always in reach.
+          The negative margins let the bar span the page padding so nothing
+          shows through beside it as content scrolls under. */}
+      <div className="sticky top-0 z-30 -ml-11 -mr-9 flex flex-wrap items-end gap-3 border-b border-border-light bg-bg-card py-3 pl-11 pr-9 shadow-sm">
         <Field label={t('filter.vendor')}>
           <SearchSelect items={vendors} value={vendor}
                         onChange={(v) => { setVendor(v); setProduct(''); setLotFilter('') }}
@@ -210,20 +216,19 @@ export default function CrossLotPage() {
         <div className="bg-badge-fail px-4 py-2.5 text-sm font-medium text-error">{error}</div>
       )}
 
-      {/* Both of these answer questions about the selected parameter, so they
-          sit side by side and change together — switching parameter used to
-          mean scrolling between them to see the effect. */}
-      <div className="grid gap-6 xl:grid-cols-2">
-        <ChartPanel title={t('spc.title')} desc={t('spc.desc')}>
-          {shown?.spc
-            ? <SpcChart spc={shown.spc} paramName={param} unit={shown.boxes[0]?.unit} />
-            : <p className="py-10 text-center text-sm text-text-muted">{t('spc.tooFew')}</p>}
-        </ChartPanel>
+      {/* The two charts the requirements name, each across the full width. Side
+          by side they fell below the width their own contents need and grew
+          horizontal scrollbars, which costs more than the scrolling it saved:
+          75 control points and a row of boxes both need room to be read. */}
+      <ChartPanel title={t('spc.title')} desc={t('spc.desc')}>
+        {shown?.spc
+          ? <SpcChart spc={shown.spc} paramName={param} unit={shown.boxes[0]?.unit} />
+          : <p className="py-10 text-center text-sm text-text-muted">{t('spc.tooFew')}</p>}
+      </ChartPanel>
 
-        <ChartPanel title={t('box.title')} desc={t('box.desc')}>
-          <BoxPlotChart boxes={shown?.boxes ?? []} paramName={param} />
-        </ChartPanel>
-      </div>
+      <ChartPanel title={t('box.title')} desc={t('box.desc')}>
+        <BoxPlotChart boxes={shown?.boxes ?? []} paramName={param} />
+      </ChartPanel>
 
       {/* Below the two the requirements name: this one does not read the
           parameter selector, and it answers acceptance rather than process

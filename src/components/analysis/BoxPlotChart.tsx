@@ -25,7 +25,7 @@ export default function BoxPlotChart({ boxes, paramName }: BoxPlotChartProps) {
   }
 
   const W = 900
-  const H = 380
+  const H = 330
   const PAD = { top: 26, right: 78, bottom: 58, left: 72 }
   const plotW = W - PAD.left - PAD.right
   const plotH = H - PAD.top - PAD.bottom
