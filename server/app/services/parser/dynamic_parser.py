@@ -14,6 +14,7 @@ import re
 from .base import BaseParser, ParseResult, ParsedWafer, ParsedDie, ParsedCpSpec
 from .grid import Grid, open_grid, parse_cell_ref
 from .measure import to_float
+from .testdate import parse_test_date
 
 # Stop scanning after this many consecutive blank rows. A single blank row in
 # the middle of the data used to end the parse silently, quietly dropping every
@@ -43,6 +44,9 @@ class DynamicParser(BaseParser):
                  wafer_id_pattern: str | None = None,
                  product_id_label: str | None = None,
                  lot_id_label: str | None = None,
+                 test_date_label: str | None = None,
+                 test_date_cell: str | None = None,
+                 test_date_col: int | None = None,
                  product_id_pattern: str | None = None,
                  lot_id_pattern: str | None = None,
                  product_id_filename_pattern: str | None = None,
@@ -76,6 +80,9 @@ class DynamicParser(BaseParser):
         self.WAFER_ID_PATTERN = wafer_id_pattern or None
         self.PRODUCT_ID_LABEL = product_id_label or None
         self.LOT_ID_LABEL = lot_id_label or None
+        self.TEST_DATE_LABEL = test_date_label or None
+        self.TEST_DATE_CELL = parse_cell_ref(test_date_cell)
+        self.TEST_DATE_COL = test_date_col
         self.PRODUCT_ID_PATTERN = product_id_pattern or None
         self.LOT_ID_PATTERN = lot_id_pattern or None
         self.PRODUCT_ID_FILENAME_PATTERN = product_id_filename_pattern or None
@@ -117,6 +124,9 @@ class DynamicParser(BaseParser):
             wafer_id_pattern=g("wafer_id_pattern"),
             product_id_label=g("product_id_label"),
             lot_id_label=g("lot_id_label"),
+            test_date_label=g("test_date_label"),
+            test_date_cell=g("test_date_cell"),
+            test_date_col=g("test_date_col"),
             product_id_pattern=g("product_id_pattern"),
             lot_id_pattern=g("lot_id_pattern"),
             product_id_filename_pattern=g("product_id_filename_pattern"),
@@ -266,6 +276,28 @@ class DynamicParser(BaseParser):
                 return False
         return True
 
+    def _test_date(self, grid: Grid):
+        """When this lot was tested, if the file says.
+
+        Tried in the order the configuration is most specific: a fixed cell,
+        then a column read from the first data row, then a label anchor. Vendors
+        split between the three — 東部高科 and 祥微 put it in a column beside every
+        die, while 新潔能, 禾納 and 天狼芯 write it once in the header block.
+        """
+        if self.TEST_DATE_CELL:
+            found = parse_test_date(grid.cell(*self.TEST_DATE_CELL))
+            if found:
+                return found
+        if self.TEST_DATE_COL:
+            found = parse_test_date(grid.cell(self.DATA_START_ROW, self.TEST_DATE_COL))
+            if found:
+                return found
+        if self.TEST_DATE_LABEL:
+            found = parse_test_date(grid.label_value(self.TEST_DATE_LABEL))
+            if found:
+                return found
+        return None
+
     # --- API -----------------------------------------------------------
     def preview(self, filepath: str) -> dict:
         grid = self._open(filepath)
@@ -323,6 +355,7 @@ class DynamicParser(BaseParser):
             "paramNames": param_names,
             "waferIdSource": self.WAFER_ID_SOURCE,
             "waferIds": sorted(wafer_ids)[:50],
+            "testDate": self._test_date(grid),
             "sheetUsed": grid.sheet_used,
             "sheets": grid.sheets,
             "encoding": grid.encoding,
@@ -425,4 +458,5 @@ class DynamicParser(BaseParser):
             cp_specs=cp_specs,
             param_names=param_names,
             total_rows=total_rows,
+            test_date=self._test_date(grid),
         )

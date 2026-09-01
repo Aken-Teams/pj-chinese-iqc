@@ -11,6 +11,7 @@ import HistoryPage from '@/pages/HistoryPage'
 import AnalyticsPage from '@/pages/AnalyticsPage'
 import ManualPage from '@/pages/ManualPage'
 import AdminAiUsagePage from '@/pages/AdminAiUsagePage'
+import CrossLotPage from '@/pages/CrossLotPage'
 import SettingsPage from '@/pages/SettingsPage'
 import VendorsPage from '@/pages/settings/VendorsPage'
 import RulesPage from '@/pages/settings/RulesPage'
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/cross-lot" element={<CrossLotPage />} />
           <Route path="/manual" element={<ManualPage />} />
           <Route path="/admin/ai-usage" element={<AdminAiUsagePage />} />
           <Route path="/settings" element={<SettingsLayout />}>

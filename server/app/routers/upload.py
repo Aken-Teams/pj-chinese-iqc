@@ -272,9 +272,16 @@ def _persist_result(result, db: Session, err: dict | None = None, domain: str | 
             file_name=result.lot_id,
             status="pending",
             domain=domain,
+            test_date=getattr(result, "test_date", None),
         )
         db.add(lot)
         db.flush()
+
+    # A lot assembled from several files spans whatever period they were tested
+    # over; the earliest stamp is when that lot's testing began.
+    incoming_date = getattr(result, "test_date", None)
+    if incoming_date is not None and (lot.test_date is None or incoming_date < lot.test_date):
+        lot.test_date = incoming_date
 
     # Limits are per lot, not per file. Keep the first file's and only fill in
     # parameters the earlier files did not carry.

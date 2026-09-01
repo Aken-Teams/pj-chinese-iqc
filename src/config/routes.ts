@@ -7,6 +7,7 @@ export const ROUTES = {
   COMPARE: '/compare',
   HISTORY: '/history',
   ANALYTICS: '/analytics',
+  CROSS_LOT: '/cross-lot',
   MANUAL: '/manual',
   ADMIN_AI_USAGE: '/admin/ai-usage',
   SETTINGS: '/settings',

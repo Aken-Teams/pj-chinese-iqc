@@ -82,6 +82,11 @@ class VendorFormat(Base):
     # the metadata block shifts (variable-length Bias sections, etc).
     product_id_label = Column(String(100), nullable=True)
     lot_id_label = Column(String(100), nullable=True)
+    # Where the file stamps its test date. Same three ways as the ids above,
+    # because every fab puts it somewhere different.
+    test_date_label = Column(String(100), nullable=True)
+    test_date_cell = Column(String(20), nullable=True)
+    test_date_col = Column(Integer, nullable=True)
     # Regexes refining the extracted metadata, same convention as
     # wafer_id_pattern (group 1 wins). 世界先进 writes its LOT ID as
     # "H2XR46.1-01" — the lot plus the wafer suffix — so without stripping the

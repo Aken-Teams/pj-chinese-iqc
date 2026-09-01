@@ -15,6 +15,10 @@ class Lot(Base):
     product_id = Column(Integer, ForeignKey("products.id"))
     test_program = Column(String(100))
     upload_time = Column(DateTime, server_default=func.now())
+    # When the wafers were tested, read from the CP file. Distinct from
+    # upload_time: 無錫's whole history arrived in one import, so upload_time
+    # cannot carry a trend. NULL where the file says nothing.
+    test_date = Column(DateTime, index=True)
     file_name = Column(String(255))
     status = Column(String(20), default="pending")
     # AD site (廠區) this lot belongs to = the uploader's domain at upload time.

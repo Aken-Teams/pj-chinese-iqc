@@ -41,6 +41,9 @@ class ParseResult:
     cp_specs: list[ParsedCpSpec]
     param_names: list[str]
     total_rows: int
+    # When the wafers were tested, read from the file. None where the file
+    # carries no stamp; the trend then falls back to the upload time.
+    test_date: Optional[object] = None
 
 
 class BaseParser(ABC):

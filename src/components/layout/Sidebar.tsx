@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  Cpu, LayoutGrid, Upload, FileSearch, GitCompare,
-  History, ChartNoAxesColumn, BookOpen, Settings, LogOut,
-  PanelLeftClose, PanelLeftOpen, Coins, ChevronDown,
+  BookOpen, ChartNoAxesColumn, ChevronDown, Coins, Cpu, FileSearch, GitCompare, History, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Settings, TrendingUp, Upload,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { ROUTES } from '@/config/routes'
@@ -37,6 +35,9 @@ const navGroups: { id: string; titleKey: string; items: NavItem[] }[] = [
     items: [
       { icon: History, labelKey: 'nav.history', to: ROUTES.HISTORY },
       { icon: ChartNoAxesColumn, labelKey: 'nav.analytics', to: ROUTES.ANALYTICS },
+      // Cross-lot work sits apart from 分析 & AI on purpose: that page is scoped
+      // to one lot throughout, and this one to a product over a period.
+      { icon: TrendingUp, labelKey: 'nav.crossLot', to: ROUTES.CROSS_LOT },
     ],
   },
   {

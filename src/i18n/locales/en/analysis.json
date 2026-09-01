@@ -1,0 +1,59 @@
+{
+  "title": "Cross-lot analysis",
+  "subtitle": "Choose the lots to compare, then read yield and spread",
+  "filter": {
+    "vendor": "Vendor",
+    "product": "Product",
+    "param": "Parameter",
+    "from": "From",
+    "to": "To",
+    "allVendors": "All vendors",
+    "allProducts": "All products",
+    "pickParam": "Pick a parameter",
+    "lot": "Lot",
+    "allLots": "All lots"
+  },
+  "pick": {
+    "title": "Lots compared",
+    "count": "{{chosen}} of {{total}} selected",
+    "all": "Select all",
+    "clear": "Clear",
+    "empty": "No lots match — widen the filters.",
+    "wafers": "{{count}} wafers",
+    "none": "Pick lots",
+    "chosen": "{{count}} lots selected",
+    "search": "Search lot, product, vendor..."
+  },
+  "trend": {
+    "title": "Yield trend",
+    "desc": "One point per lot, placed on its test date and coloured by verdict",
+    "tooFew": "Pick at least two lots to see a trend.",
+    "uploadTime": "(placed on upload time)",
+    "noTestDate": "{{count}} lots carry no test date and sit on their upload time (ringed on the chart)",
+    "mixedProducts": "{{count}} different products selected — their yields are not comparable",
+    "date": "When",
+    "wafers": "Wafers",
+    "verdict": "Verdict"
+  },
+  "box": {
+    "title": "Parameter spread",
+    "desc": "One box per lot on a shared scale; dashed red lines are the spec limits",
+    "empty": "No measurements for this parameter in the selected lots.",
+    "n": "Samples",
+    "min": "Min",
+    "max": "Max",
+    "median": "Median",
+    "mean": "Mean",
+    "stdev": "Std dev",
+    "outliers": "Outliers"
+  },
+  "hint": {
+    "title": "What this page shows",
+    "lines": [
+      "Tick the lots you want to compare — across products and across periods.",
+      "The trend says which lot moved; the boxes say how — a lot with a healthy yield but a shifted distribution only shows up below.",
+      "— The time axis is the test date from the CP file, not the upload time; a * after a lot means its file carried none",
+      "— To look inside a single lot, use Analytics & AI"
+    ]
+  }
+}
