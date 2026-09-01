@@ -193,7 +193,11 @@ export default function HistoryPage() {
   const trendItems = useMemo(
     () => allItems.filter((r) => r.wafers > 0)
       .slice()
-      .sort((a, b) => a.date.localeCompare(b.date)),
+      // `date` carries no time, so lots uploaded on the same day all tie and
+      // the list's newest-first order survived — 無錫's whole history landed in
+      // one import and the line still read right-to-left. The id rises with
+      // insertion, which orders same-day lots the way they arrived.
+      .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id),
     [allItems],
   )
 
